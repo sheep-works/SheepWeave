@@ -1,0 +1,45 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "npm",
+            "script": "watch",
+            "problemMatcher": {
+                "owner": "typescript",
+                "fileLocation": [
+                    "relative",
+                    "${workspaceFolder}"
+                ],
+                "pattern": {
+                    "regexp": "^([a-zA-Z]+): (.+)\\(([0-9]+),([0-9]+)\\): (error|warning|info) TS[0-9]+: (.+)$",
+                    "file": 2,
+                    "line": 3,
+                    "column": 4,
+                    "severity": 5,
+                    "message": 6
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "webpack is watching the files…",
+                    "endsPattern": "built in [0-9]+ms"
+                }
+            },
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "label": "npm: watch"
+        },
+        {
+            "type": "npm",
+            "script": "compile",
+            "problemMatcher": "$ts-webpack",
+            "group": "build",
+            "label": "npm: compile"
+        }
+    ]
+}

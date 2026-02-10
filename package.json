@@ -1,0 +1,104 @@
+{
+  "name": "lamb-lingo",
+  "displayName": "LambLingo",
+  "description": "AI Translation & Post-editing Assistant",
+  "version": "0.0.1",
+  "publisher": "lamblingo",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:lambLingo.openPanel",
+    "onCommand:lambLingo.prepare",
+    "onLanguage:lmlg",
+    "onFileSystem:workspace"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "lambLingo.openPanel",
+        "title": "LambLingo: Open Panel"
+      },
+      {
+        "command": "lambLingo.prepare",
+        "title": "LambLingo: Prepare Project"
+      }
+    ],
+    "languages": [
+      {
+        "id": "lmlg",
+        "aliases": [
+          "LambLingo Text"
+        ],
+        "extensions": [
+          ".lmlg"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "lambLingo.openPanel",
+        "key": "ctrl+alt+l",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "LambLingo",
+      "properties": {
+        "lambLingo.sourceLang": {
+          "type": "string",
+          "default": "en"
+        },
+        "lambLingo.targetLang": {
+          "type": "string",
+          "default": "ja"
+        },
+        "lambLingo.archiveDateFormat": {
+          "type": "string",
+          "default": "YYYY-MM-DDTHH-mm-ss"
+        },
+        "lambLingo.ai.enabled": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.96.0",
+    "@types/xml2js": "^0.4.14",
+    "@typescript-eslint/eslint-plugin": "^6.19.1",
+    "@typescript-eslint/parser": "^6.19.1",
+    "@vscode/test-electron": "^2.3.9",
+    "eslint": "^8.56.0",
+    "glob": "^10.3.10",
+    "mocha": "^10.2.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "xml2js": "^0.6.2"
+  }
+}
