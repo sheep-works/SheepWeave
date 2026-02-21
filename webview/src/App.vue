@@ -12,11 +12,11 @@ function setTab(tab: string) {
     activeTab.value = tab;
 }
 
-function handlePrepare() {
+function handleCommand(command: string) {
     if (vscode) {
-        vscode.postMessage({ type: 'PREPARE' });
+        vscode.postMessage({ type: command });
     } else {
-        console.log('Mock: PREPARE command sent');
+        console.log(`Mock: ${command} command sent`);
     }
 }
 
@@ -39,7 +39,13 @@ onMounted(() => {
   </div>
   
   <div class="content">
-      <FlowTab v-if="activeTab === 'flow'" @prepare="handlePrepare" />
+      <FlowTab 
+        v-if="activeTab === 'flow'" 
+        @init="handleCommand('init')"
+        @prepare="handleCommand('prepare')"
+        @start="handleCommand('start')"
+        @finish="handleCommand('finish')"
+      />
       <TranslateTab v-if="activeTab === 'translate'" />
   </div>
 </template>

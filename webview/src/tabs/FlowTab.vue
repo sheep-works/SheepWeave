@@ -1,12 +1,15 @@
 <script setup lang="ts">
-defineEmits(['prepare']);
+defineEmits(['init', 'prepare', 'start', 'finish']);
 </script>
 
 <template>
   <div class="flow-tab">
     <h2>Project Flow</h2>
     <div class="actions">
-        <button @click="$emit('prepare')">Prepare Project</button>
+      <button @click="$emit('init')">INITIALIZE</button>  
+      <button @click="$emit('prepare')">PREPARE</button>
+      <button @click="$emit('start')">START</button>
+      <button @click="$emit('finish')">FINISH</button>
     </div>
     <div class="stats">
         <h3>Statistics</h3>

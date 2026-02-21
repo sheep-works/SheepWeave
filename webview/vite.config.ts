@@ -4,7 +4,9 @@ import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-    plugins: [vue()],
+    plugins: [
+        vue(),
+    ],
     base: './', // Important for VS Code webview
     build: {
         outDir: 'dist',
