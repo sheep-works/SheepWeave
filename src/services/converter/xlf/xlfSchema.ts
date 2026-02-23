@@ -1,0 +1,64 @@
+export declare interface XlfJsTopSchema {
+    xliff: {
+        $: Partial<XlfJsTopMetaSchema>
+        file: Partial<XlfJsFileSchema>[]
+    }
+}
+
+export declare interface XlfJsTopMetaSchema {
+    version: string
+    xmlns: string
+}
+
+export declare interface XlfJsFileSchema {
+    $: Partial<XlfJsFileMetaSchema>
+    header: Partial<XlfJsFileHeaderSchema>[]
+    body: Array<{
+        "trans-unit": Partial<XlfJsTransUnitSchema>[]
+    }>
+}
+
+export declare interface XlfJsFileMetaSchema {
+    id: string
+    original: string
+    "source-language": string
+    "target-language": string
+    datatype: string
+    "project-id": string
+    "tool-id": string
+}
+
+export declare interface XlfJsFileHeaderSchema {
+    tool: Array<{
+        $: {
+            "tool-id": string
+            "tool-name": string
+            "tool-version": string
+        }
+    }>
+}
+
+export declare interface XlfJsTransUnitSchema {
+    $: Partial<XlfJsTransUnitMetaSchema>
+    source: string[]
+    target: Partial<XlfJsTransUnitTargetSchema>[]
+}
+
+export declare interface XlfJsTransUnitMetaSchema {
+    id: string
+    resname: string
+}
+
+export declare interface XlfJsTransUnitTargetSchema {
+    _: string
+    $: {
+        state: string
+    }
+}
+
+export declare interface XlfJsTransUnitContextSchema {
+    _: string
+    $: {
+        "context-type": string
+    }
+}

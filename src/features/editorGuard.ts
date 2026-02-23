@@ -67,5 +67,6 @@ export function initEditorGuard(context: vscode.ExtensionContext) {
 }
 
 function isLmlgFile(doc: vscode.TextDocument): boolean {
-    return doc.languageId === 'lmlg' || doc.fileName.endsWith('.lmlg');
+    return doc.languageId === 'lmlgt' || doc.fileName.endsWith('.lmlgt')
+        || doc.languageId === 'lmlgs' || doc.fileName.endsWith('.lmlgs');
 }
