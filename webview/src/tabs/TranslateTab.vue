@@ -1,20 +1,40 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import SegmentRow from '../components/SegmentRow.vue';
+// import SegmentRow from '../components/SegmentRow.vue';
+import Nodata from '../components/Nodata.vue';
+import { useLmLgStore } from '../store/lmlg';
 
-// Mock data for now
-const segments = ref([
-    { id: '1', source: 'Hello world', target: 'こんにちは世界' },
-    { id: '2', source: 'This is a test.', target: '' }
-]);
+const lmlgStore = useLmLgStore();
+
+const columns = [
+    { title: 'ID', dataIndex: 'idx' },
+    { title: 'Source', dataIndex: 'src' },
+    { title: 'Target', dataIndex: 'tgt' },
+];
 </script>
 
 <template>
-  <div class="translate-tab">
-    <h2>Translation</h2>
-    <div class="segment-list">
-        <SegmentRow v-for="seg in segments" :key="seg.id" :segment="seg" />
-    </div>
+  <div v-if="lmlgStore.hasData">
+    <a-typography-text>Current: {{ lmlgStore.crtPos }} / {{ lmlgStore.maxPos }}</a-typography-text>
+    <table v-if="lmlgStore.crtUnit">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Source</th>
+                <th>Target</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{ lmlgStore.crtUnit.idx }}</td>
+                <td>{{ lmlgStore.crtUnit.src }}</td>
+                <td>{{ lmlgStore.crtUnit.tgt }}</td>
+            </tr>
+        </tbody>
+    </table>
+  </div>
+  <div v-else>
+    <Nodata />
   </div>
 </template>
 
