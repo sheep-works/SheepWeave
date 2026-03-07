@@ -1,7 +1,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { LmLgData } from './LmLgData';
+import { LmLgData } from './core/LmLgData';
+import { DirHelper } from './core/DirHelper';
 import { globalLmlgData } from '../store';
 
 // Helper to ensure directory exists
@@ -198,8 +199,8 @@ async function callTikal(root: string) {
 // ----------------------------------------------------------------------------
 export async function postprocessor(root: string) {
     const data = globalLmlgData;
-    const storagePath = path.join(root, LmLgData.storagePath);
-    const lmlgtPath = path.join(root, LmLgData.lmlgtPath);
+    const storagePath = DirHelper.getStoragePath(root);
+    const lmlgtPath = DirHelper.getLmlgtPath(root);
 
     if (exists(storagePath)) {
         const content = fs.readFileSync(storagePath, 'utf-8');

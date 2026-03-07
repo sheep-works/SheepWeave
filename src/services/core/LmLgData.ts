@@ -1,15 +1,13 @@
-import { LmLgBody, LmLgMeta, LmLgUnit } from "../types/datatype";
-import { getExtention } from "../util";
-import { xlf2lmlg } from "./converter/xlf/xlf2lmlg";
-import { lmlg2xlf } from "./converter/xlf/lmlg2xlf";
+import { LmLgBody, LmLgMeta, LmLgUnit } from "../../types/datatype";
+import { getExtention } from "../../util";
+import { xlf2lmlg } from "../converter/xlf/xlf2lmlg";
+import { lmlg2xlf } from "../converter/xlf/lmlg2xlf";
 import { readFileSync, writeFileSync } from "fs";
+import { DirHelper } from "./DirHelper";
 
 export class LmLgData {
     public meta!: LmLgMeta;
     public body!: LmLgBody;
-    static lmlgsPath: string = "./Working/04_LMLG/Source.lmlgs"
-    static lmlgtPath: string = "./Working/04_LMLG/Target.lmlgt"
-    static storagePath: string = "./Working/03_XLF_JSON/data.json"
 
     constructor() {
         this.clear();
@@ -34,7 +32,7 @@ export class LmLgData {
             case 'xliff': {
                 const { fileinfo, units } = await xlf2lmlg(readFileSync(filepath, 'utf-8'));
                 this.meta.files.push(...fileinfo);
-                this.body.units.push(...units);
+                this.body.units.push(...units.map(u => new LmLgUnit(u)));
                 break;
             }
 
@@ -74,15 +72,15 @@ export class LmLgData {
     }
 
     private extractTarget(): string[] {
-        return this.body.units.map(unit => unit.tgt ? unit.tgt : unit.src);
+        return this.body.units.map(unit => unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src));
     }
 
     private extractBothHorizontal(): string[] {
-        return this.body.units.map(unit => unit.src + '\t' + unit.tgt ? unit.tgt : unit.src);
+        return this.body.units.map(unit => unit.src + '\t' + (unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src)));
     }
 
     private extractBothVertical(): string[] {
-        return this.body.units.map(unit => unit.src + '\n' + unit.tgt ? unit.tgt : unit.src);
+        return this.body.units.map(unit => unit.src + '\n' + (unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src)));
     }
 
 
@@ -90,10 +88,8 @@ export class LmLgData {
         const scrs = this.extract("source");
         const tgt = this.extract("target");
 
-        // Use path.join to resolve relative to the workspace root
-        const path = require('path');
-        const lmlgsPathFull = path.join(root, 'Working/04_LMLG/Source.lmlgs');
-        const lmlgtPathFull = path.join(root, 'Working/04_LMLG/Target.lmlgt');
+        const lmlgsPathFull = DirHelper.getLmlgsPath(root);
+        const lmlgtPathFull = DirHelper.getLmlgtPath(root);
 
         writeFileSync(lmlgsPathFull, scrs.join('\n'));
         writeFileSync(lmlgtPathFull, tgt.join('\n'));
@@ -119,10 +115,15 @@ export class LmLgData {
     }
 
     public save(root: string): void {
-        const path = require('path');
-        const storagePathFull = path.join(root, 'Working/03_XLF_JSON/data.json');
-        writeFileSync(storagePathFull, JSON.stringify({ meta: this.meta, body: this.body }));
+        const storagePathFull = DirHelper.getStoragePath(root);
+        writeFileSync(storagePathFull, JSON.stringify({ meta: this.meta, body: this.body }, null, 2));
         // body.unitsをjsonファイルに出力する
+    }
+
+    public analyze(): void {
+        // Dummy method for batch analyzing LmLgUnit[] to create Ref
+        // TODO: Implement using difflib.sequenceMatcher logic
+        console.log("analyze() dummy method called");
     }
 
     public async saveXlf(filepath: string): Promise<void> {

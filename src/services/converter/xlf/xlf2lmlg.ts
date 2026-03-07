@@ -1,11 +1,11 @@
 import { parseStringPromise } from 'xml2js';
 import { XlfJsTopSchema } from './xlfSchema';
-import type { LmLgFileInfo, LmLgUnit } from '../../../types/datatype';
+import type { LmLgFileInfo, TranslationPair } from '../../../types/datatype';
 
-export async function xlf2lmlg(xmlContent: string): Promise<{ fileinfo: LmLgFileInfo[], units: LmLgUnit[] }> {
+export async function xlf2lmlg(xmlContent: string): Promise<{ fileinfo: LmLgFileInfo[], units: TranslationPair[] }> {
     const data = await parseStringPromise(xmlContent) as XlfJsTopSchema;
     const fileinfo: LmLgFileInfo[] = [];
-    const units: LmLgUnit[] = [];
+    const units: TranslationPair[] = [];
 
     let currentIdx = 0;
 
@@ -75,7 +75,7 @@ export async function xlf2lmlg(xmlContent: string): Promise<{ fileinfo: LmLgFile
 
                     for (let i = 0; i < srcParts.length; i++) {
                         const isLastNode = (i === srcParts.length - 1);
-                        const unit: LmLgUnit = {
+                        const unit: TranslationPair = {
                             idx: currentIdx,
                             src: srcParts[i],
                             tgt: tgtParts[i]
@@ -94,7 +94,7 @@ export async function xlf2lmlg(xmlContent: string): Promise<{ fileinfo: LmLgFile
                     }
                 } else {
                     // Normal single-line behavior
-                    const unit: LmLgUnit = {
+                    const unit: TranslationPair = {
                         idx: currentIdx,
                         src,
                         tgt,

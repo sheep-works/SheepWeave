@@ -23,7 +23,7 @@ export async function lmlg2xlf(xmlContent: string, lmlgUnits: LmLgUnit[]): Promi
                         if (!isFirst) {
                             combinedTgt += '\n';
                         }
-                        combinedTgt += unit.tgt;
+                        combinedTgt += (unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src));
 
                         currentIdx++;
                         isFirst = false;
