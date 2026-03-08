@@ -1,9 +1,12 @@
 import { LmLgBody, LmLgMeta, LmLgUnit } from "../../types/datatype";
 import { getExtention } from "../../util";
-import { xlf2lmlg } from "../converter/xlf/xlf2lmlg";
 import { lmlg2xlf } from "../converter/xlf/lmlg2xlf";
 import { readFileSync, writeFileSync } from "fs";
 import { DirHelper } from "./DirHelper";
+import { LmLgDiffer } from "./LmLgDiffer";
+import { parseTranslationFiles } from "../converter/TransPairParser";
+import * as path from 'path';
+import * as fs from 'fs';
 
 export class LmLgData {
     public meta!: LmLgMeta;
@@ -26,26 +29,12 @@ export class LmLgData {
     }
 
     public async parse(filepath: string): Promise<void> {
-        const ext = getExtention(filepath);
-        switch (ext) {
-            case 'xlf':
-            case 'xliff': {
-                const { fileinfo, units } = await xlf2lmlg(readFileSync(filepath, 'utf-8'));
-                this.meta.files.push(...fileinfo);
-                this.body.units.push(...units.map(u => new LmLgUnit(u)));
-                break;
-            }
-
-            case 'mxliff':
-                console.log("under construction");
-                break;
-
-            case 'json':
-                console.log("under construction");
-                break;
-
-            default:
-                throw new Error('File is not xlf or json: ' + filepath + ' ext: ' + ext);
+        const { fileinfo, units } = await parseTranslationFiles([filepath]);
+        if (fileinfo && fileinfo.length > 0) {
+            this.meta.files.push(...fileinfo);
+        }
+        if (units && units.length > 0) {
+            this.body.units.push(...units.map(u => new LmLgUnit(u)));
         }
     }
     // xlfファイルを読み込む
@@ -109,8 +98,20 @@ export class LmLgData {
     }
 
     public updateUnitTarget(index: number, text: string): void {
-        if (this.body.units[index]) {
-            this.body.units[index].tgt = text;
+        const targetUnit = this.body.units[index];
+        if (targetUnit) {
+            targetUnit.tgt = text;
+
+            // Synchronize tgt to all the units that quoted this sentence as TM
+            for (const [quotedIdx, ratio] of targetUnit.ref.quoted) {
+                const referencingUnit = this.body.units.find(u => u.idx === quotedIdx);
+                if (referencingUnit) {
+                    const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === targetUnit.idx);
+                    if (tmRef) {
+                        tmRef.tgt = text;
+                    }
+                }
+            }
         }
     }
 
@@ -120,10 +121,71 @@ export class LmLgData {
         // body.unitsをjsonファイルに出力する
     }
 
-    public analyze(): void {
-        // Dummy method for batch analyzing LmLgUnit[] to create Ref
-        // TODO: Implement using difflib.sequenceMatcher logic
-        console.log("analyze() dummy method called");
+    public async analyze(root: string): Promise<void> {
+        const units = this.body.units;
+
+        // Load TM files
+        const tmDir = path.join(root, 'Working', '01_REF', 'TM');
+        let memories: any[] = [];
+        if (fs.existsSync(tmDir)) {
+            const tmFiles = fs.readdirSync(tmDir).map(f => path.join(tmDir, f));
+            const parsedTm = await parseTranslationFiles(tmFiles);
+            memories = parsedTm.units.map(u => ({ idx: -1, src: u.src, tgt: u.tgt, freeze: true }));
+        }
+
+        // Load TB files
+        const tbDir = path.join(root, 'Working', '01_REF', 'TB');
+        let termbase: LmLgUnit[] = [];
+        if (fs.existsSync(tbDir)) {
+            const tbFiles = fs.readdirSync(tbDir).map(f => path.join(tbDir, f));
+            const parsedTb = await parseTranslationFiles(tbFiles);
+            termbase = parsedTb.units.map(u => new LmLgUnit(u));
+        }
+
+        for (let i = 0; i < units.length; i++) {
+            const currentUnit = units[i];
+
+            // TM Matching
+            const previousUnits = units.slice(0, i).map(u => ({ idx: u.idx, src: u.src, tgt: u.tgt || "" }));
+            const memMatches = LmLgDiffer.batchCompare(memories, currentUnit.src, 0.6, 5);
+            const prevMatches = LmLgDiffer.batchCompare(previousUnits, currentUnit.src, 0.6, 5);
+
+            // Combine, sort, and slice to top 5
+            const combinedTms = [...memMatches, ...prevMatches].sort((a, b) => b.ratio - a.ratio).slice(0, 5);
+            currentUnit.ref.tms = combinedTms;
+
+            // TB Matching
+            for (const tb of termbase) {
+                if (currentUnit.src.includes(tb.src)) {
+                    let existingTb = currentUnit.ref.tb.find(t => t.terms.some(entry => entry.src === tb.src));
+                    if (existingTb) {
+                        const entry = existingTb.terms.find(e => e.src === tb.src);
+                        if (entry && !entry.tgts.includes(tb.tgt)) {
+                            entry.tgts.push(tb.tgt);
+                        }
+                    } else {
+                        currentUnit.ref.tb.push({
+                            terms: [{
+                                src: tb.src,
+                                tgts: [tb.tgt]
+                            }]
+                        });
+                    }
+                }
+            }
+        }
+
+        for (let i = units.length - 1; i >= 0; i--) {
+            const currentUnit = units[i];
+            for (const tm of currentUnit.ref.tms) {
+                if (tm.idx !== -1) { // Skip external memory refs which have idx -1
+                    const referencedUnit = units.find(u => u.idx === tm.idx);
+                    if (referencedUnit) {
+                        referencedUnit.ref.quoted.push([currentUnit.idx, tm.ratio]);
+                    }
+                }
+            }
+        }
     }
 
     public async saveXlf(filepath: string): Promise<void> {

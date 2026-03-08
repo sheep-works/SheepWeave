@@ -4,7 +4,7 @@ import { LmLgRefTm } from "./LmLgRefTm";
 export class LmLgRef {
     tms: LmLgRefTm[];
     tb: LmLgRefTb[];
-    quoted: number[];
+    quoted: number[][];
 
     constructor() {
         this.tms = [];

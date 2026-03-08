@@ -67,10 +67,21 @@ export function openLambLingoPanel(context: vscode.ExtensionContext) {
         lastLineNumber = currentLineNumber;
     });
 
+    const saveDocumentListener = vscode.workspace.onDidSaveTextDocument(document => {
+        if (!currentPanel) return;
+        if (!document.fileName.endsWith('.lmlgt')) return;
+
+        const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (rootPath) {
+            globalLmlgData.save(rootPath);
+        }
+    });
+
     panel.onDidDispose(
         () => {
             currentPanel = undefined;
             selectionChangeListener.dispose();
+            saveDocumentListener.dispose();
         },
         null,
         context.subscriptions

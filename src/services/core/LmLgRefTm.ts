@@ -1,13 +1,15 @@
 export class LmLgRefTm {
+    idx: number;
     src: string;
+    diff?: string;
     tgt: string;
     ratio: number;
-    opcodes: string[][];
+    freeze?: boolean;
 
     constructor() {
+        this.idx = 0;
         this.src = "";
         this.tgt = "";
         this.ratio = 0;
-        this.opcodes = [];
     }
 }

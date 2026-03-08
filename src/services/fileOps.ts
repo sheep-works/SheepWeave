@@ -28,7 +28,7 @@ export async function initDirs(root: string) {
 }
 
 function createDir(root: string) {
-    const dirs = ['Archive', 'Data', 'Data/Ref', 'Working'];
+    const dirs = ['Archive', 'Data', 'Data/Ref', 'Data/Ref/TM', 'Data/Ref/TB', 'Working'];
     dirs.forEach(d => ensureDir(path.join(root, d)));
 }
 
@@ -93,6 +93,8 @@ function createWorking(root: string) {
     const working = path.join(root, 'Working');
     const dirs = [
         '01_REF',
+        '01_REF/TM',
+        '01_REF/TB',
         '02_SOURCE',
         '03_XLF_JSON',
         '04_LMLG',
@@ -103,25 +105,41 @@ function createWorking(root: string) {
 }
 
 export async function copyDataToWorking(root: string) {
-    const dataRef = path.join(root, 'Data', 'Ref');
-    const workingRef = path.join(root, 'Working', '01_REF');
-
-    // Copy Data/Ref -> Working/01_REF
-    if (exists(dataRef)) {
-        copyRecursive(dataRef, workingRef);
+    // 1. Copy Data/Ref/TM -> Working/01_REF/TM
+    const dataRefTm = path.join(root, 'Data', 'Ref', 'TM');
+    const workingRefTm = path.join(root, 'Working', '01_REF', 'TM');
+    if (exists(dataRefTm)) {
+        copyRecursive(dataRefTm, workingRefTm);
     }
 
+    // 2. Copy Data/Ref/TB -> Working/01_REF/TB
+    const dataRefTb = path.join(root, 'Data', 'Ref', 'TB');
+    const workingRefTb = path.join(root, 'Working', '01_REF', 'TB');
+    if (exists(dataRefTb)) {
+        copyRecursive(dataRefTb, workingRefTb);
+    }
+
+    // 3. Copy Data (excluding Ref) -> Working/02_SOURCE
     const data = path.join(root, 'Data');
     const workingSource = path.join(root, 'Working', '02_SOURCE');
 
-    // Copy Data -> Working/02_SOURCE
-    // Note: Data contains Ref too, but we copy content of Data to 02_SOURCE. 
-    // The instruction says "Data -> Working/02_SOURCE". 
-    // If Data has Ref, Ref will also be copied to 02_SOURCE/Ref? 
-    // Usually Source shouldn't contain Ref, but let's follow instruction literally or skip 'Ref'?
-    // Assuming simple copy of everything in Data.
     if (exists(data)) {
-        copyRecursive(data, workingSource);
+        ensureDir(workingSource);
+        const entries = fs.readdirSync(data, { withFileTypes: true });
+        for (const entry of entries) {
+            // Explicitly exclude 'Ref' directory
+            if (entry.isDirectory() && entry.name.toLowerCase() === 'ref') {
+                continue;
+            }
+            const srcPath = path.join(data, entry.name);
+            const destPath = path.join(workingSource, entry.name);
+
+            if (entry.isDirectory()) {
+                copyRecursive(srcPath, destPath);
+            } else {
+                fs.copyFileSync(srcPath, destPath);
+            }
+        }
     }
 }
 
@@ -153,6 +171,7 @@ export async function preprocessor(root: string): Promise<LmLgData | undefined> 
     if (xlfFile) {
         data.meta.bilingualPath = xlfFile;
         await data.parse(xlfFile);
+        await data.analyze(root);
         data.save(root); // save to JSON
         await data.writeLmlg(root); // save to .lmlgs and .lmlgt
         return data;

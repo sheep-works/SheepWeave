@@ -14,6 +14,11 @@ const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeA
 //     activeTab.value = tab;
 // }
 
+// vscode.postMessage() で送信されたメッセージは、
+// 拡張機能側の src/commands/openLambLingoPanel.ts 内で定義されている
+// \`panel.webview.onDidReceiveMessage(message => { ... })\` メソッドにて受信・処理される。
+// 引数の \`command\` は、message.type として送られ、
+// 'init', 'prepare', 'start', 'finish' などの文字列を受け取る。
 function handleCommand(command: string) {
     if (vscode) {
         vscode.postMessage({ type: command });
