@@ -115,6 +115,16 @@ export class LmLgData {
         }
     }
 
+    public load(root: string): void {
+        const storagePathFull = DirHelper.getStoragePath(root);
+        if (fs.existsSync(storagePathFull)) {
+            const content = fs.readFileSync(storagePathFull, 'utf-8');
+            const parsed = JSON.parse(content);
+            this.meta = parsed.meta;
+            this.body = parsed.body;
+        }
+    }
+
     public save(root: string): void {
         const storagePathFull = DirHelper.getStoragePath(root);
         writeFileSync(storagePathFull, JSON.stringify({ meta: this.meta, body: this.body }, null, 2));
@@ -157,18 +167,15 @@ export class LmLgData {
             // TB Matching
             for (const tb of termbase) {
                 if (currentUnit.src.includes(tb.src)) {
-                    let existingTb = currentUnit.ref.tb.find(t => t.terms.some(entry => entry.src === tb.src));
+                    let existingTb = currentUnit.ref.tb.find(t => t.src === tb.src);
                     if (existingTb) {
-                        const entry = existingTb.terms.find(e => e.src === tb.src);
-                        if (entry && !entry.tgts.includes(tb.tgt)) {
-                            entry.tgts.push(tb.tgt);
+                        if (!existingTb.tgts.includes(tb.tgt)) {
+                            existingTb.tgts.push(tb.tgt);
                         }
                     } else {
                         currentUnit.ref.tb.push({
-                            terms: [{
-                                src: tb.src,
-                                tgts: [tb.tgt]
-                            }]
+                            src: tb.src,
+                            tgts: [tb.tgt]
                         });
                     }
                 }

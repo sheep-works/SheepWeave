@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useLmLgStore } from './store/lmlg';
+import { useI18nStore } from './store/i18n';
 import FlowTab from './tabs/FlowTab.vue';
 import TranslateTab from './tabs/TranslateTab.vue';
+import DebugTab from './tabs/DebugTab.vue';
+import { storeToRefs } from 'pinia';
 
+
+const i18nStore = useI18nStore();
+const { locale } = storeToRefs(i18nStore);
 const activeTab = ref('flow');
 const lmlgStore = useLmLgStore();
 
@@ -54,17 +60,26 @@ onMounted(() => {
 
 <template>
 <a-layout>
+    <a-layout-header>
+        <a-space>
+            <a-typography-title> Lamblingo </a-typography-title>
+            <a-select v-model="locale">
+                <a-option :value="'en'">English</a-option>
+                <a-option :value="'ja'">日本語</a-option>
+            </a-select>
+        </a-space>
+    </a-layout-header>
     <a-tabs>
     <a-tab-pane key="flow" title="Flow">
-        <FlowTab 
-            @init="handleCommand('init')"
-            @prepare="handleCommand('prepare')"
-            @start="handleCommand('start')"
-            @finish="handleCommand('finish')"
+        <FlowTab
+            @FlowCommand="handleCommand"
         />
     </a-tab-pane>
     <a-tab-pane key="translate" title="Translate">
         <TranslateTab />
+    </a-tab-pane>
+    <a-tab-pane key="debug" title="Debug">
+        <DebugTab />
     </a-tab-pane>
     </a-tabs>
 </a-layout>

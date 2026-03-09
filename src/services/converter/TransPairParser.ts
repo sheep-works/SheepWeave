@@ -13,7 +13,29 @@ export async function xlf2Pairs(content: string, startIdx: number): Promise<Tran
     for (const f of files) {
         const bodyElements = f.body || [];
         for (const body of bodyElements) {
-            const transUnits = body["trans-unit"] || [];
+            const transUnits: any[] = [];
+
+            function extractTransUnits(node: any) {
+                if (!node || typeof node !== 'object') return;
+                if (Array.isArray(node)) {
+                    node.forEach(child => extractTransUnits(child));
+                    return;
+                }
+                for (const key in node) {
+                    if (key === 'trans-unit') {
+                        if (Array.isArray(node[key])) {
+                            transUnits.push(...node[key]);
+                        } else {
+                            transUnits.push(node[key]);
+                        }
+                    } else if (key !== '$' && key !== '_') {
+                        extractTransUnits(node[key]);
+                    }
+                }
+            }
+
+            extractTransUnits(body);
+
             for (const tu of transUnits) {
                 let src = '';
                 if (tu.source && tu.source.length > 0) {

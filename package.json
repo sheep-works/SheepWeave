@@ -2,7 +2,7 @@
   "name": "lamb-lingo",
   "displayName": "LambLingo",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "lamblingo",
   "engines": {
     "vscode": "^1.96.0"

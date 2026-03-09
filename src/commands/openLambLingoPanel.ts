@@ -102,6 +102,9 @@ export function openLambLingoPanel(context: vscode.ExtensionContext) {
 
             try {
                 switch (message.type) {
+                    case 'open-current':
+                        vscode.env.openExternal(vscode.Uri.file(rootPath));
+                        break;
                     case 'init':
                         await initDirs(rootPath);
                         vscode.window.showInformationMessage('Project Initialized');
@@ -111,14 +114,27 @@ export function openLambLingoPanel(context: vscode.ExtensionContext) {
                         await prepareWorking(rootPath);
                         vscode.window.showInformationMessage('Project Prepared');
                         break;
-                    case 'start':
+                    case 'create':
                         const lmlgData = await preprocessor(rootPath);
                         if (lmlgData) {
                             panel.webview.postMessage({ type: 'LMLG_DATA_LOADED', data: { meta: lmlgData.meta, units: lmlgData.body.units } });
                         }
                         vscode.window.showInformationMessage('Preprocessing Started (Data loaded to Webview)');
                         break;
-                    case 'finish':
+
+                    case 'load':
+                        globalLmlgData.load(rootPath);
+                        if (globalLmlgData.meta && globalLmlgData.body?.units?.length > 0) {
+                            panel.webview.postMessage({ type: 'LMLG_DATA_LOADED', data: { meta: globalLmlgData.meta, units: globalLmlgData.body.units } });
+                            vscode.window.showInformationMessage('Data Loaded and Synchronized');
+                        }
+                        break;
+
+                    case 'reanalyze':
+                        globalLmlgData.analyze(rootPath);
+                        break;
+
+                    case 'complete':
                         await postprocessor(rootPath);
                         vscode.window.showInformationMessage('Postprocessing Finished');
                         break;
