@@ -1,4 +1,4 @@
-export class LmLgFileInfo {
+export class ShWvFileInfo {
     name: string;
     start: number;
     end: number;

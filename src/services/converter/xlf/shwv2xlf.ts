@@ -1,8 +1,8 @@
 import { parseStringPromise, Builder } from 'xml2js';
 import { XlfJsTopSchema, XlfJsTransUnitTargetSchema } from './xlfSchema';
-import type { LmLgUnit } from '../../../types/datatype';
+import type { ShWvUnit } from '../../../types/datatype';
 
-export async function lmlg2xlf(xmlContent: string, lmlgUnits: LmLgUnit[]): Promise<string> {
+export async function shwv2xlf(xmlContent: string, shwvUnits: ShWvUnit[]): Promise<string> {
     const data = await parseStringPromise(xmlContent) as XlfJsTopSchema;
 
     let currentIdx = 0;
@@ -35,13 +35,13 @@ export async function lmlg2xlf(xmlContent: string, lmlgUnits: LmLgUnit[]): Promi
             extractTransUnits(body);
 
             for (const tu of transUnits) {
-                if (currentIdx < lmlgUnits.length) {
+                if (currentIdx < shwvUnits.length) {
                     // Peek ahead to aggregate all isSub units that belong to this trans-unit
                     let combinedTgt = '';
                     let isFirst = true;
 
-                    while (currentIdx < lmlgUnits.length) {
-                        const unit = lmlgUnits[currentIdx];
+                    while (currentIdx < shwvUnits.length) {
+                        const unit = shwvUnits[currentIdx];
                         if (!isFirst) {
                             combinedTgt += '\n';
                         }

@@ -1,4 +1,4 @@
-export class LmLgRefTm {
+export class ShWvRefTm {
     idx: number;
     src: string;
     diff?: string;

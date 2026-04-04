@@ -1,25 +1,25 @@
 <script setup lang="ts">
 import Nodata from '../components/Nodata.vue';
-import { useLmLgStore } from '../store/lmlg';
+import { useShWvStore } from '../store/shwv';
 
-const lmlgStore = useLmLgStore();
+const shwvStore = useShWvStore();
 </script>
 
 <template>
-  <div v-if="lmlgStore.hasData">
+  <div v-if="shwvStore.hasData">
     <a-list>
         <a-list-item>
-            <a-typography-text>Current Position: {{ lmlgStore.crtPos }}</a-typography-text>
+            <a-typography-text>Current Position: {{ shwvStore.crtPos }}</a-typography-text>
         </a-list-item>
         <a-list-item>
-            <a-typography-text>Max Position: {{ lmlgStore.maxPos }}</a-typography-text>
+            <a-typography-text>Max Position: {{ shwvStore.maxPos }}</a-typography-text>
         </a-list-item>
         <a-list-item>
-            <a-typography-text>Meta Information: {{ lmlgStore.meta }}</a-typography-text>
+            <a-typography-text>Meta Information: {{ shwvStore.meta }}</a-typography-text>
         </a-list-item>
         <a-list-item>
-            <a-typography-text>Units ({{ lmlgStore.units.length }}):</a-typography-text>
-            <a-list v-for="unit in lmlgStore.units">
+            <a-typography-text>Units ({{ shwvStore.units.length }}):</a-typography-text>
+            <a-list v-for="unit in shwvStore.units">
                 <a-list-item>
                     <a-typography-text>{{ unit }}</a-typography-text>
                 </a-list-item>

@@ -3,11 +3,11 @@ import { initDirs, prepareWorking, preprocessor, postprocessor } from '../servic
 // (existing imports)
 import * as vscode from 'vscode';
 import { getWebviewHtml } from '../webview/panel'; // We will create this next
-import { globalLmlgData } from '../store';
+import { globalShWvData } from '../store';
 
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
 
-export function openLambLingoPanel(context: vscode.ExtensionContext) {
+export function openSheepWeavePanel(context: vscode.ExtensionContext) {
     const column = vscode.window.activeTextEditor
         ? vscode.window.activeTextEditor.viewColumn
         : undefined;
@@ -20,8 +20,8 @@ export function openLambLingoPanel(context: vscode.ExtensionContext) {
 
     // Otherwise, create a new panel.
     const panel = vscode.window.createWebviewPanel(
-        'lambLingo',
-        'LambLingo',
+        'sheepWeave',
+        'SheepWeave',
         vscode.ViewColumn.Two,
         {
             enableScripts: true,
@@ -42,8 +42,8 @@ export function openLambLingoPanel(context: vscode.ExtensionContext) {
     const selectionChangeListener = vscode.window.onDidChangeTextEditorSelection(event => {
         if (!currentPanel) return;
 
-        // We probably only want to track changes in .lmlgt files
-        if (!event.textEditor.document.fileName.endsWith('.lmlgt')) return;
+        // We probably only want to track changes in .shwvt files
+        if (!event.textEditor.document.fileName.endsWith('.shwvt')) return;
         if (event.selections.length === 0) return;
 
         const currentLineNumber = event.selections[0].active.line;
@@ -51,8 +51,8 @@ export function openLambLingoPanel(context: vscode.ExtensionContext) {
         if (lastLineNumber !== -1 && currentLineNumber !== lastLineNumber) {
             const oldLineText = event.textEditor.document.lineAt(lastLineNumber).text;
 
-            // 1. 真と正であるExtension側のストア（globalLmlgData）を更新
-            globalLmlgData.updateUnitTarget(lastLineNumber, oldLineText);
+            // 1. 真と正であるExtension側のストア（globalShWvData）を更新
+            globalShWvData.updateUnitTarget(lastLineNumber, oldLineText);
 
             // 2. 補助的にWebview側（表示用Pinia Store）にも変更を通知
             currentPanel.webview.postMessage({
@@ -69,11 +69,11 @@ export function openLambLingoPanel(context: vscode.ExtensionContext) {
 
     const saveDocumentListener = vscode.workspace.onDidSaveTextDocument(document => {
         if (!currentPanel) return;
-        if (!document.fileName.endsWith('.lmlgt')) return;
+        if (!document.fileName.endsWith('.shwvt')) return;
 
         const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         if (rootPath) {
-            globalLmlgData.save(rootPath);
+            globalShWvData.save(rootPath);
         }
     });
 
@@ -115,23 +115,23 @@ export function openLambLingoPanel(context: vscode.ExtensionContext) {
                         vscode.window.showInformationMessage('Project Prepared');
                         break;
                     case 'create':
-                        const lmlgData = await preprocessor(rootPath);
-                        if (lmlgData) {
-                            panel.webview.postMessage({ type: 'LMLG_DATA_LOADED', data: { meta: lmlgData.meta, units: lmlgData.body.units } });
+                        const shwvData = await preprocessor(rootPath);
+                        if (shwvData) {
+                            panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: shwvData.meta, units: shwvData.body.units } });
                         }
                         vscode.window.showInformationMessage('Preprocessing Started (Data loaded to Webview)');
                         break;
 
                     case 'load':
-                        globalLmlgData.load(rootPath);
-                        if (globalLmlgData.meta && globalLmlgData.body?.units?.length > 0) {
-                            panel.webview.postMessage({ type: 'LMLG_DATA_LOADED', data: { meta: globalLmlgData.meta, units: globalLmlgData.body.units } });
+                        globalShWvData.load(rootPath);
+                        if (globalShWvData.meta && globalShWvData.body?.units?.length > 0) {
+                            panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units } });
                             vscode.window.showInformationMessage('Data Loaded and Synchronized');
                         }
                         break;
 
                     case 'reanalyze':
-                        globalLmlgData.analyze(rootPath);
+                        globalShWvData.analyze(rootPath);
                         break;
 
                     case 'complete':
@@ -142,11 +142,11 @@ export function openLambLingoPanel(context: vscode.ExtensionContext) {
                         vscode.window.showErrorMessage(message.text);
                         return;
                     case 'READY':
-                        // When Webview finishes mounting, send existing LmLgData if any exists.
-                        if (globalLmlgData.meta && globalLmlgData.body.units.length > 0) {
+                        // When Webview finishes mounting, send existing ShWvData if any exists.
+                        if (globalShWvData.meta && globalShWvData.body.units.length > 0) {
                             panel.webview.postMessage({
-                                type: 'LMLG_DATA_LOADED',
-                                data: { meta: globalLmlgData.meta, units: globalLmlgData.body.units }
+                                type: 'SHWV_DATA_LOADED',
+                                data: { meta: globalShWvData.meta, units: globalShWvData.body.units }
                             });
                         }
                         break;

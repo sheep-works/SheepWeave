@@ -1,9 +1,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { LmLgData } from './core/LmLgData';
+import { ShWvData } from './core/ShWvData';
 import { DirHelper } from './core/DirHelper';
-import { globalLmlgData } from '../store';
+import { globalShWvData } from '../store';
 
 // Helper to ensure directory exists
 function ensureDir(p: string) { if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true }); }
@@ -97,7 +97,7 @@ function createWorking(root: string) {
         '01_REF/TB',
         '02_SOURCE',
         '03_XLF_JSON',
-        '04_LMLG',
+        '04_SHWV',
         '05_COMPLETED',
         '06_PACKAGE'
     ];
@@ -164,8 +164,8 @@ function copyRecursive(src: string, dest: string) {
 // ----------------------------------------------------------------------------
 // preprocessor
 // ----------------------------------------------------------------------------
-export async function preprocessor(root: string): Promise<LmLgData | undefined> {
-    const data = globalLmlgData;
+export async function preprocessor(root: string): Promise<ShWvData | undefined> {
+    const data = globalShWvData;
     data.clear();
     const xlfFile = await setXlf(root);
     if (xlfFile) {
@@ -173,7 +173,7 @@ export async function preprocessor(root: string): Promise<LmLgData | undefined> 
         await data.parse(xlfFile);
         await data.analyze(root);
         data.save(root); // save to JSON
-        await data.writeLmlg(root); // save to .lmlgs and .lmlgt
+        await data.writeShwv(root); // save to .shwvs and .shwvt
         return data;
     }
     return undefined;
@@ -217,9 +217,9 @@ async function callTikal(root: string) {
 // postprocessor
 // ----------------------------------------------------------------------------
 export async function postprocessor(root: string) {
-    const data = globalLmlgData;
+    const data = globalShWvData;
     const storagePath = DirHelper.getStoragePath(root);
-    const lmlgtPath = DirHelper.getLmlgtPath(root);
+    const shwvtPath = DirHelper.getShwvtPath(root);
 
     if (exists(storagePath)) {
         const content = fs.readFileSync(storagePath, 'utf-8');
@@ -227,8 +227,8 @@ export async function postprocessor(root: string) {
         data.meta = parsed.meta;
         data.body = parsed.body;
 
-        if (exists(lmlgtPath)) {
-            data.update(lmlgtPath);
+        if (exists(shwvtPath)) {
+            data.update(shwvtPath);
         }
 
         const completedDir = path.join(root, 'Working', '05_COMPLETED');

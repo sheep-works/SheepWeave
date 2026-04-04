@@ -1,16 +1,16 @@
-import { LmLgBody, LmLgMeta, LmLgUnit } from "../../types/datatype";
+import { ShWvBody, ShWvMeta, ShWvUnit } from "../../types/datatype";
 import { getExtention } from "../../util";
-import { lmlg2xlf } from "../converter/xlf/lmlg2xlf";
+import { shwv2xlf } from "../converter/xlf/shwv2xlf";
 import { readFileSync, writeFileSync } from "fs";
 import { DirHelper } from "./DirHelper";
-import { LmLgDiffer } from "./LmLgDiffer";
+import { ShWvDiffer } from "./ShWvDiffer";
 import { parseTranslationFiles } from "../converter/TransPairParser";
 import * as path from 'path';
 import * as fs from 'fs';
 
-export class LmLgData {
-    public meta!: LmLgMeta;
-    public body!: LmLgBody;
+export class ShWvData {
+    public meta!: ShWvMeta;
+    public body!: ShWvBody;
 
     constructor() {
         this.clear();
@@ -34,7 +34,7 @@ export class LmLgData {
             this.meta.files.push(...fileinfo);
         }
         if (units && units.length > 0) {
-            this.body.units.push(...units.map(u => new LmLgUnit(u)));
+            this.body.units.push(...units.map(u => new ShWvUnit(u)));
         }
     }
     // xlfファイルを読み込む
@@ -73,15 +73,15 @@ export class LmLgData {
     }
 
 
-    public async writeLmlg(root: string): Promise<void> {
+    public async writeShwv(root: string): Promise<void> {
         const scrs = this.extract("source");
         const tgt = this.extract("target");
 
-        const lmlgsPathFull = DirHelper.getLmlgsPath(root);
-        const lmlgtPathFull = DirHelper.getLmlgtPath(root);
+        const shwvsPathFull = DirHelper.getShwvsPath(root);
+        const shwvtPathFull = DirHelper.getShwvtPath(root);
 
-        writeFileSync(lmlgsPathFull, scrs.join('\n'));
-        writeFileSync(lmlgtPathFull, tgt.join('\n'));
+        writeFileSync(shwvsPathFull, scrs.join('\n'));
+        writeFileSync(shwvtPathFull, tgt.join('\n'));
     }
 
     public update(filepath: string): void {
@@ -145,11 +145,11 @@ export class LmLgData {
 
         // Load TB files
         const tbDir = path.join(root, 'Working', '01_REF', 'TB');
-        let termbase: LmLgUnit[] = [];
+        let termbase: ShWvUnit[] = [];
         if (fs.existsSync(tbDir)) {
             const tbFiles = fs.readdirSync(tbDir).map(f => path.join(tbDir, f));
             const parsedTb = await parseTranslationFiles(tbFiles);
-            termbase = parsedTb.units.map(u => new LmLgUnit(u));
+            termbase = parsedTb.units.map(u => new ShWvUnit(u));
         }
 
         for (let i = 0; i < units.length; i++) {
@@ -157,8 +157,8 @@ export class LmLgData {
 
             // TM Matching
             const previousUnits = units.slice(0, i).map(u => ({ idx: u.idx, src: u.src, tgt: u.tgt || "" }));
-            const memMatches = LmLgDiffer.batchCompare(memories, currentUnit.src, 0.6, 5);
-            const prevMatches = LmLgDiffer.batchCompare(previousUnits, currentUnit.src, 0.6, 5);
+            const memMatches = ShWvDiffer.batchCompare(memories, currentUnit.src, 0.6, 5);
+            const prevMatches = ShWvDiffer.batchCompare(previousUnits, currentUnit.src, 0.6, 5);
 
             // Combine, sort, and slice to top 5
             const combinedTms = [...memMatches, ...prevMatches].sort((a, b) => b.ratio - a.ratio).slice(0, 5);
@@ -196,7 +196,7 @@ export class LmLgData {
     }
 
     public async saveXlf(filepath: string): Promise<void> {
-        const newXlf = await lmlg2xlf(readFileSync(this.meta.bilingualPath, 'utf-8'), this.body.units);
+        const newXlf = await shwv2xlf(readFileSync(this.meta.bilingualPath, 'utf-8'), this.body.units);
         writeFileSync(filepath, newXlf);
     }
 }

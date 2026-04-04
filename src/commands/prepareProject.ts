@@ -8,7 +8,7 @@ import { prepareProject } from '../services/projectPrep';
 export async function prepareProjectCommand() {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
-        vscode.window.showErrorMessage('LambLingo: No workspace folder open.');
+        vscode.window.showErrorMessage('SheepWeave: No workspace folder open.');
         return;
     }
 
@@ -16,14 +16,14 @@ export async function prepareProjectCommand() {
 
     await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
-        title: "LambLingo: Preparing Project...",
+        title: "SheepWeave: Preparing Project...",
         cancellable: false
     }, async (progress) => {
         try {
             await prepareProject(root);
-            vscode.window.showInformationMessage('LambLingo: Project prepared successfully!');
+            vscode.window.showInformationMessage('SheepWeave: Project prepared successfully!');
         } catch (error) {
-            vscode.window.showErrorMessage(`LambLingo: Failed to prepare project. ${error}`);
+            vscode.window.showErrorMessage(`SheepWeave: Failed to prepare project. ${error}`);
             console.error(error);
         }
     });

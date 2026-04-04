@@ -1,14 +1,14 @@
 import { TranslationPair } from "../../types/datatype";
-import { LmLgRef } from "./LmLgRef";
+import { ShWvRef } from "./ShWvRef";
 
-export class LmLgUnit {
+export class ShWvUnit {
     idx: number;
     src: string;
     pre: string;
     tgt: string;
     note?: string;
     isSub?: boolean;
-    ref: LmLgRef;
+    ref: ShWvRef;
 
     constructor(pair: TranslationPair) {
         this.idx = pair.idx;
@@ -17,6 +17,6 @@ export class LmLgUnit {
         this.tgt = "";
         this.note = pair.note;
         this.isSub = pair.isSub;
-        this.ref = new LmLgRef();
+        this.ref = new ShWvRef();
     }
 }

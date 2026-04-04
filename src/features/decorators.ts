@@ -1,6 +1,6 @@
 /**
  * エディタの装飾機能。
- * .lmlgファイル内の数値やプレースホルダーをハイライト表示します。
+ * .shwvファイル内の数値やプレースホルダーをハイライト表示します。
  */
 import * as vscode from 'vscode';
 
@@ -29,8 +29,8 @@ export function initDecorators(context: vscode.ExtensionContext) {
             return;
         }
 
-        // Only apply to .lmlg
-        if (activeEditor.document.languageId !== 'lmlg' && !activeEditor.document.fileName.endsWith('.lmlg')) {
+        // Only apply to .shwv
+        if (activeEditor.document.languageId !== 'shwv' && !activeEditor.document.fileName.endsWith('.shwv')) {
             return;
         }
 

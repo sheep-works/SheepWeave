@@ -1,4 +1,4 @@
-export class LmLgRefTb {
+export class ShWvRefTb {
     src: string;
     tgts: string[];
     note?: string;

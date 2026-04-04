@@ -1,9 +1,9 @@
 {
-  "name": "lamb-lingo",
-  "displayName": "LambLingo",
+  "name": "sheep-weave",
+  "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
   "version": "0.0.2",
-  "publisher": "lamblingo",
+  "publisher": "sheepweave",
   "engines": {
     "vscode": "^1.96.0"
   },
@@ -12,58 +12,58 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onCommand:lambLingo.openPanel",
-    "onCommand:lambLingo.prepare",
-    "onLanguage:lmlg",
+    "onCommand:sheepWeave.openPanel",
+    "onCommand:sheepWeave.prepare",
+    "onLanguage:shwv",
     "onFileSystem:workspace"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "lambLingo.openPanel",
-        "title": "LambLingo: Open Panel"
+        "command": "sheepWeave.openPanel",
+        "title": "SheepWeave: Open Panel"
       },
       {
-        "command": "lambLingo.prepare",
-        "title": "LambLingo: Prepare Project"
+        "command": "sheepWeave.prepare",
+        "title": "SheepWeave: Prepare Project"
       }
     ],
     "languages": [
       {
-        "id": "lmlg",
+        "id": "shwv",
         "aliases": [
-          "LambLingo Text"
+          "SheepWeave Text"
         ],
         "extensions": [
-          ".lmlg"
+          ".shwv"
         ],
         "configuration": "./language-configuration.json"
       }
     ],
     "keybindings": [
       {
-        "command": "lambLingo.openPanel",
+        "command": "sheepWeave.openPanel",
         "key": "ctrl+alt+l",
         "when": "editorTextFocus"
       }
     ],
     "configuration": {
-      "title": "LambLingo",
+      "title": "SheepWeave",
       "properties": {
-        "lambLingo.sourceLang": {
+        "sheepWeave.sourceLang": {
           "type": "string",
           "default": "en"
         },
-        "lambLingo.targetLang": {
+        "sheepWeave.targetLang": {
           "type": "string",
           "default": "ja"
         },
-        "lambLingo.archiveDateFormat": {
+        "sheepWeave.archiveDateFormat": {
           "type": "string",
           "default": "YYYY-MM-DDTHH-mm-ss"
         },
-        "lambLingo.ai.enabled": {
+        "sheepWeave.ai.enabled": {
           "type": "boolean",
           "default": true
         }

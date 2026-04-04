@@ -1,7 +1,7 @@
 import { SequenceMatcher } from 'difflib-ts';
-import { LmLgRefTm } from './LmLgRefTm';
+import { ShWvRefTm } from './ShWvRefTm';
 
-export class LmLgDiffer {
+export class ShWvDiffer {
     private static matcher = new SequenceMatcher(null, "", "");
 
     static applyOpcodes(src1: string, src2: string, opcodes: [string, number, number, number, number][]): string {
@@ -20,8 +20,8 @@ export class LmLgDiffer {
         return result;
     }
 
-    static batchCompare(srcs: { idx: number, src: string, tgt: string }[], crtSrc: string, minRatio = 0.6, counts = 5): LmLgRefTm[] {
-        let goodMatches: { tm: LmLgRefTm; opcodes: [string, number, number, number, number][] }[] = [];
+    static batchCompare(srcs: { idx: number, src: string, tgt: string }[], crtSrc: string, minRatio = 0.6, counts = 5): ShWvRefTm[] {
+        let goodMatches: { tm: ShWvRefTm; opcodes: [string, number, number, number, number][] }[] = [];
         let tempMinRatio = minRatio;
 
         this.matcher.setSeq2(crtSrc);
@@ -33,7 +33,7 @@ export class LmLgDiffer {
             if (ratio >= tempMinRatio) {
                 const opcodes = this.matcher.getOpcodes() as [string, number, number, number, number][];
 
-                const tm = new LmLgRefTm();
+                const tm = new ShWvRefTm();
                 tm.idx = s.idx;
                 tm.src = s.src;
                 tm.tgt = s.tgt;

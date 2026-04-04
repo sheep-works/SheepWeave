@@ -1,12 +1,12 @@
-import { LmLgFileInfo } from './LmLgFileInfo';
+import { ShWvFileInfo } from './ShWvFileInfo';
 
-export class LmLgMeta {
+export class ShWvMeta {
     bilingualPath: string;
-    files: LmLgFileInfo[];
+    files: ShWvFileInfo[];
     sourceLang: string;
     targetLang: string;
 
-    constructor(bilingualPath: string, files: LmLgFileInfo[], sourceLang: string, targetLang: string) {
+    constructor(bilingualPath: string, files: ShWvFileInfo[], sourceLang: string, targetLang: string) {
         this.bilingualPath = bilingualPath;
         this.files = files;
         this.sourceLang = sourceLang;

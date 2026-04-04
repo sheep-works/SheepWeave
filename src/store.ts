@@ -1,4 +1,4 @@
-import { LmLgData } from './services/core/LmLgData';
+import { ShWvData } from './services/core/ShWvData';
 
 // Global state instance for the extension
-export const globalLmlgData = new LmLgData();
+export const globalShWvData = new ShWvData();

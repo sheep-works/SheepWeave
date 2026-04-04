@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useLmLgStore } from './store/lmlg';
+import { useShWvStore } from './store/shwv';
 import { useI18nStore } from './store/i18n';
 import FlowTab from './tabs/FlowTab.vue';
 import TranslateTab from './tabs/TranslateTab.vue';
@@ -11,7 +11,7 @@ import { storeToRefs } from 'pinia';
 const i18nStore = useI18nStore();
 const { locale } = storeToRefs(i18nStore);
 const activeTab = ref('flow');
-const lmlgStore = useLmLgStore();
+const shwvStore = useShWvStore();
 
 // Acquire the VS Code API
 const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
@@ -21,7 +21,7 @@ const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeA
 // }
 
 // vscode.postMessage() で送信されたメッセージは、
-// 拡張機能側の src/commands/openLambLingoPanel.ts 内で定義されている
+// 拡張機能側の src/commands/openSheepWeavePanel.ts 内で定義されている
 // \`panel.webview.onDidReceiveMessage(message => { ... })\` メソッドにて受信・処理される。
 // 引数の \`command\` は、message.type として送られ、
 // 'init', 'prepare', 'start', 'finish' などの文字列を受け取る。
@@ -41,12 +41,12 @@ onMounted(() => {
             case 'INIT':
                 console.log('Init message received', message.payload);
                 break;
-            case 'LMLG_DATA_LOADED':
-                lmlgStore.loadData(message.data);
+            case 'SHWV_DATA_LOADED':
+                shwvStore.loadData(message.data);
                 break;
             case 'CURSOR_MOVED':
                 if (message.data && typeof message.data.newPos === 'number') {
-                    lmlgStore.moveCursor(message.data.newPos, message.data.textInOldPos);
+                    shwvStore.moveCursor(message.data.newPos, message.data.textInOldPos);
                 }
                 break;
         }
@@ -62,7 +62,7 @@ onMounted(() => {
 <a-layout>
     <a-layout-header>
         <a-space>
-            <a-typography-title> Lamblingo </a-typography-title>
+            <a-typography-title> SheepWeave </a-typography-title>
             <a-select v-model="locale">
                 <a-option :value="'en'">English</a-option>
                 <a-option :value="'ja'">日本語</a-option>

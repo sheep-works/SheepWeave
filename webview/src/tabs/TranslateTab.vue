@@ -2,9 +2,9 @@
 import { ref } from 'vue';
 // import SegmentRow from '../components/SegmentRow.vue';
 import Nodata from '../components/Nodata.vue';
-import { useLmLgStore } from '../store/lmlg';
+import { useShWvStore } from '../store/shwv';
 
-const lmlgStore = useLmLgStore();
+const shwvStore = useShWvStore();
 
 const columns = [
     { title: 'ID', dataIndex: 'idx' },
@@ -14,9 +14,9 @@ const columns = [
 </script>
 
 <template>
-  <div v-if="lmlgStore.hasData">
-    <a-typography-text>Current: {{ lmlgStore.crtPos }} / {{ lmlgStore.maxPos }}</a-typography-text>
-    <table v-if="lmlgStore.crtUnit">
+  <div v-if="shwvStore.hasData">
+    <a-typography-text>Current: {{ shwvStore.crtPos }} / {{ shwvStore.maxPos }}</a-typography-text>
+    <table v-if="shwvStore.crtUnit">
         <thead>
             <tr>
                 <th>ID / Ratio</th>
@@ -26,20 +26,20 @@ const columns = [
         </thead>
         <tbody>
             <tr>
-                <td>{{ lmlgStore.crtUnit.idx + 1 }}</td>
-                <td>{{ lmlgStore.crtUnit.src }}</td>
-                <td>{{ lmlgStore.crtUnit.tgt }}</td>
+                <td>{{ shwvStore.crtUnit.idx + 1 }}</td>
+                <td>{{ shwvStore.crtUnit.src }}</td>
+                <td>{{ shwvStore.crtUnit.tgt }}</td>
             </tr>
         </tbody>
-        <tbody v-if="lmlgStore.crtUnit.ref.tms.length > 0">
-            <tr v-for="tm in lmlgStore.crtUnit.ref.tms" :key="tm.idx">
+        <tbody v-if="shwvStore.crtUnit.ref.tms.length > 0">
+            <tr v-for="tm in shwvStore.crtUnit.ref.tms" :key="tm.idx">
                 <td>{{ tm.ratio }}</td>
                 <td>{{ tm.src }}</td>
                 <td>{{ tm.tgt }}</td>
             </tr>
         </tbody>
-        <tbody v-if="lmlgStore.crtUnit.ref.tb.length > 0">
-            <tr v-for="tb, tbx in lmlgStore.crtUnit.ref.tb" :key="tbx">
+        <tbody v-if="shwvStore.crtUnit.ref.tb.length > 0">
+            <tr v-for="tb, tbx in shwvStore.crtUnit.ref.tb" :key="tbx">
                 <td>{{ tbx }}</td>
                 <td>{{ tb.src }}</td>
                 <td>{{ tb.tgts.join(' | ') }}</td>

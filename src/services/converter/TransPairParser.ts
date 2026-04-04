@@ -2,7 +2,7 @@ import { parseStringPromise } from 'xml2js';
 import * as xlsx from 'xlsx';
 import { readFileSync } from 'fs';
 import * as path from 'path';
-import type { LmLgFileInfo, TranslationPair } from '../../types/datatype';
+import type { ShWvFileInfo, TranslationPair } from '../../types/datatype';
 
 export async function xlf2Pairs(content: string, startIdx: number): Promise<TranslationPair[]> {
     const data = await parseStringPromise(content);
@@ -223,8 +223,8 @@ export async function xlsx2Pairs(buffer: Buffer, startIdx: number): Promise<Tran
 }
 
 
-export async function parseTranslationFiles(filepaths: string[]): Promise<{ fileinfo: LmLgFileInfo[], units: TranslationPair[] }> {
-    const fileinfo: LmLgFileInfo[] = [];
+export async function parseTranslationFiles(filepaths: string[]): Promise<{ fileinfo: ShWvFileInfo[], units: TranslationPair[] }> {
+    const fileinfo: ShWvFileInfo[] = [];
     const allUnits: TranslationPair[] = [];
     let globalIdx = 0;
 

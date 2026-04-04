@@ -1,19 +1,19 @@
 import { defineStore } from 'pinia';
-import type { LmLgMeta, LmLgUnit } from '../../../src/types/datatype';
+import type { ShWvMeta, ShWvUnit } from '../../../src/types/datatype';
 
-export const useLmLgStore = defineStore('lmlg', {
+export const useShWvStore = defineStore('shwv', {
     state: () => ({
-        meta: null as LmLgMeta | null,
-        units: [] as LmLgUnit[],
+        meta: null as ShWvMeta | null,
+        units: [] as ShWvUnit[],
         crtPos: 0,
         maxPos: 0,
     }),
     actions: {
-        loadData(data: { meta: LmLgMeta; units: LmLgUnit[] }) {
+        loadData(data: { meta: ShWvMeta; units: ShWvUnit[] }) {
             this.meta = data.meta;
             this.units = data.units || [];
             this.maxPos = this.units.length - 1;
-            console.log('LmLgData loaded into store:', data);
+            console.log('ShWvData loaded into store:', data);
         },
         clearData() {
             this.meta = null;

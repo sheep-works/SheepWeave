@@ -27,7 +27,7 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="${styleUri}" rel="stylesheet">
-    <title>LambLingo</title>
+    <title>SheepWeave</title>
   </head>
   <body>
     <div id="app"></div>

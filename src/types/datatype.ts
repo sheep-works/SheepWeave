@@ -1,9 +1,9 @@
 export declare type ExtractMode = "source" | "target" | "both-horizontal" | "both-vertical";
 
-export { LmLgFileInfo } from '../services/core/LmLgFileInfo';
-export { LmLgMeta } from '../services/core/LmLgMeta';
-export { LmLgBody } from '../services/core/LmLgBody';
-export { LmLgUnit } from '../services/core/LmLgUnit';
+export { ShWvFileInfo } from '../services/core/ShWvFileInfo';
+export { ShWvMeta } from '../services/core/ShWvMeta';
+export { ShWvBody } from '../services/core/ShWvBody';
+export { ShWvUnit } from '../services/core/ShWvUnit';
 
 export interface TranslationPair {
     idx: number;

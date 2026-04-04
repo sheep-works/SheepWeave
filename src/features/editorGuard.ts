@@ -1,6 +1,6 @@
 /**
  * エディタの保護機能。
- * .lmlgファイルの行数が変更されるのを防ぎ、誤った編集をUndoします。
+ * .shwvファイルの行数が変更されるのを防ぎ、誤った編集をUndoします。
  */
 import * as vscode from 'vscode';
 
@@ -10,14 +10,14 @@ const undoing = new Set<string>();
 export function initEditorGuard(context: vscode.ExtensionContext) {
     // Initialize for already open documents
     vscode.workspace.textDocuments.forEach(doc => {
-        if (isLmlgFile(doc)) {
+        if (isShwvFile(doc)) {
             lineCountMap.set(doc.uri.toString(), doc.lineCount);
         }
     });
 
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(doc => {
-            if (isLmlgFile(doc)) {
+            if (isShwvFile(doc)) {
                 lineCountMap.set(doc.uri.toString(), doc.lineCount);
             }
         }),
@@ -30,7 +30,7 @@ export function initEditorGuard(context: vscode.ExtensionContext) {
             const { document, contentChanges } = e;
             const key = document.uri.toString();
 
-            if (!isLmlgFile(document)) return;
+            if (!isShwvFile(document)) return;
             if (undoing.has(key)) return;
 
             // If we don't have a baseline, set it now (should have happened on open, but just in case)
@@ -53,7 +53,7 @@ export function initEditorGuard(context: vscode.ExtensionContext) {
                 try {
                     undoing.add(key);
                     await vscode.commands.executeCommand('undo');
-                    vscode.window.showWarningMessage('LambLingo: Line count change is restricted in .lmlg files.');
+                    vscode.window.showWarningMessage('SheepWeave: Line count change is restricted in .shwv files.');
                 } finally {
                     undoing.delete(key);
                 }
@@ -66,7 +66,7 @@ export function initEditorGuard(context: vscode.ExtensionContext) {
     );
 }
 
-function isLmlgFile(doc: vscode.TextDocument): boolean {
-    return doc.languageId === 'lmlgt' || doc.fileName.endsWith('.lmlgt')
-        || doc.languageId === 'lmlgs' || doc.fileName.endsWith('.lmlgs');
+function isShwvFile(doc: vscode.TextDocument): boolean {
+    return doc.languageId === 'shwvt' || doc.fileName.endsWith('.shwvt')
+        || doc.languageId === 'shwvs' || doc.fileName.endsWith('.shwvs');
 }
