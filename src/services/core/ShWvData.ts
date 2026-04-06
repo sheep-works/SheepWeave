@@ -28,8 +28,8 @@ export class ShWvData {
         };
     }
 
-    public async parse(filepath: string): Promise<void> {
-        const { fileinfo, units } = await parseTranslationFiles([filepath]);
+    public async parse(filepaths: string[]): Promise<void> {
+        const { fileinfo, units } = await parseTranslationFiles(filepaths);
         if (fileinfo && fileinfo.length > 0) {
             this.meta.files.push(...fileinfo);
         }
@@ -160,22 +160,36 @@ export class ShWvData {
             const memMatches = ShWvDiffer.batchCompare(memories, currentUnit.src, 0.6, 5);
             const prevMatches = ShWvDiffer.batchCompare(previousUnits, currentUnit.src, 0.6, 5);
 
-            // Combine, sort, and slice to top 5
-            const combinedTms = [...memMatches, ...prevMatches].sort((a, b) => b.ratio - a.ratio).slice(0, 5);
-            currentUnit.ref.tms = combinedTms;
+            // Combine and sort
+            const allTms = [...memMatches, ...prevMatches].sort((a, b) => b.ratio - a.ratio);
+
+            // Deduplicate by src + tgt
+            const uniqueTms: typeof allTms = [];
+            const seenTm = new Set<string>();
+            for (const tm of allTms) {
+                const key = tm.src + '|||' + tm.tgt;
+                if (!seenTm.has(key)) {
+                    seenTm.add(key);
+                    uniqueTms.push(tm);
+                }
+            }
+
+            // Slice to top 5
+            currentUnit.ref.tms = uniqueTms.slice(0, 5);
 
             // TB Matching
             for (const tb of termbase) {
                 if (currentUnit.src.includes(tb.src)) {
+                    const tbTarget = tb.tgt || tb.pre;
                     let existingTb = currentUnit.ref.tb.find(t => t.src === tb.src);
                     if (existingTb) {
-                        if (!existingTb.tgts.includes(tb.tgt)) {
-                            existingTb.tgts.push(tb.tgt);
+                        if (!existingTb.tgts.includes(tbTarget)) {
+                            existingTb.tgts.push(tbTarget);
                         }
                     } else {
                         currentUnit.ref.tb.push({
                             src: tb.src,
-                            tgts: [tb.tgt]
+                            tgts: [tbTarget]
                         });
                     }
                 }
@@ -195,8 +209,8 @@ export class ShWvData {
         }
     }
 
-    public async saveXlf(filepath: string): Promise<void> {
-        const newXlf = await shwv2xlf(readFileSync(this.meta.bilingualPath, 'utf-8'), this.body.units);
+    public async saveXlf(filepath: string, originalXlfPath: string, slicedUnits: ShWvUnit[]): Promise<void> {
+        const newXlf = await shwv2xlf(readFileSync(originalXlfPath, 'utf-8'), slicedUnits);
         writeFileSync(filepath, newXlf);
     }
 }

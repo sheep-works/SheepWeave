@@ -23,3 +23,7 @@ yarn-error.log*
 sample/
 demo/
 okapi/
+debugs/
+
+# instructions
+instructions/

@@ -7,6 +7,7 @@ import { openSheepWeavePanel } from './commands/openSheepWeavePanel';
 import { prepareProjectCommand } from './commands/prepareProject';
 import { initEditorGuard } from './features/editorGuard';
 import { initDecorators } from './features/decorators';
+import { initShortcuts } from './features/shortcuts';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, your extension "sheep-weave" is now active!');
@@ -25,6 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     initEditorGuard(context);
     initDecorators(context);
+    initShortcuts(context);
 }
 
 export function deactivate() { }

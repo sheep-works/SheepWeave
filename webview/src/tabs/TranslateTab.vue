@@ -4,6 +4,8 @@ import { ref } from 'vue';
 import Nodata from '../components/Nodata.vue';
 import { useShWvStore } from '../store/shwv';
 
+import CurrentSegTbody from '../components/CurrentSegTbody.vue';
+
 const shwvStore = useShWvStore();
 
 const columns = [
@@ -21,28 +23,17 @@ const columns = [
             <tr>
                 <th>ID / Ratio</th>
                 <th>Source</th>
-                <th>Target</th>
+                <th colspan="2">Target</th>
             </tr>
         </thead>
-        <tbody>
-            <tr>
-                <td>{{ shwvStore.crtUnit.idx + 1 }}</td>
-                <td>{{ shwvStore.crtUnit.src }}</td>
-                <td>{{ shwvStore.crtUnit.tgt }}</td>
-            </tr>
-        </tbody>
+        <!-- 自身に関するデータ -->
+        <CurrentSegTbody />
+        <!-- TM -->
         <tbody v-if="shwvStore.crtUnit.ref.tms.length > 0">
-            <tr v-for="tm in shwvStore.crtUnit.ref.tms" :key="tm.idx">
+            <tr v-for="tm in shwvStore.crtUnit.ref.tms" :key="tm.idx" :class="{ 'is-external': tm.idx === -1 }">
                 <td>{{ tm.ratio }}</td>
-                <td>{{ tm.src }}</td>
-                <td>{{ tm.tgt }}</td>
-            </tr>
-        </tbody>
-        <tbody v-if="shwvStore.crtUnit.ref.tb.length > 0">
-            <tr v-for="tb, tbx in shwvStore.crtUnit.ref.tb" :key="tbx">
-                <td>{{ tbx }}</td>
-                <td>{{ tb.src }}</td>
-                <td>{{ tb.tgts.join(' | ') }}</td>
+                <td v-html="tm.diff || tm.src"></td>
+                <td colspan="2">{{ tm.tgt }}</td>
             </tr>
         </tbody>
     </table>
@@ -53,10 +44,46 @@ const columns = [
 </template>
 
 <style scoped>
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+:deep(th), :deep(td) {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--vscode-sideBar-border, rgba(255,255,255,0.1));
+    text-align: left;
+    vertical-align: top;
+}
+
+:deep(ins) {
+    color: #4daafc; /* 青 */
+    font-size: 1.1rem;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+:deep(del) {
+    color: #fc4d4d; /* 赤 */
+    font-size: 0.9rem;
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+
 .segment-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+tr.is-external {
+    background: repeating-linear-gradient(
+        45deg,
+        rgba(0, 0, 0, 0.1),
+        rgba(0, 0, 0, 0.1) 10px,
+        rgba(255, 255, 255, 0.05) 10px,
+        rgba(255, 255, 255, 0.05) 20px
+    );
 }
 
 tr.is-freezed {

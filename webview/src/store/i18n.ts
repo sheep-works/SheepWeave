@@ -59,6 +59,10 @@ export const useI18nStore = defineStore('i18n', {
                     en: 'Complete translation, and compile the translated file',
                     ja: "翻訳を完了し、翻訳完了ファイルを生成します"
                 },
+                packageDesc: {
+                    en: 'Compile native files from translated XLIFF',
+                    ja: "翻訳完了XLFからネイティブファイル（訳文）を生成します"
+                },
             },
             translateTab: {
                 titleCurent: {

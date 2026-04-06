@@ -63,6 +63,7 @@ export class ShWvDiffer {
             if (match.tm.ratio !== 1) {
                 match.tm.diff = this.applyOpcodes(match.tm.src, crtSrc, match.opcodes);
             }
+            match.tm.ratio = Math.round(match.tm.ratio * 100);
             return match.tm;
         });
     }

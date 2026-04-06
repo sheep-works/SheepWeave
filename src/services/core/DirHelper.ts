@@ -1,9 +1,9 @@
 import * as path from 'path';
+import { ProjectManager } from './ProjectManager';
 
 export class DirHelper {
     static readonly rootToShwvs = 'Working/04_SHWV/Source.shwvs';
     static readonly rootToShwvt = 'Working/04_SHWV/Target.shwvt';
-    static readonly rootToStorage = 'Working/03_XLF_JSON/data.json';
 
     static getShwvsPath(root: string): string {
         return path.join(root, this.rootToShwvs);
@@ -14,6 +14,8 @@ export class DirHelper {
     }
 
     static getStoragePath(root: string): string {
-        return path.join(root, this.rootToStorage);
+        const projectManager = new ProjectManager(root);
+        const projectName = projectManager.data.projectName || 'data';
+        return path.join(root, 'Working', '03_XLF_JSON', `${projectName}.json`);
     }
 }

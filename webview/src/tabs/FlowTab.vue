@@ -1,7 +1,36 @@
-00<script setup lang="ts">
+<script setup lang="ts">
+import { ref, watch } from 'vue';
 import { useI18nStore } from '../store/i18n';
+
+interface ProjectConfig {
+    projectName: string;
+    sourceLang: string;
+    targetLang: string;
+}
+
 const i18nStore = useI18nStore();
+
+const props = defineProps<{
+    config: ProjectConfig
+}>();
+
 defineEmits(["FlowCommand"]);
+
+const langOptions = ['en-US', 'ja-JP', 'zh-CN'];
+
+// Individual refs to simplify analysis and ensure reactivity
+const pName = ref(props.config.projectName);
+const sLang = ref(props.config.sourceLang);
+const tLang = ref(props.config.targetLang);
+
+// Sync local state when props change (e.g. on config load from extension)
+watch(() => props.config, (newVal) => {
+    if (newVal) {
+        pName.value = newVal.projectName;
+        sLang.value = newVal.sourceLang;
+        tLang.value = newVal.targetLang;
+    }
+}, { deep: true });
 
 </script>
 
@@ -25,9 +54,17 @@ defineEmits(["FlowCommand"]);
               </a-space>
             </a-list-item>
             <a-list-item>
-              <a-space>
+              <a-space direction="vertical" style="width: 100%;">
                 <a-typography-text>{{ i18nStore.getText('flowTab', 'prepareDesc') }}</a-typography-text>
-                <a-button @click="$emit('FlowCommand', 'prepare')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>  
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                  <a-input v-model="pName" placeholder="Project Name" style="width: 200px" />
+                  <a-select v-model="sLang" :options="langOptions" placeholder="Source" style="width: 120px" />
+                  <span style="margin: 0 5px;">➔</span>
+                  <a-select v-model="tLang" :options="langOptions" placeholder="Target" style="width: 120px" />
+                  <a-button @click="$emit('FlowCommand', 'prepare', { projectName: pName, sourceLang: sLang, targetLang: tLang })">
+                    {{ i18nStore.getText('flowTab', 'btnText') }}
+                  </a-button>  
+                </div>
               </a-space>
             </a-list-item>
             <a-list-item>
@@ -64,6 +101,12 @@ defineEmits(["FlowCommand"]);
             <a-space>
               <a-typography-text>{{ i18nStore.getText('flowTab', 'completeDesc') }}</a-typography-text>
               <a-button @click="$emit('FlowCommand', 'complete')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>  
+            </a-space>
+            </a-list-item>
+            <a-list-item>
+            <a-space>
+              <a-typography-text>{{ i18nStore.getText('flowTab', 'packageDesc') }}</a-typography-text>
+              <a-button @click="$emit('FlowCommand', 'package')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>  
             </a-space>
             </a-list-item>
           </a-list>

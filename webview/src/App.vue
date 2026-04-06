@@ -25,11 +25,18 @@ const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeA
 // \`panel.webview.onDidReceiveMessage(message => { ... })\` メソッドにて受信・処理される。
 // 引数の \`command\` は、message.type として送られ、
 // 'init', 'prepare', 'start', 'finish' などの文字列を受け取る。
-function handleCommand(command: string) {
+const config = ref({
+    projectName: 'SheepWeaveProject',
+    sourceLang: 'en-US',
+    targetLang: 'ja-JP'
+});
+
+function handleCommand(command: string, payload?: any) {
+    console.log('[Webview handleCommand]', command, payload);
     if (vscode) {
-        vscode.postMessage({ type: command });
+        vscode.postMessage({ type: command, payload });
     } else {
-        console.log(`Mock: ${command} command sent`);
+        console.log(`Mock: ${command} command sent with payload:`, payload);
     }
 }
 
@@ -40,6 +47,10 @@ onMounted(() => {
         switch (message.type) {
             case 'INIT':
                 console.log('Init message received', message.payload);
+                break;
+            case 'CONFIG_LOADED':
+                if (message.data.sourceLang) config.value.sourceLang = message.data.sourceLang;
+                if (message.data.targetLang) config.value.targetLang = message.data.targetLang;
                 break;
             case 'SHWV_DATA_LOADED':
                 shwvStore.loadData(message.data);
@@ -73,6 +84,7 @@ onMounted(() => {
     <a-tab-pane key="flow" title="Flow">
         <FlowTab
             @FlowCommand="handleCommand"
+            :config="config"
         />
     </a-tab-pane>
     <a-tab-pane key="translate" title="Translate">

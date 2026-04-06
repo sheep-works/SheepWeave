@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "sheepweave",
   "engines": {
     "vscode": "^1.96.0"
@@ -12,9 +12,7 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onCommand:sheepWeave.openPanel",
-    "onCommand:sheepWeave.prepare",
-    "onLanguage:shwv",
+    "onLanguage:shwvt",
     "onFileSystem:workspace"
   ],
   "main": "./dist/extension.js",
@@ -27,9 +25,55 @@
       {
         "command": "sheepWeave.prepare",
         "title": "SheepWeave: Prepare Project"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm1",
+        "title": "SheepWeave: Apply TM 1"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm2",
+        "title": "SheepWeave: Apply TM 2"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm3",
+        "title": "SheepWeave: Apply TM 3"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm4",
+        "title": "SheepWeave: Apply TM 4"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm5",
+        "title": "SheepWeave: Apply TM 5"
+      },
+      {
+        "command": "sheepWeave.replaceWithTb",
+        "title": "SheepWeave: Apply Term"
+      },
+      {
+        "command": "sheepWeave.replaceAllWithTb",
+        "title": "SheepWeave: Apply Term Globally"
       }
     ],
     "languages": [
+      {
+        "id": "shwvt",
+        "aliases": [
+          "SheepWeave Target"
+        ],
+        "extensions": [
+          ".shwvt"
+        ]
+      },
+      {
+        "id": "shwvs",
+        "aliases": [
+          "SheepWeave Source"
+        ],
+        "extensions": [
+          ".shwvs"
+        ]
+      },
       {
         "id": "shwv",
         "aliases": [
@@ -46,6 +90,66 @@
         "command": "sheepWeave.openPanel",
         "key": "ctrl+alt+l",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm1",
+        "key": "ctrl+shift+1",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm2",
+        "key": "ctrl+shift+2",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm3",
+        "key": "ctrl+shift+3",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm4",
+        "key": "ctrl+shift+4",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm5",
+        "key": "ctrl+shift+5",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.replaceWithTb",
+        "key": "ctrl+shift+z",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.replaceAllWithTb",
+        "key": "ctrl+shift+alt+z",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm1",
+        "key": "ctrl+shift+numpad1",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm2",
+        "key": "ctrl+shift+numpad2",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm3",
+        "key": "ctrl+shift+numpad3",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm4",
+        "key": "ctrl+shift+numpad4",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.replaceWithTm5",
+        "key": "ctrl+shift+numpad5",
+        "when": "editorTextFocus && editorLangId == shwvt"
       }
     ],
     "configuration": {
@@ -53,11 +157,21 @@
       "properties": {
         "sheepWeave.sourceLang": {
           "type": "string",
-          "default": "en"
+          "default": "en-US",
+          "enum": [
+            "en-US",
+            "ja-JP",
+            "zh-CN"
+          ]
         },
         "sheepWeave.targetLang": {
           "type": "string",
-          "default": "ja"
+          "default": "ja-JP",
+          "enum": [
+            "en-US",
+            "ja-JP",
+            "zh-CN"
+          ]
         },
         "sheepWeave.archiveDateFormat": {
           "type": "string",
@@ -66,6 +180,11 @@
         "sheepWeave.ai.enabled": {
           "type": "boolean",
           "default": true
+        },
+        "sheepWeave.tikalPath": {
+          "type": "string",
+          "description": "Path to the Okapi Tikal executable (e.g. tikal.bat). If left empty, it tries to find it in the workspace /okapi/tikal folder.",
+          "default": ""
         }
       }
     }
@@ -76,7 +195,8 @@
     "watch": "npm run build:webview && webpack --watch",
     "package": "npm run build:webview && webpack --mode production --devtool hidden-source-map",
     "lint": "eslint src --ext ts",
-    "build:webview": "cd webview && npm run build"
+    "build:webview": "cd webview && npm run build",
+    "vsix": "vsce package"
   },
   "devDependencies": {
     "@types/glob": "^8.1.0",
@@ -85,6 +205,7 @@
     "@types/xml2js": "^0.4.14",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
+    "@vscode/vsce": "^3.7.1",
     "eslint": "^8.56.0",
     "glob": "^10.3.10",
     "ts-loader": "^9.5.1",
