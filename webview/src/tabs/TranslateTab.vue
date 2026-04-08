@@ -13,12 +13,19 @@ const columns = [
     { title: 'Source', dataIndex: 'src' },
     { title: 'Target', dataIndex: 'tgt' },
 ];
+
+defineProps({
+    fontSize: {
+        type: Number,
+        default: 14
+    }
+});
 </script>
 
 <template>
   <div v-if="shwvStore.hasData">
     <a-typography-text>Current: {{ shwvStore.crtPos }} / {{ shwvStore.maxPos }}</a-typography-text>
-    <table v-if="shwvStore.crtUnit">
+    <table v-if="shwvStore.crtUnit" :style="{ fontSize: fontSize + 'px' }">
         <colgroup>
             <col style="width: 8%" />
             <col style="width: 46%" />

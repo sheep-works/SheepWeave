@@ -29,7 +29,8 @@ const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeA
 const config = ref({
     projectName: 'SheepWeaveProject',
     sourceLang: 'en-US',
-    targetLang: 'ja-JP'
+    targetLang: 'ja-JP',
+    fontSize: 14
 });
 
 function handleCommand(command: string, payload?: any) {
@@ -52,6 +53,7 @@ onMounted(() => {
             case 'CONFIG_LOADED':
                 if (message.data.sourceLang) config.value.sourceLang = message.data.sourceLang;
                 if (message.data.targetLang) config.value.targetLang = message.data.targetLang;
+                if (message.data.fontSize) config.value.fontSize = message.data.fontSize;
                 break;
             case 'SHWV_DATA_LOADED':
                 shwvStore.loadData(message.data);
@@ -89,7 +91,7 @@ onMounted(() => {
         />
     </a-tab-pane>
     <a-tab-pane key="translate" title="Translate">
-        <TranslateTab />
+        <TranslateTab :fontSize="config.fontSize" />
     </a-tab-pane>
     <a-tab-pane key="debug" title="Debug">
         <DebugTab />

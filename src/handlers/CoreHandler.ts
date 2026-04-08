@@ -52,7 +52,10 @@ export class CoreHandler {
                 }
                 break;
             case 'reanalyze':
-                globalShWvData.analyze(rootPath);
+                await globalShWvData.analyze(rootPath);
+                globalShWvData.save(rootPath);
+                panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units } });
+                vscode.window.showInformationMessage('Re-analysis completed and data updated');
                 break;
             case 'complete':
                 await postprocessor(rootPath);
@@ -71,7 +74,8 @@ export class CoreHandler {
                     type: 'CONFIG_LOADED',
                     data: {
                         sourceLang: config.get<string>('sourceLang') || 'en-US',
-                        targetLang: config.get<string>('targetLang') || 'ja-JP'
+                        targetLang: config.get<string>('targetLang') || 'ja-JP',
+                        fontSize: config.get<number>('translateTab.fontSize') || 14
                     }
                 });
 

@@ -1,2 +1,2 @@
 export * from './TransPairParser';
-export * from './xlf/shwv2xlf';
+export * from './shwv2xlf';

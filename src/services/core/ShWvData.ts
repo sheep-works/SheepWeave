@@ -166,46 +166,54 @@ export class ShWvData {
             termbase = parsedTb.units.map(u => new ShWvUnit(u));
         }
 
+        const tmList = memories.map(m => m.src);
+        const textList = units.map(u => u.src);
+        const tbList = termbase.map(t => t.src);
+
+        // Call WASM analytical functions
+        // Using require to ensure it correctly resolves at runtime since we linked it in package.json
+        const { analyze_all } = require('sheep-spindle');
+        const results = analyze_all(tmList, textList, tbList, 0.6, 5);
+
         for (let i = 0; i < units.length; i++) {
             const currentUnit = units[i];
+            const currentResult = results[i];
 
-            // TM Matching
-            const previousUnits = units.slice(0, i).map(u => ({ idx: u.idx, src: u.src, tgt: u.tgt || "" }));
-            const memMatches = ShWvDiffer.batchCompare(memories, currentUnit.src, 0.6, 5);
-            const prevMatches = ShWvDiffer.batchCompare(previousUnits, currentUnit.src, 0.6, 5);
+            // Retrieve TM match sources
+            const tmSources = currentResult.t.map((idx: number) => memories[idx]);
+            const internalSources = currentResult.i.map((idx: number) => ({ idx: units[idx].idx, src: units[idx].src, tgt: units[idx].tgt || "" }));
 
-            // Combine and sort
-            const allTms = [...memMatches, ...prevMatches].sort((a, b) => b.ratio - a.ratio);
+            const allSources = [...tmSources, ...internalSources];
 
             // Deduplicate by src + tgt
-            const uniqueTms: typeof allTms = [];
+            const uniqueSources: typeof allSources = [];
             const seenTm = new Set<string>();
-            for (const tm of allTms) {
-                const key = tm.src + '|||' + tm.tgt;
+            for (const s of allSources) {
+                const key = s.src + '|||' + s.tgt;
                 if (!seenTm.has(key)) {
                     seenTm.add(key);
-                    uniqueTms.push(tm);
+                    uniqueSources.push(s);
                 }
             }
 
-            // Slice to top 5
-            currentUnit.ref.tms = uniqueTms.slice(0, 5);
+            // Calculate precise difflib-based opcodes and ratios only for these few top matches
+            const diffedTms = ShWvDiffer.computeDiffsForWasm(uniqueSources, currentUnit.src);
+            currentUnit.ref.tms = diffedTms.slice(0, 5);
 
-            // TB Matching
-            for (const tb of termbase) {
-                if (currentUnit.src.includes(tb.src)) {
-                    const tbTarget = tb.tgt || tb.pre;
-                    let existingTb = currentUnit.ref.tb.find(t => t.src === tb.src);
-                    if (existingTb) {
-                        if (!existingTb.tgts.includes(tbTarget)) {
-                            existingTb.tgts.push(tbTarget);
-                        }
-                    } else {
-                        currentUnit.ref.tb.push({
-                            src: tb.src,
-                            tgts: [tbTarget]
-                        });
+            // Match TB (Glossary)
+            for (const tbIdx of currentResult.g) {
+                const tb = termbase[tbIdx];
+                const tbTarget = tb.tgt || tb.pre;
+                let existingTb = currentUnit.ref.tb.find(t => t.src === tb.src);
+                if (existingTb) {
+                    if (!existingTb.tgts.includes(tbTarget)) {
+                        existingTb.tgts.push(tbTarget);
                     }
+                } else {
+                    currentUnit.ref.tb.push({
+                        src: tb.src,
+                        tgts: [tbTarget]
+                    });
                 }
             }
         }
@@ -216,7 +224,11 @@ export class ShWvData {
                 if (tm.idx !== -1) { // Skip external memory refs which have idx -1
                     const referencedUnit = units.find(u => u.idx === tm.idx);
                     if (referencedUnit) {
-                        referencedUnit.ref.quoted.push([currentUnit.idx, tm.ratio]);
+                        if (tm.ratio === 100) {
+                            referencedUnit.ref.quoted100.push(currentUnit.idx);
+                        } else {
+                            referencedUnit.ref.quoted.push([currentUnit.idx, tm.ratio]);
+                        }
                     }
                 }
             }

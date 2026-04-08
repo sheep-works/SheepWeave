@@ -67,4 +67,39 @@ export class ShWvDiffer {
             return match.tm;
         });
     }
+
+    static computeDiffsForWasm(srcs: { idx: number, src: string, tgt: string }[], crtSrc: string): ShWvRefTm[] {
+        let results: { tm: ShWvRefTm; opcodes: [string, number, number, number, number][] }[] = [];
+
+        this.matcher.setSeq2(crtSrc);
+
+        for (const s of srcs) {
+            this.matcher.setSeq1(s.src);
+            const ratio = this.matcher.ratio();
+            const opcodes = this.matcher.getOpcodes() as [string, number, number, number, number][];
+
+            const tm = new ShWvRefTm();
+            tm.idx = s.idx;
+            tm.src = s.src;
+            tm.tgt = s.tgt;
+            tm.ratio = ratio;
+
+            results.push({ tm, opcodes });
+        }
+
+        this.matcher.setSeqs("", "");
+
+        // Apply opcodes to generate diff text for the final collection
+        // WASM already sorted them by its own algorithm, but SequenceMatcher ratio might differ slightly.
+        // We'll resync the sorting based on difflib ratio to be consistent with UI expectations.
+        results.sort((a, b) => b.tm.ratio - a.tm.ratio);
+
+        return results.map(match => {
+            if (match.tm.ratio !== 1) {
+                match.tm.diff = this.applyOpcodes(match.tm.src, crtSrc, match.opcodes);
+            }
+            match.tm.ratio = Math.round(match.tm.ratio * 100);
+            return match.tm;
+        });
+    }
 }

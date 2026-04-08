@@ -5,10 +5,12 @@ export class ShWvRef {
     tms: ShWvRefTm[];
     tb: ShWvRefTb[];
     quoted: number[][];
+    quoted100: number[];
 
     constructor() {
         this.tms = [];
         this.tb = [];
-        this.quoted = []
+        this.quoted = [];
+        this.quoted100 = [];
     }
 }
