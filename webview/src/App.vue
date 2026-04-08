@@ -6,6 +6,7 @@ import FlowTab from './tabs/FlowTab.vue';
 import TranslateTab from './tabs/TranslateTab.vue';
 import DebugTab from './tabs/DebugTab.vue';
 import ManagementTab from './tabs/ManagementTab.vue';
+import SettingsTab from './tabs/SettingsTab.vue';
 import { storeToRefs } from 'pinia';
 
 
@@ -39,6 +40,16 @@ function handleCommand(command: string, payload?: any) {
         vscode.postMessage({ type: command, payload });
     } else {
         console.log(`Mock: ${command} command sent with payload:`, payload);
+    }
+}
+
+function updateConfig(newConfig: any) {
+    console.log('[Webview updateConfig]', newConfig);
+    if (newConfig.fontSize !== undefined) {
+        config.value.fontSize = newConfig.fontSize;
+    }
+    if (vscode) {
+        vscode.postMessage({ type: 'update-config', payload: newConfig });
     }
 }
 
@@ -98,6 +109,9 @@ onMounted(() => {
     </a-tab-pane>
     <a-tab-pane key="management" title="Management">
         <ManagementTab @ManageCommand="handleCommand" />
+    </a-tab-pane>
+    <a-tab-pane key="settings" title="Settings">
+        <SettingsTab :config="config" @updateConfig="updateConfig" />
     </a-tab-pane>
     </a-tabs>
 </a-layout>

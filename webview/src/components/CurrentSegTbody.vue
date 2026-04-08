@@ -21,7 +21,10 @@ const rowspan = computed(() => {
                     {{ shwvStore.crtUnit.src }}
                 </td>
                 <td>{{ tb.src }}</td>
-                <td>{{ tb.tgts.join(' / ') }}</td>
+                <td>
+                    {{ tb.tgts.join(' / ') }}
+                    <div v-if="tb.file" class="file-text">{{ tb.file }}</div>
+                </td>
             </tr>
         </template>
 
@@ -42,17 +45,24 @@ const rowspan = computed(() => {
 
 <style scoped>
 td {
-    padding: 10px 8px;
+    padding: 0.7em 0.5em;
     border-bottom: 1px solid var(--vscode-sideBar-border, rgba(255,255,255,0.1));
     text-align: left;
     vertical-align: top;
 }
 
 .tbody-spacer td {
-    height: 20px; /* マージンの代わり */
+    height: 1.5em; /* マージンの代わり */
     padding: 0;
     border-bottom: none;
     background: transparent;
+}
+
+.file-text {
+    font-size: 0.7em;
+    opacity: 0.6;
+    margin-top: 4px;
+    word-break: break-all;
 }
 </style>
 

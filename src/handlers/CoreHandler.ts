@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { ShWvData } from '../services/core/ShWvData';
 import { ProjectManager } from '../services/core/ProjectManager';
-import { initDirs, prepareWorking, preprocessor, postprocessor, runTikalExtraction, runPackage } from '../services/fileOps';
+import { initDirs, prepareWorking, syncRefDir, preprocessor, postprocessor, runTikalExtraction, runPackage } from '../services/fileOps';
 
 export class CoreHandler {
     public static async handle(message: any, globalShWvData: ShWvData, rootPath: string, panel: vscode.WebviewPanel) {
@@ -52,6 +52,7 @@ export class CoreHandler {
                 }
                 break;
             case 'reanalyze':
+                await syncRefDir(rootPath);
                 await globalShWvData.analyze(rootPath);
                 globalShWvData.save(rootPath);
                 panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units } });
@@ -84,6 +85,13 @@ export class CoreHandler {
                         type: 'SHWV_DATA_LOADED',
                         data: { meta: globalShWvData.meta, units: globalShWvData.body.units }
                     });
+                }
+                break;
+            case 'update-config':
+                const updatePayload = message.payload || {};
+                const workspaceConfig = vscode.workspace.getConfiguration('sheepWeave');
+                if (updatePayload.fontSize !== undefined) {
+                    await workspaceConfig.update('translateTab.fontSize', updatePayload.fontSize, vscode.ConfigurationTarget.Global);
                 }
                 break;
             default:

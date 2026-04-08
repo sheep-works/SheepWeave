@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "sheepweave",
   "engines": {
     "vscode": "^1.96.0"
@@ -230,6 +230,7 @@
   },
   "dependencies": {
     "difflib-ts": "^1.0.3",
+    "sheepshuttle": "file:modules/SheepShuttle",
     "sheep-spindle": "file:modules/SheepSpindle/pkg",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "xml2js": "^0.6.2"

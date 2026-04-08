@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 export class ShWvData {
+    public ver!: number;
     public meta!: ShWvMeta;
     public body!: ShWvBody;
 
@@ -145,94 +146,47 @@ export class ShWvData {
         // Load TM files
         const tmDir = path.join(root, 'Working', '01_REF', 'TM');
         let memories: any[] = [];
-        const tmFiles = this.meta.tmFiles && this.meta.tmFiles.length > 0
-            ? this.meta.tmFiles.map(f => path.join(tmDir, f))
-            : (fs.existsSync(tmDir) ? fs.readdirSync(tmDir).map(f => path.join(tmDir, f)) : []);
+        
+        let tmFileList: string[] = [];
+        if (this.meta.tmFiles && this.meta.tmFiles.length > 0) {
+            tmFileList = this.meta.tmFiles;
+        } else if (fs.existsSync(tmDir)) {
+            tmFileList = fs.readdirSync(tmDir).filter(f => fs.statSync(path.join(tmDir, f)).isFile());
+            this.meta.tmFiles = tmFileList; // Populate meta if empty
+        }
 
-        if (tmFiles.length > 0) {
-            const parsedTm = await parseTranslationFiles(tmFiles);
-            memories = parsedTm.units.map(u => ({ idx: -1, src: u.src, tgt: u.tgt, freeze: true }));
+        if (tmFileList.length > 0) {
+            const tmFilesFull = tmFileList.map(f => path.join(tmDir, f));
+            const parsedTm = await parseTranslationFiles(tmFilesFull);
+            memories = parsedTm.units.map((u, i) => {
+                const info = parsedTm.fileinfo.find(f => i >= f.start && i <= f.end);
+                return { idx: -1, src: u.src, tgt: u.tgt, freeze: true, file: info?.name };
+            });
         }
 
         // Load TB files
         const tbDir = path.join(root, 'Working', '01_REF', 'TB');
-        let termbase: ShWvUnit[] = [];
-        const tbFiles = this.meta.tbFiles && this.meta.tbFiles.length > 0
-            ? this.meta.tbFiles.map(f => path.join(tbDir, f))
-            : (fs.existsSync(tbDir) ? fs.readdirSync(tbDir).map(f => path.join(tbDir, f)) : []);
-
-        if (tbFiles.length > 0) {
-            const parsedTb = await parseTranslationFiles(tbFiles);
-            termbase = parsedTb.units.map(u => new ShWvUnit(u));
+        let termbase: any[] = [];
+        
+        let tbFileList: string[] = [];
+        if (this.meta.tbFiles && this.meta.tbFiles.length > 0) {
+            tbFileList = this.meta.tbFiles;
+        } else if (fs.existsSync(tbDir)) {
+            tbFileList = fs.readdirSync(tbDir).filter(f => fs.statSync(path.join(tbDir, f)).isFile());
+            this.meta.tbFiles = tbFileList; // Populate meta if empty
         }
 
-        const tmList = memories.map(m => m.src);
-        const textList = units.map(u => u.src);
-        const tbList = termbase.map(t => t.src);
-
-        // Call WASM analytical functions
-        // Using require to ensure it correctly resolves at runtime since we linked it in package.json
-        const { analyze_all } = require('sheep-spindle');
-        const results = analyze_all(tmList, textList, tbList, 0.6, 5);
-
-        for (let i = 0; i < units.length; i++) {
-            const currentUnit = units[i];
-            const currentResult = results[i];
-
-            // Retrieve TM match sources
-            const tmSources = currentResult.t.map((idx: number) => memories[idx]);
-            const internalSources = currentResult.i.map((idx: number) => ({ idx: units[idx].idx, src: units[idx].src, tgt: units[idx].tgt || "" }));
-
-            const allSources = [...tmSources, ...internalSources];
-
-            // Deduplicate by src + tgt
-            const uniqueSources: typeof allSources = [];
-            const seenTm = new Set<string>();
-            for (const s of allSources) {
-                const key = s.src + '|||' + s.tgt;
-                if (!seenTm.has(key)) {
-                    seenTm.add(key);
-                    uniqueSources.push(s);
-                }
-            }
-
-            // Calculate precise difflib-based opcodes and ratios only for these few top matches
-            const diffedTms = ShWvDiffer.computeDiffsForWasm(uniqueSources, currentUnit.src);
-            currentUnit.ref.tms = diffedTms.slice(0, 5);
-
-            // Match TB (Glossary)
-            for (const tbIdx of currentResult.g) {
-                const tb = termbase[tbIdx];
-                const tbTarget = tb.tgt || tb.pre;
-                let existingTb = currentUnit.ref.tb.find(t => t.src === tb.src);
-                if (existingTb) {
-                    if (!existingTb.tgts.includes(tbTarget)) {
-                        existingTb.tgts.push(tbTarget);
-                    }
-                } else {
-                    currentUnit.ref.tb.push({
-                        src: tb.src,
-                        tgts: [tbTarget]
-                    });
-                }
-            }
+        if (tbFileList.length > 0) {
+            const tbFilesFull = tbFileList.map(f => path.join(tbDir, f));
+            const parsedTb = await parseTranslationFiles(tbFilesFull);
+            termbase = parsedTb.units.map((u, i) => {
+                const info = parsedTb.fileinfo.find(f => i >= f.start && i <= f.end);
+                return { ...u, file: info?.name };
+            });
         }
 
-        for (let i = units.length - 1; i >= 0; i--) {
-            const currentUnit = units[i];
-            for (const tm of currentUnit.ref.tms) {
-                if (tm.idx !== -1) { // Skip external memory refs which have idx -1
-                    const referencedUnit = units.find(u => u.idx === tm.idx);
-                    if (referencedUnit) {
-                        if (tm.ratio === 100) {
-                            referencedUnit.ref.quoted100.push(currentUnit.idx);
-                        } else {
-                            referencedUnit.ref.quoted.push([currentUnit.idx, tm.ratio]);
-                        }
-                    }
-                }
-            }
-        }
+        // Delegate search and analysis to ShWvDiffer
+        await ShWvDiffer.analyze(units, memories, termbase);
     }
 
     public async saveXlf(filepath: string, originalXlfPath: string, slicedUnits: ShWvUnit[]): Promise<void> {
