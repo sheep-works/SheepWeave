@@ -222,6 +222,30 @@ export async function xlsx2Pairs(buffer: Buffer, startIdx: number): Promise<Tran
     return csv2Pairs(buffer, startIdx);
 }
 
+export async function jsonl2Pairs(content: string, startIdx: number): Promise<TranslationPair[]> {
+    const units: TranslationPair[] = [];
+    let currentIdx = startIdx;
+    const lines = content.split('\n');
+
+    for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+            const parsed = JSON.parse(line);
+            if (parsed.src) {
+                units.push({
+                    idx: currentIdx++,
+                    src: parsed.src,
+                    tgt: parsed.tgt || ""
+                });
+            }
+        } catch (e) {
+            console.error(`Failed to parse JSONL line: ${line}`, e);
+        }
+    }
+    return units;
+}
+
+
 
 export async function parseTranslationFiles(filepaths: string[]): Promise<{ fileinfo: ShWvFileInfo[], units: TranslationPair[] }> {
     const fileinfo: ShWvFileInfo[] = [];
@@ -246,6 +270,9 @@ export async function parseTranslationFiles(filepaths: string[]): Promise<{ file
             } else if (ext === '.csv' || ext === '.xlsx') {
                 const buffer = readFileSync(filepath);
                 units = ext === '.csv' ? await csv2Pairs(buffer, globalIdx) : await xlsx2Pairs(buffer, globalIdx);
+            } else if (ext === '.jsonl') {
+                const content = readFileSync(filepath, 'utf-8');
+                units = await jsonl2Pairs(content, globalIdx);
             }
         } catch (e) {
             console.error(`Failed to parse ${filepath}:`, e);

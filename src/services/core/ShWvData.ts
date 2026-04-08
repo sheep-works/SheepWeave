@@ -1,10 +1,9 @@
 import { ShWvBody, ShWvMeta, ShWvUnit } from "../../types/datatype";
 import { getExtention } from "../../util";
-import { shwv2xlf } from "../converter/xlf/shwv2xlf";
+import { shwv2xlf, parseTranslationFiles } from "../converter";
 import { readFileSync, writeFileSync } from "fs";
 import { DirHelper } from "./DirHelper";
 import { ShWvDiffer } from "./ShWvDiffer";
-import { parseTranslationFiles } from "../converter/TransPairParser";
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -21,7 +20,9 @@ export class ShWvData {
             bilingualPath: "",
             files: [],
             sourceLang: "",
-            targetLang: ""
+            targetLang: "",
+            tmFiles: [],
+            tbFiles: []
         };
         this.body = {
             units: []
@@ -120,7 +121,14 @@ export class ShWvData {
         if (fs.existsSync(storagePathFull)) {
             const content = fs.readFileSync(storagePathFull, 'utf-8');
             const parsed = JSON.parse(content);
-            this.meta = parsed.meta;
+            this.meta = new ShWvMeta(
+                parsed.meta.bilingualPath,
+                parsed.meta.files,
+                parsed.meta.sourceLang,
+                parsed.meta.targetLang,
+                parsed.meta.tmFiles || [],
+                parsed.meta.tbFiles || []
+            );
             this.body = parsed.body;
         }
     }
@@ -137,8 +145,11 @@ export class ShWvData {
         // Load TM files
         const tmDir = path.join(root, 'Working', '01_REF', 'TM');
         let memories: any[] = [];
-        if (fs.existsSync(tmDir)) {
-            const tmFiles = fs.readdirSync(tmDir).map(f => path.join(tmDir, f));
+        const tmFiles = this.meta.tmFiles && this.meta.tmFiles.length > 0
+            ? this.meta.tmFiles.map(f => path.join(tmDir, f))
+            : (fs.existsSync(tmDir) ? fs.readdirSync(tmDir).map(f => path.join(tmDir, f)) : []);
+
+        if (tmFiles.length > 0) {
             const parsedTm = await parseTranslationFiles(tmFiles);
             memories = parsedTm.units.map(u => ({ idx: -1, src: u.src, tgt: u.tgt, freeze: true }));
         }
@@ -146,8 +157,11 @@ export class ShWvData {
         // Load TB files
         const tbDir = path.join(root, 'Working', '01_REF', 'TB');
         let termbase: ShWvUnit[] = [];
-        if (fs.existsSync(tbDir)) {
-            const tbFiles = fs.readdirSync(tbDir).map(f => path.join(tbDir, f));
+        const tbFiles = this.meta.tbFiles && this.meta.tbFiles.length > 0
+            ? this.meta.tbFiles.map(f => path.join(tbDir, f))
+            : (fs.existsSync(tbDir) ? fs.readdirSync(tbDir).map(f => path.join(tbDir, f)) : []);
+
+        if (tbFiles.length > 0) {
             const parsedTb = await parseTranslationFiles(tbFiles);
             termbase = parsedTb.units.map(u => new ShWvUnit(u));
         }
