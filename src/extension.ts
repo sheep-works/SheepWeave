@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import { openSheepWeavePanel } from './commands/openSheepWeavePanel';
 import { prepareProjectCommand } from './commands/prepareProject';
+import { renameLikeReplaceCommand } from './commands/renameLikeReplace';
 import { initEditorGuard } from './features/editorGuard';
 import { initDecorators } from './features/decorators';
 import { initShortcuts } from './features/shortcuts';
@@ -21,6 +22,12 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('sheepWeave.prepare', () => {
             prepareProjectCommand();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('sheepWeave.renameLikeReplace', () => {
+            renameLikeReplaceCommand();
         })
     );
 

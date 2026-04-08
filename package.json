@@ -53,6 +53,10 @@
       {
         "command": "sheepWeave.replaceAllWithTb",
         "title": "SheepWeave: Apply Term Globally"
+      },
+      {
+        "command": "sheepWeave.renameLikeReplace",
+        "title": "SheepWeave: Rename-Like Replace"
       }
     ],
     "languages": [
@@ -149,6 +153,11 @@
       {
         "command": "sheepWeave.replaceWithTm5",
         "key": "ctrl+shift+numpad5",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.renameLikeReplace",
+        "key": "f2",
         "when": "editorTextFocus && editorLangId == shwvt"
       }
     ],

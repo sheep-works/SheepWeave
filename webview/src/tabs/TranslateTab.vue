@@ -19,6 +19,12 @@ const columns = [
   <div v-if="shwvStore.hasData">
     <a-typography-text>Current: {{ shwvStore.crtPos }} / {{ shwvStore.maxPos }}</a-typography-text>
     <table v-if="shwvStore.crtUnit">
+        <colgroup>
+            <col style="width: 8%" />
+            <col style="width: 46%" />
+            <col style="width: 23%" />
+            <col style="width: 23%" />
+        </colgroup>
         <thead>
             <tr>
                 <th>ID / Ratio</th>
@@ -31,7 +37,7 @@ const columns = [
         <!-- TM -->
         <tbody v-if="shwvStore.crtUnit.ref.tms.length > 0">
             <tr v-for="tm in shwvStore.crtUnit.ref.tms" :key="tm.idx" :class="{ 'is-external': tm.idx === -1 }">
-                <td>{{ tm.ratio }}</td>
+                <td>{{ tm.idx === -1 ? 'TM' : '# ' + tm.idx }}<br>{{ tm.ratio }}</td>
                 <td v-html="tm.diff || tm.src"></td>
                 <td colspan="2">{{ tm.tgt }}</td>
             </tr>
@@ -47,6 +53,7 @@ const columns = [
 table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
 }
 
 :deep(th), :deep(td) {
@@ -54,6 +61,7 @@ table {
     border-bottom: 1px solid var(--vscode-sideBar-border, rgba(255,255,255,0.1));
     text-align: left;
     vertical-align: top;
+    overflow-wrap: break-word;
 }
 
 :deep(ins) {

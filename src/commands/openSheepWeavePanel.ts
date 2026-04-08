@@ -1,4 +1,6 @@
 import { initDirs, prepareWorking, preprocessor, postprocessor, runTikalExtraction, runPackage } from '../services/fileOps';
+import { CoreHandler } from '../handlers/CoreHandler';
+import { AdminHandler } from '../handlers/AdminHandler';
 import { ProjectManager } from '../services/core/ProjectManager';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -112,87 +114,10 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext) {
             }
 
             try {
-                switch (message.type) {
-                    case 'open-current':
-                        vscode.env.openExternal(vscode.Uri.file(rootPath));
-                        break;
-                    case 'init':
-                        await initDirs(rootPath);
-                        vscode.window.showInformationMessage('Project Initialized');
-                        break;
-                    case 'prepare':
-                        const payload = message.payload || {};
-                        await prepareWorking(rootPath);
-                        
-                        let sourceFiles: string[] = [];
-                        const sourceDir = path.join(rootPath, 'Working', '02_SOURCE');
-                        if (fs.existsSync(sourceDir)) {
-                            sourceFiles = fs.readdirSync(sourceDir).filter((f: string) => fs.statSync(path.join(sourceDir, f)).isFile());
-                        }
-
-                        const projectManager = new ProjectManager(rootPath);
-                        projectManager.initialize(
-                            payload.projectName || 'SheepWeaveProject',
-                            payload.sourceLang || 'en-US',
-                            payload.targetLang || 'ja-JP',
-                            sourceFiles
-                        );
-                        projectManager.save();
-
-                        // Run Tikal Extraction to create XLIFFs and update project.json
-                        await runTikalExtraction(rootPath, projectManager.data.sourceLanguage, projectManager.data.targetLanguage);
-
-                        vscode.window.showInformationMessage('Project Prepared, project.json created, and Tikal Extraction completed');
-                        break;
-                    case 'create':
-                        const shwvData = await preprocessor(rootPath);
-                        if (shwvData) {
-                            panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: shwvData.meta, units: shwvData.body.units } });
-                        }
-                        vscode.window.showInformationMessage('Preprocessing Started (Data loaded to Webview)');
-                        break;
-
-                    case 'load':
-                        globalShWvData.load(rootPath);
-                        if (globalShWvData.meta && globalShWvData.body?.units?.length > 0) {
-                            panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units } });
-                            vscode.window.showInformationMessage('Data Loaded and Synchronized');
-                        }
-                        break;
-
-                    case 'reanalyze':
-                        globalShWvData.analyze(rootPath);
-                        break;
-
-                    case 'complete':
-                        await postprocessor(rootPath);
-                        vscode.window.showInformationMessage('Postprocessing Finished');
-                        break;
-                    case 'package':
-                        await runPackage(rootPath);
-                        vscode.window.showInformationMessage('Native Files Packaged');
-                        break;
-                    case 'alert':
-                        vscode.window.showErrorMessage(message.text);
-                        return;
-                    case 'READY':
-                        const config = vscode.workspace.getConfiguration('sheepWeave');
-                        panel.webview.postMessage({
-                            type: 'CONFIG_LOADED',
-                            data: {
-                                sourceLang: config.get<string>('sourceLang') || 'en-US',
-                                targetLang: config.get<string>('targetLang') || 'ja-JP'
-                            }
-                        });
-
-                        // When Webview finishes mounting, send existing ShWvData if any exists.
-                        if (globalShWvData.meta && globalShWvData.body.units.length > 0) {
-                            panel.webview.postMessage({
-                                type: 'SHWV_DATA_LOADED',
-                                data: { meta: globalShWvData.meta, units: globalShWvData.body.units }
-                            });
-                        }
-                        break;
+                if (message.type.startsWith('shuttle-')) {
+                    await AdminHandler.handle(message, globalShWvData, rootPath, panel);
+                } else {
+                    await CoreHandler.handle(message, globalShWvData, rootPath, panel);
                 }
             } catch (error) {
                 vscode.window.showErrorMessage(`Error executing ${message.type}: ${error}`);

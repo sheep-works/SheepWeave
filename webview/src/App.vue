@@ -5,6 +5,7 @@ import { useI18nStore } from './store/i18n';
 import FlowTab from './tabs/FlowTab.vue';
 import TranslateTab from './tabs/TranslateTab.vue';
 import DebugTab from './tabs/DebugTab.vue';
+import ManagementTab from './tabs/ManagementTab.vue';
 import { storeToRefs } from 'pinia';
 
 
@@ -92,6 +93,9 @@ onMounted(() => {
     </a-tab-pane>
     <a-tab-pane key="debug" title="Debug">
         <DebugTab />
+    </a-tab-pane>
+    <a-tab-pane key="management" title="Management">
+        <ManagementTab @ManageCommand="handleCommand" />
     </a-tab-pane>
     </a-tabs>
 </a-layout>

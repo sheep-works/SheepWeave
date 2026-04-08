@@ -20,8 +20,22 @@ export const useShWvStore = defineStore('shwv', {
             this.units = [];
         },
         moveCursor(newPos: number, textInOldPos: string) {
-            if (this.units[this.crtPos]) {
-                this.units[this.crtPos].tgt = textInOldPos;
+            const oldUnit = this.units[this.crtPos];
+            if (oldUnit) {
+                oldUnit.tgt = textInOldPos;
+
+                // 同一文を引用している他の行(TM)のtgtも同期する
+                if (oldUnit.ref && oldUnit.ref.quoted) {
+                    for (const [quotedIdx, ratio] of oldUnit.ref.quoted) {
+                        const referencingUnit = this.units.find(u => u.idx === quotedIdx);
+                        if (referencingUnit) {
+                            const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === oldUnit.idx);
+                            if (tmRef) {
+                                tmRef.tgt = textInOldPos;
+                            }
+                        }
+                    }
+                }
             }
             this.crtPos = newPos;
         }

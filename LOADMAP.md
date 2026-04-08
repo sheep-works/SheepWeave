@@ -8,6 +8,7 @@ AI エディタのパワーを翻訳に注入！
 
 - SheepLint： Vertex AI を用いた校正ツール
 - SheepSpindle：Rust & WASM PACK を用いた高速差分・テキスト処理ツール。QA機能も実装予定
+- SheepShuttle：ShWvData のデータの変換を担当。より管理に向いた形式に変換する機能群を提供する
 
 ## 機能と流れ
 
@@ -68,8 +69,8 @@ AI エディタのパワーを翻訳に注入！
     - [ ] 数字
     - [ ] 所定のタグ
     - [ ] 所定の用語
-- [ ] リネーム型置換
-    - [ ] テキスト選択 + F2 で変数リネームのような置換を実現する
+- [x] リネーム型置換
+    - [x] テキスト選択 + F2 で変数リネームのような置換を実現する
 - [ ] 予測語の登録
     - [ ] TBをインテリセンスで使えるようにする
 - [ ] スニペットの登録
@@ -89,7 +90,7 @@ AI を用いた翻訳・校正機能を実装する
     - [ ] 最初はOllama
     - [ ] 将来的には CloudRun + VertexAI
     - [ ] AI 校正も実装したいが、いったんは SheepLint で事足りるか？
-- [] QA 機能の実装
+- [ ] QA 機能の実装
     - [ ] SheepSpindle による QA を実行
     - [ ] 結果を Webview に表示
 
@@ -106,30 +107,52 @@ AI を用いた翻訳・校正機能を実装する
 
 ### 5. 管理
 
-ShWvData をより管理に向いた形式に変換する機能群として、ShWvShaver クラスを実装する。
-基本的には ShWvData のデータ（または`data.json`）を読み込み、必要最小限に抽出したファイルを生成する。
+ShWvData をより管理に向いた形式に変換する機能群として、SheepShuttle クラスを実装する。
+基本的には ShWvData のデータ（または`project.json` を介して `<project_name>.json`）を読み込み、必要最小限に抽出したファイルを生成する。
 
-- [ ] 対訳化
-    - [ ] src, tgt のみを持つ json を生成
-    - [ ] src, tgt からなる csv（またはexcel）を生成
+当面はCLIとして実装し、将来的にはVS Codeのコマンドパレットから呼び出せるようにしたい。
+
+#### SheepShuttle の要件
+
+1. 対訳化
+    - [x] src, tgt のみを持つ json を生成
+    - [x] src, tgt からなる csv（またはexcel）を生成
+
+2. 分割・合体
+    - [x] ファイル単位での分割
+    - [x] 文字数単位での分割
+    - [x] ファイル単位での合体
+    - [x] 文字数単位での合体
+
+3. SheepLint との連携
+    - [x] JSONL 形式に変換
+        - [x] {src: string, tgt: string, history: [{src: string, tgt: string}, {src: string, tgt: string}]} 形式とする
+    - [x] JSONL 形式をチャンク分割した二次元配列を作成
+        - [x] 1行あたりの文字数で分割する。キー名もすべて含めた、リクエスト用の文字列のトークン数。
+    - [x] JSONL 形式（またはその二次元配列）から prev/tgt を更新
+
+99. 将来的な機能
+
 - [ ] 用語の抽出
 - [ ] Manticore Search への投入
 
 ## 優先順位
 
 1. [x] 複数ファイル対応
-2. [x] manifest.json と project.json の統合
+2. [x] `manifest.json` と `project.json` の統合
 3. [ ] 完了までの実践＆検証
 4. [ ] エディタの機能拡張
-    4.1 [ ] シンタックスハイライト
-    4.2 [ ] リネーム型置換
-    4.3 [ ] 予測語の登録
-    4.4 [ ] スニペットの登録
-    4.5 [ ] フィルタ機能
-    4.6 [ ] AI 予測の使用
+    - [ ] 4.1 シンタックスハイライト
+    - [x] 4.2 リネーム型置換
+    - [ ] 4.3 予測語の登録
+    - [ ] 4.4 スニペットの登録
+    - [ ] 4.5 フィルタ機能
+    - [ ] 4.6 AI 予測の使用
 5. [ ] 外部連携
-    5.1 [ ] SheepSpindle による QA
-    5.2 [ ] SheepLint とのシームレス連携
+    - [ ] 5.1 SheepSpindle による QA
+    - [ ] 5.2 SheepLint とのシームレス連携
 6. [ ] データ管理
-    6.1 [ ] ShWvShaver の実装
-    6.2 [ ] Manticore Search への投入
+    - [x] 6.1 SheepShuttle の実装
+    - [x] 6.2 簡単な分割と管理
+    - [ ] 6.3 用語抽出
+    - [ ] 6.4 Manticore Search への投入
