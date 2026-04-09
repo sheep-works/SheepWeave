@@ -55,7 +55,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             // .shwvt ファイルがアクティブになった時、パネルが開いていなければ自動で開く
             if (editor.document.fileName.endsWith('.shwvt')) {
-                openSheepWeavePanel(context);
+                openSheepWeavePanel(context, true);
             }
         }
     }, null, context.subscriptions);
@@ -64,7 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (vscode.window.activeTextEditor) {
         renderConfirmedDecorations(vscode.window.activeTextEditor);
         if (vscode.window.activeTextEditor.document.fileName.endsWith('.shwvt')) {
-            openSheepWeavePanel(context);
+            openSheepWeavePanel(context, true);
         }
     }
 

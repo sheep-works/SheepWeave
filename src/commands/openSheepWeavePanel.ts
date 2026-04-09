@@ -15,14 +15,10 @@ import { renderConfirmedDecorations } from '../features/decorators';
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
 
 // 現在アクティブなエディタがある列（カラム）を取得します
-export function openSheepWeavePanel(context: vscode.ExtensionContext) {
-    const column = vscode.window.activeTextEditor
-        ? vscode.window.activeTextEditor.viewColumn
-        : undefined;
-
+export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFocus: boolean = false) {
     // すでにパネルが開いている場合は、新しく作らずにそのパネルを最前面に表示（reveal）します。
     if (currentPanel) {
-        currentPanel.reveal(column);
+        currentPanel.reveal(vscode.ViewColumn.Beside, preserveFocus);
         return;
     }
 
@@ -30,7 +26,7 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext) {
     const panel = vscode.window.createWebviewPanel(
         'sheepWeave', // 識別子
         'SheepWeave', // パネルのタイトル
-        vscode.ViewColumn.Two, // エディタの右側（2列目）に表示
+        vscode.ViewColumn.Beside, // エディタの横（通常は2列目）に表示
         {
             enableScripts: true, // Webview内でJavaScriptを実行できるようにします
             retainContextWhenHidden: true, // パネルが非表示になっても状態を保持します
