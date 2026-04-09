@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { ShWvData } from '../services/core/ShWvData';
 import { ProjectManager } from '../services/core/ProjectManager';
 import { initDirs, prepareWorking, syncRefDir, preprocessor, postprocessor, runTikalExtraction, runPackage } from '../services/fileOps';
+import { globalDirector } from '../store';
 
 export class CoreHandler {
     public static async handle(message: any, globalShWvData: ShWvData, rootPath: string, panel: vscode.WebviewPanel) {
@@ -40,12 +41,14 @@ export class CoreHandler {
             case 'create':
                 const shwvData = await preprocessor(rootPath);
                 if (shwvData) {
+                    globalDirector.initializeFromState();
                     panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: shwvData.meta, units: shwvData.body.units } });
                 }
                 vscode.window.showInformationMessage('Preprocessing Started (Data loaded to Webview)');
                 break;
             case 'load':
                 globalShWvData.load(rootPath);
+                globalDirector.initializeFromState();
                 if (globalShWvData.meta && globalShWvData.body?.units?.length > 0) {
                     panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units } });
                     vscode.window.showInformationMessage('Data Loaded and Synchronized');
@@ -54,6 +57,7 @@ export class CoreHandler {
             case 'reanalyze':
                 await syncRefDir(rootPath);
                 await globalShWvData.analyze(rootPath);
+                globalDirector.initializeFromState();
                 globalShWvData.save(rootPath);
                 panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units } });
                 vscode.window.showInformationMessage('Re-analysis completed and data updated');

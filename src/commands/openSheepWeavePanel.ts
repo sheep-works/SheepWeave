@@ -7,8 +7,9 @@ import * as path from 'path';
 
 // (existing imports)
 import * as vscode from 'vscode';
-import { getWebviewHtml } from '../webview/panel'; // We will create this next
-import { globalShWvData } from '../store';
+import { getWebviewHtml } from '../webview/panel'; 
+import { globalShWvData, globalDirector } from '../store';
+import { renderConfirmedDecorations } from '../features/decorators';
 
 // 現在表示されているパネルを保持する変数。一度に一つだけ表示するために使います
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
@@ -69,21 +70,63 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext) {
             if (lastLineNumber !== -1 && currentLineNumber !== lastLineNumber) {
                 const oldLineText = event.textEditor.document.lineAt(lastLineNumber).text;
 
-                // 1. Extension側のストア（globalShWvData）を更新
-                globalShWvData.updateUnitTarget(lastLineNumber, oldLineText);
+                // 1. Extension側のストアを更新（確定はせず、入力テキストの保持のみ行う）
+                globalDirector.updateTargetOnly(lastLineNumber, oldLineText);
 
                 // 2. Webview側（表示用Pinia Store）に変更を通知
                 currentPanel!.webview.postMessage({
                     type: 'CURSOR_MOVED',
                     data: {
                         newPos: currentLineNumber,
-                        textInOldPos: oldLineText // TODO 移動では前のテキストを処理しないようにすると思う
+                        textInOldPos: oldLineText 
                     }
                 });
             }
 
             lastLineNumber = currentLineNumber;
         }, 500);
+    });
+
+    // --- テキストが編集された時の処理（確定解除） ---
+    let decorationTimeout: NodeJS.Timeout | null = null;
+    const documentChangeListener = vscode.workspace.onDidChangeTextDocument(event => {
+        if (!currentPanel) return;
+        if (!event.document.fileName.endsWith('.shwvt')) return;
+
+        let hasUnconfirmed = false;
+
+        event.contentChanges.forEach(change => {
+            const startLine = change.range.start.line;
+            const endLine = change.range.end.line;
+
+            // 確定行が編集されたら、確定状態を強制解除する
+            for (let i = startLine; i <= endLine; i++) {
+                if (globalDirector.confirmedLines.has(i)) {
+                    globalDirector.unconfirmLine(i);
+                    hasUnconfirmed = true;
+                }
+            }
+        });
+
+        if (hasUnconfirmed) {
+            // パフォーマンスのため、装飾の更新は少しデバウンスさせる
+            if (decorationTimeout) {
+                clearTimeout(decorationTimeout);
+            }
+            decorationTimeout = setTimeout(() => {
+                const editor = vscode.window.activeTextEditor;
+                if (editor && editor.document === event.document) {
+                    renderConfirmedDecorations(editor);
+                }
+            }, 300);
+            
+            // Webviewにも通知する
+            currentPanel.webview.postMessage({
+                type: 'UNCONFIRMED',
+                // Webview側に「これらの行が未確定になった」と伝える必要があれば送る
+                // data: { lines: ... }
+            });
+        }
     });
 
     // --- ファイルが保存された時の処理 ---
@@ -103,6 +146,7 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext) {
         () => {
             currentPanel = undefined;
             selectionChangeListener.dispose();
+            documentChangeListener.dispose();
             saveDocumentListener.dispose();
         },
         null,
@@ -120,10 +164,13 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext) {
                 return;
             }
 
+            // メッセージの種類に応じて、処理を Handler クラスに振り分け
             try {
                 if (message.type.startsWith('shuttle-')) {
+                    // プロジェクト管理系（インポート/エクスポートなど）
                     await AdminHandler.handle(message, globalShWvData, rootPath, panel);
                 } else {
+                    // 翻訳データ操作系
                     await CoreHandler.handle(message, globalShWvData, rootPath, panel);
                 }
             } catch (error) {

@@ -95,7 +95,7 @@ watch(() => props.config, (newVal) => {
         </a-card>
       </a-timeline-item>
       <a-timeline-item>
-        <a-card :title="i18nStore.getText('flowTab', 'onWorkingTitle')">
+        <a-card :title="i18nStore.getText('flowTab', 'completeTitle')">
           <a-list>
             <a-list-item>
             <a-space>
@@ -107,6 +107,12 @@ watch(() => props.config, (newVal) => {
             <a-space>
               <a-typography-text>{{ i18nStore.getText('flowTab', 'packageDesc') }}</a-typography-text>
               <a-button @click="$emit('FlowCommand', 'package')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>  
+            </a-space>
+            </a-list-item>
+            <a-list-item>
+            <a-space>
+              <a-typography-text>{{ i18nStore.getText('flowTab', 'archiveDesc') }}</a-typography-text>
+              <a-button @click="$emit('FlowCommand', 'init')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>  
             </a-space>
             </a-list-item>
           </a-list>

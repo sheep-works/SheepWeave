@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "sheepweave",
   "engines": {
     "vscode": "^1.96.0"
@@ -57,6 +57,10 @@
       {
         "command": "sheepWeave.renameLikeReplace",
         "title": "SheepWeave: Rename-Like Replace"
+      },
+      {
+        "command": "sheepWeave.confirmLine",
+        "title": "SheepWeave: Confirm Line"
       }
     ],
     "languages": [
@@ -158,6 +162,12 @@
       {
         "command": "sheepWeave.renameLikeReplace",
         "key": "f2",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.confirmLine",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
         "when": "editorTextFocus && editorLangId == shwvt"
       }
     ],

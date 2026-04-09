@@ -25,7 +25,7 @@ defineProps({
 <template>
   <div v-if="shwvStore.hasData">
     <a-typography-text>Current: {{ shwvStore.crtPos }} / {{ shwvStore.maxPos }}</a-typography-text>
-    <table v-if="shwvStore.crtUnit" :style="{ fontSize: fontSize + 'px' }">
+    <table v-if="shwvStore.crtUnit">
         <colgroup>
             <col style="width: 8%" />
             <col style="width: 46%" />
@@ -73,6 +73,10 @@ table {
     text-align: left;
     vertical-align: top;
     overflow-wrap: break-word;
+}
+
+:deep(td) {
+    font-size: v-bind('fontSize + "px"');
 }
 
 :deep(ins) {

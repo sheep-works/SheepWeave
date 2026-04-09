@@ -8,6 +8,7 @@ export class ShWvUnit {
     tgt: string;
     note?: string;
     isSub?: boolean;
+    status: 0 | 1 | 2;
     ref: ShWvRef;
 
     constructor(pair: TranslationPair) {
@@ -17,6 +18,7 @@ export class ShWvUnit {
         this.tgt = "";
         this.note = pair.note;
         this.isSub = pair.isSub;
+        this.status = (pair as any).status || 0;
         this.ref = new ShWvRef();
     }
 }
