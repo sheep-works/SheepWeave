@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "publisher": "sheepweave",
   "engines": {
     "vscode": "^1.96.0"
@@ -57,6 +57,10 @@
       {
         "command": "sheepWeave.renameLikeReplace",
         "title": "SheepWeave: Rename-Like Replace"
+      },
+      {
+        "command": "sheepWeave.confirmLine",
+        "title": "SheepWeave: Confirm Line"
       }
     ],
     "languages": [
@@ -159,6 +163,12 @@
         "command": "sheepWeave.renameLikeReplace",
         "key": "f2",
         "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.confirmLine",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && editorLangId == shwvt"
       }
     ],
     "configuration": {
@@ -194,6 +204,11 @@
           "type": "string",
           "description": "Path to the Okapi Tikal executable (e.g. tikal.bat). If left empty, it tries to find it in the workspace /okapi/tikal folder.",
           "default": ""
+        },
+        "sheepWeave.translateTab.fontSize": {
+          "type": "number",
+          "default": 14,
+          "description": "Base font size (in px) for the Translate Tab table."
         }
       }
     }
@@ -215,6 +230,7 @@
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
     "@vscode/vsce": "^3.7.1",
+    "copy-webpack-plugin": "^14.0.0",
     "eslint": "^8.56.0",
     "glob": "^10.3.10",
     "ts-loader": "^9.5.1",
@@ -224,6 +240,8 @@
   },
   "dependencies": {
     "difflib-ts": "^1.0.3",
+    "sheepshuttle": "file:modules/SheepShuttle",
+    "sheep-spindle": "file:modules/SheepSpindle/pkg",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "xml2js": "^0.6.2"
   }

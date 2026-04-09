@@ -1,14 +1,14 @@
 import { ShWvBody, ShWvMeta, ShWvUnit } from "../../types/datatype";
 import { getExtention } from "../../util";
-import { shwv2xlf } from "../converter/xlf/shwv2xlf";
+import { shwv2xlf, parseTranslationFiles } from "../converter";
 import { readFileSync, writeFileSync } from "fs";
 import { DirHelper } from "./DirHelper";
 import { ShWvDiffer } from "./ShWvDiffer";
-import { parseTranslationFiles } from "../converter/TransPairParser";
 import * as path from 'path';
 import * as fs from 'fs';
 
 export class ShWvData {
+    public ver!: number;
     public meta!: ShWvMeta;
     public body!: ShWvBody;
 
@@ -21,7 +21,9 @@ export class ShWvData {
             bilingualPath: "",
             files: [],
             sourceLang: "",
-            targetLang: ""
+            targetLang: "",
+            tmFiles: [],
+            tbFiles: []
         };
         this.body = {
             units: []
@@ -120,7 +122,14 @@ export class ShWvData {
         if (fs.existsSync(storagePathFull)) {
             const content = fs.readFileSync(storagePathFull, 'utf-8');
             const parsed = JSON.parse(content);
-            this.meta = parsed.meta;
+            this.meta = new ShWvMeta(
+                parsed.meta.bilingualPath,
+                parsed.meta.files,
+                parsed.meta.sourceLang,
+                parsed.meta.targetLang,
+                parsed.meta.tmFiles || [],
+                parsed.meta.tbFiles || []
+            );
             this.body = parsed.body;
         }
     }
@@ -137,76 +146,47 @@ export class ShWvData {
         // Load TM files
         const tmDir = path.join(root, 'Working', '01_REF', 'TM');
         let memories: any[] = [];
-        if (fs.existsSync(tmDir)) {
-            const tmFiles = fs.readdirSync(tmDir).map(f => path.join(tmDir, f));
-            const parsedTm = await parseTranslationFiles(tmFiles);
-            memories = parsedTm.units.map(u => ({ idx: -1, src: u.src, tgt: u.tgt, freeze: true }));
+        
+        let tmFileList: string[] = [];
+        if (this.meta.tmFiles && this.meta.tmFiles.length > 0) {
+            tmFileList = this.meta.tmFiles;
+        } else if (fs.existsSync(tmDir)) {
+            tmFileList = fs.readdirSync(tmDir).filter(f => fs.statSync(path.join(tmDir, f)).isFile());
+            this.meta.tmFiles = tmFileList; // Populate meta if empty
+        }
+
+        if (tmFileList.length > 0) {
+            const tmFilesFull = tmFileList.map(f => path.join(tmDir, f));
+            const parsedTm = await parseTranslationFiles(tmFilesFull);
+            memories = parsedTm.units.map((u, i) => {
+                const info = parsedTm.fileinfo.find(f => i >= f.start && i <= f.end);
+                return { idx: -1, src: u.src, tgt: u.tgt, freeze: true, file: info?.name };
+            });
         }
 
         // Load TB files
         const tbDir = path.join(root, 'Working', '01_REF', 'TB');
-        let termbase: ShWvUnit[] = [];
-        if (fs.existsSync(tbDir)) {
-            const tbFiles = fs.readdirSync(tbDir).map(f => path.join(tbDir, f));
-            const parsedTb = await parseTranslationFiles(tbFiles);
-            termbase = parsedTb.units.map(u => new ShWvUnit(u));
+        let termbase: any[] = [];
+        
+        let tbFileList: string[] = [];
+        if (this.meta.tbFiles && this.meta.tbFiles.length > 0) {
+            tbFileList = this.meta.tbFiles;
+        } else if (fs.existsSync(tbDir)) {
+            tbFileList = fs.readdirSync(tbDir).filter(f => fs.statSync(path.join(tbDir, f)).isFile());
+            this.meta.tbFiles = tbFileList; // Populate meta if empty
         }
 
-        for (let i = 0; i < units.length; i++) {
-            const currentUnit = units[i];
-
-            // TM Matching
-            const previousUnits = units.slice(0, i).map(u => ({ idx: u.idx, src: u.src, tgt: u.tgt || "" }));
-            const memMatches = ShWvDiffer.batchCompare(memories, currentUnit.src, 0.6, 5);
-            const prevMatches = ShWvDiffer.batchCompare(previousUnits, currentUnit.src, 0.6, 5);
-
-            // Combine and sort
-            const allTms = [...memMatches, ...prevMatches].sort((a, b) => b.ratio - a.ratio);
-
-            // Deduplicate by src + tgt
-            const uniqueTms: typeof allTms = [];
-            const seenTm = new Set<string>();
-            for (const tm of allTms) {
-                const key = tm.src + '|||' + tm.tgt;
-                if (!seenTm.has(key)) {
-                    seenTm.add(key);
-                    uniqueTms.push(tm);
-                }
-            }
-
-            // Slice to top 5
-            currentUnit.ref.tms = uniqueTms.slice(0, 5);
-
-            // TB Matching
-            for (const tb of termbase) {
-                if (currentUnit.src.includes(tb.src)) {
-                    const tbTarget = tb.tgt || tb.pre;
-                    let existingTb = currentUnit.ref.tb.find(t => t.src === tb.src);
-                    if (existingTb) {
-                        if (!existingTb.tgts.includes(tbTarget)) {
-                            existingTb.tgts.push(tbTarget);
-                        }
-                    } else {
-                        currentUnit.ref.tb.push({
-                            src: tb.src,
-                            tgts: [tbTarget]
-                        });
-                    }
-                }
-            }
+        if (tbFileList.length > 0) {
+            const tbFilesFull = tbFileList.map(f => path.join(tbDir, f));
+            const parsedTb = await parseTranslationFiles(tbFilesFull);
+            termbase = parsedTb.units.map((u, i) => {
+                const info = parsedTb.fileinfo.find(f => i >= f.start && i <= f.end);
+                return { ...u, file: info?.name };
+            });
         }
 
-        for (let i = units.length - 1; i >= 0; i--) {
-            const currentUnit = units[i];
-            for (const tm of currentUnit.ref.tms) {
-                if (tm.idx !== -1) { // Skip external memory refs which have idx -1
-                    const referencedUnit = units.find(u => u.idx === tm.idx);
-                    if (referencedUnit) {
-                        referencedUnit.ref.quoted.push([currentUnit.idx, tm.ratio]);
-                    }
-                }
-            }
-        }
+        // Delegate search and analysis to ShWvDiffer
+        await ShWvDiffer.analyze(units, memories, termbase);
     }
 
     public async saveXlf(filepath: string, originalXlfPath: string, slicedUnits: ShWvUnit[]): Promise<void> {

@@ -63,6 +63,10 @@ export const useI18nStore = defineStore('i18n', {
                     en: 'Compile native files from translated XLIFF',
                     ja: "翻訳完了XLFからネイティブファイル（訳文）を生成します"
                 },
+                archiveDesc: {
+                    en: 'Archive the current working folder',
+                    ja: "現在の作業ディレクトリ（Working）をアーカイブ化します"
+                },
             },
             translateTab: {
                 titleCurent: {

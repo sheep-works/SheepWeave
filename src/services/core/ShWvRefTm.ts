@@ -5,6 +5,7 @@ export class ShWvRefTm {
     tgt: string;
     ratio: number;
     freeze?: boolean;
+    file?: string;
 
     constructor() {
         this.idx = 0;

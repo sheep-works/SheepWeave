@@ -1,5 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 
 
@@ -40,6 +41,16 @@ const nodeConfig = {
         hints: false
     },
     devtool: 'nosources-source-map',
+    plugins: [
+        new CopyWebpackPlugin({
+            patterns: [
+                {
+                    from: path.join(__dirname, 'modules/SheepSpindle/pkg/sheep_spindle_bg.wasm'),
+                    to: path.join(__dirname, 'dist')
+                }
+            ]
+        })
+    ]
 };
 
 module.exports = [nodeConfig];

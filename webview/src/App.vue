@@ -6,6 +6,7 @@ import FlowTab from './tabs/FlowTab.vue';
 import TranslateTab from './tabs/TranslateTab.vue';
 import DebugTab from './tabs/DebugTab.vue';
 import ManagementTab from './tabs/ManagementTab.vue';
+import SettingsTab from './tabs/SettingsTab.vue';
 import { storeToRefs } from 'pinia';
 
 
@@ -29,7 +30,8 @@ const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeA
 const config = ref({
     projectName: 'SheepWeaveProject',
     sourceLang: 'en-US',
-    targetLang: 'ja-JP'
+    targetLang: 'ja-JP',
+    fontSize: 14
 });
 
 function handleCommand(command: string, payload?: any) {
@@ -38,6 +40,16 @@ function handleCommand(command: string, payload?: any) {
         vscode.postMessage({ type: command, payload });
     } else {
         console.log(`Mock: ${command} command sent with payload:`, payload);
+    }
+}
+
+function updateConfig(newConfig: any) {
+    console.log('[Webview updateConfig]', newConfig);
+    if (newConfig.fontSize !== undefined) {
+        config.value.fontSize = newConfig.fontSize;
+    }
+    if (vscode) {
+        vscode.postMessage({ type: 'update-config', payload: newConfig });
     }
 }
 
@@ -52,6 +64,7 @@ onMounted(() => {
             case 'CONFIG_LOADED':
                 if (message.data.sourceLang) config.value.sourceLang = message.data.sourceLang;
                 if (message.data.targetLang) config.value.targetLang = message.data.targetLang;
+                if (message.data.fontSize) config.value.fontSize = message.data.fontSize;
                 break;
             case 'SHWV_DATA_LOADED':
                 shwvStore.loadData(message.data);
@@ -89,13 +102,16 @@ onMounted(() => {
         />
     </a-tab-pane>
     <a-tab-pane key="translate" title="Translate">
-        <TranslateTab />
+        <TranslateTab :fontSize="config.fontSize" />
     </a-tab-pane>
     <a-tab-pane key="debug" title="Debug">
         <DebugTab />
     </a-tab-pane>
     <a-tab-pane key="management" title="Management">
         <ManagementTab @ManageCommand="handleCommand" />
+    </a-tab-pane>
+    <a-tab-pane key="settings" title="Settings">
+        <SettingsTab :config="config" @updateConfig="updateConfig" />
     </a-tab-pane>
     </a-tabs>
 </a-layout>

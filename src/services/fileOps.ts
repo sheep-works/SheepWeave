@@ -144,6 +144,26 @@ export async function copyDataToWorking(root: string) {
     }
 }
 
+/**
+ * Synchronizes reference files from Data/Ref to Working/01_REF.
+ * Specifically handles TM and TB subdirectories separately.
+ */
+export async function syncRefDir(root: string) {
+    const dataRefTm = path.join(root, 'Data', 'Ref', 'TM');
+    const workingRefTm = path.join(root, 'Working', '01_REF', 'TM');
+    if (fs.existsSync(dataRefTm)) {
+        ensureDir(workingRefTm);
+        copyRecursive(dataRefTm, workingRefTm);
+    }
+
+    const dataRefTb = path.join(root, 'Data', 'Ref', 'TB');
+    const workingRefTb = path.join(root, 'Working', '01_REF', 'TB');
+    if (fs.existsSync(dataRefTb)) {
+        ensureDir(workingRefTb);
+        copyRecursive(dataRefTb, workingRefTb);
+    }
+}
+
 function copyRecursive(src: string, dest: string) {
     if (!exists(src)) return;
     ensureDir(dest);

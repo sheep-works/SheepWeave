@@ -20,6 +20,11 @@ const termDecoration = vscode.window.createTextEditorDecorationType({
     cursor: 'help' // Change cursor on hover
 });
 
+export const confirmedDecoration = vscode.window.createTextEditorDecorationType({
+    backgroundColor: 'rgba(100, 255, 100, 0.1)', // Thin green
+    isWholeLine: true
+});
+
 
 export function initDecorators(context: vscode.ExtensionContext) {
     let activeEditor = vscode.window.activeTextEditor;
@@ -88,4 +93,25 @@ export function initDecorators(context: vscode.ExtensionContext) {
         }
         timeout = setTimeout(updateDecorations, 500);
     }
+}
+
+import { globalDirector } from '../store';
+
+export function renderConfirmedDecorations(editor?: vscode.TextEditor) {
+    if (!editor) {
+        editor = vscode.window.activeTextEditor;
+    }
+    if (!editor || !editor.document.fileName.endsWith('.shwvt')) {
+        return;
+    }
+
+    const confirmedRanges: vscode.Range[] = [];
+    for (const line of globalDirector.confirmedLines) {
+        // Ensure line is within bounds
+        if (line >= 0 && line < editor.document.lineCount) {
+            confirmedRanges.push(new vscode.Range(line, 0, line, 0));
+        }
+    }
+
+    editor.setDecorations(confirmedDecoration, confirmedRanges);
 }

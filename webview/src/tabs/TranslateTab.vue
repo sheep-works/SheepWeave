@@ -13,6 +13,13 @@ const columns = [
     { title: 'Source', dataIndex: 'src' },
     { title: 'Target', dataIndex: 'tgt' },
 ];
+
+defineProps({
+    fontSize: {
+        type: Number,
+        default: 14
+    }
+});
 </script>
 
 <template>
@@ -37,7 +44,11 @@ const columns = [
         <!-- TM -->
         <tbody v-if="shwvStore.crtUnit.ref.tms.length > 0">
             <tr v-for="tm in shwvStore.crtUnit.ref.tms" :key="tm.idx" :class="{ 'is-external': tm.idx === -1 }">
-                <td>{{ tm.idx === -1 ? 'TM' : '# ' + tm.idx }}<br>{{ tm.ratio }}</td>
+                <td :title="tm.file">
+                    {{ tm.idx === -1 ? 'TM' : '# ' + tm.idx }}<br>
+                    <span class="ratio-text">{{ tm.ratio }}%</span>
+                    <div v-if="tm.file" class="file-text">{{ tm.file }}</div>
+                </td>
                 <td v-html="tm.diff || tm.src"></td>
                 <td colspan="2">{{ tm.tgt }}</td>
             </tr>
@@ -57,23 +68,27 @@ table {
 }
 
 :deep(th), :deep(td) {
-    padding: 10px 8px;
+    padding: 0.7em 0.5em;
     border-bottom: 1px solid var(--vscode-sideBar-border, rgba(255,255,255,0.1));
     text-align: left;
     vertical-align: top;
     overflow-wrap: break-word;
 }
 
+:deep(td) {
+    font-size: v-bind('fontSize + "px"');
+}
+
 :deep(ins) {
     color: #4daafc; /* 青 */
-    font-size: 1.1rem;
+    font-size: 1.1em;
     text-decoration: none;
     font-weight: bold;
 }
 
 :deep(del) {
     color: #fc4d4d; /* 赤 */
-    font-size: 0.9rem;
+    font-size: 0.9em;
     text-decoration: line-through;
     opacity: 0.7;
 }
@@ -96,5 +111,17 @@ tr.is-external {
 
 tr.is-freezed {
     background-color: darkblue;
+}
+
+.ratio-text {
+    font-weight: bold;
+    color: var(--vscode-charts-blue);
+}
+
+.file-text {
+    font-size: 0.7em;
+    opacity: 0.6;
+    margin-top: 4px;
+    word-break: break-all;
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineProps } from 'vue';
+import { } from 'vue';
 
 const props = defineProps<{
     segment: { id: string, source: string, target: string }
