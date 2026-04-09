@@ -103,15 +103,36 @@ export class ShWvData {
         const targetUnit = this.body.units[index];
         if (targetUnit) {
             targetUnit.tgt = text;
+            this.propagateTranslation(index, text);
+        }
+    }
 
-            // Synchronize tgt to all the units that quoted this sentence as TM
-            for (const [quotedIdx, ratio] of targetUnit.ref.quoted) {
-                const referencingUnit = this.body.units.find(u => u.idx === quotedIdx);
-                if (referencingUnit) {
-                    const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === targetUnit.idx);
-                    if (tmRef) {
-                        tmRef.tgt = text;
-                    }
+    /**
+     * Propagates a translation to all units that have quoted this unit as a TM match.
+     * Handles both fuzzy matches (quoted) and 100% matches (quoted100).
+     */
+    public propagateTranslation(sourceIdx: number, text: string): void {
+        const sourceUnit = this.body.units[sourceIdx];
+        if (!sourceUnit) return;
+
+        // Synchronize tgt to all the units that quoted this sentence as TM (Fuzzy)
+        for (const [quotedIdx, ratio] of sourceUnit.ref.quoted) {
+            const referencingUnit = this.body.units.find(u => u.idx === quotedIdx);
+            if (referencingUnit) {
+                const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === sourceUnit.idx);
+                if (tmRef) {
+                    tmRef.tgt = text;
+                }
+            }
+        }
+
+        // Synchronize tgt to all the units that quoted this sentence as TM (100%)
+        for (const quotedIdx of sourceUnit.ref.quoted100) {
+            const referencingUnit = this.body.units.find(u => u.idx === quotedIdx);
+            if (referencingUnit) {
+                const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === sourceUnit.idx);
+                if (tmRef) {
+                    tmRef.tgt = text;
                 }
             }
         }

@@ -71,7 +71,7 @@ onMounted(() => {
                 break;
             case 'CURSOR_MOVED':
                 if (message.data && typeof message.data.newPos === 'number') {
-                    shwvStore.moveCursor(message.data.newPos, message.data.textInOldPos);
+                    shwvStore.moveCursor(message.data.newPos, message.data.textInOldPos, message.data.status);
                 }
                 break;
         }

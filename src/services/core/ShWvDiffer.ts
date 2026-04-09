@@ -11,14 +11,23 @@ export class ShWvDiffer {
             if (tag === 'equal') {
                 result += src2.substring(j1, j2);
             } else if (tag === 'replace') {
-                result += `<del>${src1.substring(i1, i2)}</del><ins>${src2.substring(j1, j2)}</ins>`;
+                result += `[del]${src1.substring(i1, i2)}[/del][ins]${src2.substring(j1, j2)}[/ins]`;
             } else if (tag === 'delete') {
-                result += `<del>${src1.substring(i1, i2)}</del>`;
+                result += `[del]${src1.substring(i1, i2)}[/del]`;
             } else if (tag === 'insert') {
-                result += `<ins>${src2.substring(j1, j2)}</ins>`;
+                result += `[ins]${src2.substring(j1, j2)}[/ins]`;
             }
         }
-        return result;
+
+        // HTML特殊文字のエスケープを行い、その後でプレースホルダを実際のタグに置換する
+        result = result.replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        return result.replace(/\[ins\]/g, '<ins>')
+            .replace(/\[\/ins\]/g, '</ins>')
+            .replace(/\[del\]/g, '<del>')
+            .replace(/\[\/del\]/g, '</del>');
     }
 
     /**
@@ -41,11 +50,11 @@ export class ShWvDiffer {
 
             // Retrieve TM match sources (External from memories, Internal from previous units)
             const tmSources = currentResult.t.map((idx: number) => memories[idx]);
-            const internalSources = currentResult.i.map((idx: number) => ({ 
-                idx: units[idx].idx, 
-                src: units[idx].src, 
-                tgt: units[idx].tgt || "", 
-                file: "Internal" 
+            const internalSources = currentResult.i.map((idx: number) => ({
+                idx: units[idx].idx,
+                src: units[idx].src,
+                tgt: units[idx].tgt || "",
+                file: "Internal"
             }));
 
             const allSources = [...tmSources, ...internalSources];
