@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import { openSheepWeavePanel } from './commands/openSheepWeavePanel';
 import { prepareProjectCommand } from './commands/prepareProject';
 import { renameLikeReplaceCommand } from './commands/renameLikeReplace';
+import { startAddTermSide, confirmAddTermSide, cancelAddTermSide } from './commands/addTermSide';
 import { confirmLineCommand } from './commands/confirmLine';
 import { initEditorGuard } from './features/editorGuard';
 import { initDecorators, renderConfirmedDecorations } from './features/decorators';
@@ -46,6 +47,12 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('sheepWeave.confirmLine', () => {
             confirmLineCommand();
         })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('sheepWeave.startAddTermSide', () => startAddTermSide()),
+        vscode.commands.registerCommand('sheepWeave.confirmAddTermSide', () => confirmAddTermSide()),
+        vscode.commands.registerCommand('sheepWeave.cancelAddTermSide', () => cancelAddTermSide()),
     );
 
     // Render decorations globally whenever an editor is shown

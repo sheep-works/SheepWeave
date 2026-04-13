@@ -47,7 +47,12 @@ export function initEditorGuard(context: vscode.ExtensionContext) {
             // Check for strictly line count changes or newlines in content
             const hasLineChange =
                 lineDelta !== 0 ||
-                contentChanges.some(c => c.text.includes('\n') || c.range.end.line !== c.range.start.line);
+                // contentChanges.some(c => c.text.includes('\n') || c.range.end.line !== c.range.start.line);
+                contentChanges.some(c => {
+                    const addedLines = (c.text.match(/\n/g) || []).length;
+                    const removedLines = c.range.end.line - c.range.start.line;
+                    return addedLines !== removedLines;
+                });
 
             if (hasLineChange) {
                 try {

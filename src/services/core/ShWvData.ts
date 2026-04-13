@@ -25,9 +25,7 @@ export class ShWvData {
             tmFiles: [],
             tbFiles: []
         };
-        this.body = {
-            units: []
-        };
+        this.body = new ShWvBody();
     }
 
     public async parse(filepaths: string[]): Promise<void> {
@@ -107,13 +105,32 @@ export class ShWvData {
         }
     }
 
+    public updateUnits(updatedUnits: ShWvUnit[]): number[] {
+        const affected = new Set<number>();
+        for (const newUnit of updatedUnits) {
+            if (newUnit.idx < 0) continue;
+            const targetUnit = this.body.units[newUnit.idx];
+            if (targetUnit) {
+                targetUnit.tgt = newUnit.tgt;
+                targetUnit.status = newUnit.status;
+                affected.add(newUnit.idx);
+                
+                // プロパゲーションによる二次的な変更も追跡
+                const secondary = this.propagateTranslation(newUnit.idx, newUnit.tgt);
+                secondary.forEach(idx => affected.add(idx));
+            }
+        }
+        return Array.from(affected);
+    }
+
     /**
      * Propagates a translation to all units that have quoted this unit as a TM match.
      * Handles both fuzzy matches (quoted) and 100% matches (quoted100).
      */
-    public propagateTranslation(sourceIdx: number, text: string): void {
+    public propagateTranslation(sourceIdx: number, text: string): number[] {
+        const affected = new Set<number>();
         const sourceUnit = this.body.units[sourceIdx];
-        if (!sourceUnit) return;
+        if (!sourceUnit) return [];
 
         // Synchronize tgt to all the units that quoted this sentence as TM (Fuzzy)
         for (const [quotedIdx, ratio] of sourceUnit.ref.quoted) {
@@ -122,6 +139,7 @@ export class ShWvData {
                 const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === sourceUnit.idx);
                 if (tmRef) {
                     tmRef.tgt = text;
+                    affected.add(referencingUnit.idx);
                 }
             }
         }
@@ -133,9 +151,11 @@ export class ShWvData {
                 const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === sourceUnit.idx);
                 if (tmRef) {
                     tmRef.tgt = text;
+                    affected.add(referencingUnit.idx);
                 }
             }
         }
+        return Array.from(affected);
     }
 
     public load(root: string): void {
@@ -151,7 +171,8 @@ export class ShWvData {
                 parsed.meta.tmFiles || [],
                 parsed.meta.tbFiles || []
             );
-            this.body = parsed.body;
+            const body = new ShWvBody(parsed.body.units, parsed.body.terms || []);
+            this.body = body;
         }
     }
 

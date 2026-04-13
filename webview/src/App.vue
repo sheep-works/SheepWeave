@@ -7,6 +7,7 @@ import TranslateTab from './tabs/TranslateTab.vue';
 import DebugTab from './tabs/DebugTab.vue';
 import ManagementTab from './tabs/ManagementTab.vue';
 import SettingsTab from './tabs/SettingsTab.vue';
+import FilterTab from './tabs/FilterTab.vue';
 import { storeToRefs } from 'pinia';
 
 
@@ -14,6 +15,7 @@ const i18nStore = useI18nStore();
 const { locale } = storeToRefs(i18nStore);
 const activeTab = ref('flow');
 const shwvStore = useShWvStore();
+const loading = ref(false);
 
 // Acquire the VS Code API
 const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
@@ -35,11 +37,12 @@ const config = ref({
 });
 
 function handleCommand(command: string, payload?: any) {
-    console.log('[Webview handleCommand]', command, payload);
     if (vscode) {
-        vscode.postMessage({ type: command, payload });
+        // DataCloneError回避のためペイロードのProxyを確実に除去
+        const rawPayload = payload ? JSON.parse(JSON.stringify(payload)) : undefined;
+        vscode.postMessage({ type: command, command, payload: rawPayload });
     } else {
-        console.log(`Mock: ${command} command sent with payload:`, payload);
+        console.log(`Mock: ${command} command sent:`, payload);
     }
 }
 
@@ -69,10 +72,20 @@ onMounted(() => {
             case 'SHWV_DATA_LOADED':
                 shwvStore.loadData(message.data);
                 break;
+            case 'UNITS_UPDATED':
+                if (message.data.units) shwvStore.updateUnits(message.data.units);
+                if (message.data.meta) shwvStore.meta = message.data.meta;
+                break;
             case 'CURSOR_MOVED':
                 if (message.data && typeof message.data.newPos === 'number') {
                     shwvStore.moveCursor(message.data.newPos, message.data.textInOldPos, message.data.status);
                 }
+                break;
+            case 'SET_LOADING':
+                loading.value = !!message.data;
+                break;
+            case 'SELECT_TAB':
+                if (message.data) activeTab.value = message.data;
                 break;
         }
     });
@@ -84,38 +97,39 @@ onMounted(() => {
 </script>
 
 <template>
-<a-layout>
-    <a-layout-header>
-        <a-space>
-            <a-typography-title> SheepWeave </a-typography-title>
-            <a-select v-model="locale">
-                <a-option :value="'en'">English</a-option>
-                <a-option :value="'ja'">日本語</a-option>
-            </a-select>
-        </a-space>
-    </a-layout-header>
-    <a-tabs>
-    <a-tab-pane key="flow" title="Flow">
-        <FlowTab
-            @FlowCommand="handleCommand"
-            :config="config"
-        />
-    </a-tab-pane>
-    <a-tab-pane key="translate" title="Translate">
-        <TranslateTab :fontSize="config.fontSize" />
-    </a-tab-pane>
-    <a-tab-pane key="debug" title="Debug">
-        <DebugTab />
-    </a-tab-pane>
-    <a-tab-pane key="management" title="Management">
-        <ManagementTab @ManageCommand="handleCommand" />
-    </a-tab-pane>
-    <a-tab-pane key="settings" title="Settings">
-        <SettingsTab :config="config" @updateConfig="updateConfig" />
-    </a-tab-pane>
-    </a-tabs>
-</a-layout>
+    <a-spin :loading="loading" tip="Processing..." style="display: block; width: 100%; min-height: 100vh;">
+        <a-layout>
+            <a-layout-header>
+                <a-space>
+                    <a-typography-title> SheepWeave </a-typography-title>
+                    <a-select v-model="locale">
+                        <a-option :value="'en'">English</a-option>
+                        <a-option :value="'ja'">日本語</a-option>
+                    </a-select>
+                </a-space>
+            </a-layout-header>
+            <a-tabs>
+                <a-tab-pane key="flow" title="Flow">
+                    <FlowTab @FlowCommand="handleCommand" :config="config" />
+                </a-tab-pane>
+                <a-tab-pane key="translate" title="Translate">
+                    <TranslateTab :fontSize="config.fontSize" />
+                </a-tab-pane>
+                <a-tab-pane key="filter" title="Filter">
+                    <FilterTab @FilterCommand="handleCommand" />
+                </a-tab-pane>
+                <a-tab-pane key="management" title="Management">
+                    <ManagementTab @ManageCommand="handleCommand" />
+                </a-tab-pane>
+                <a-tab-pane key="settings" title="Settings">
+                    <SettingsTab :config="config" @updateConfig="updateConfig" />
+                </a-tab-pane>
+                <!-- <a-tab-pane key="debug" title="Debug">
+                    <DebugTab />
+                </a-tab-pane> -->
+            </a-tabs>
+        </a-layout>
+    </a-spin>
 </template>
 
-<style scoped>
-</style>
+<style scoped></style>

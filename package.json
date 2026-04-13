@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "publisher": "sheepweave",
   "engines": {
     "vscode": "^1.96.0"
@@ -61,6 +61,18 @@
       {
         "command": "sheepWeave.confirmLine",
         "title": "SheepWeave: Confirm Line"
+      },
+      {
+        "command": "sheepWeave.startAddTermSide",
+        "title": "SheepWeave: Add Term (Side)"
+      },
+      {
+        "command": "sheepWeave.confirmAddTermSide",
+        "title": "SheepWeave: Confirm Term (Side)"
+      },
+      {
+        "command": "sheepWeave.cancelAddTermSide",
+        "title": "SheepWeave: Cancel Term (Side)"
       }
     ],
     "languages": [
@@ -169,6 +181,26 @@
         "key": "ctrl+enter",
         "mac": "cmd+enter",
         "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.startAddTermSide",
+        "key": "ctrl+t",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.confirmAddTermSide",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == shwvs && sheepWeave.addTermSideMode"
+      },
+      {
+        "command": "sheepWeave.confirmAddTermSide",
+        "key": "ctrl+t",
+        "when": "editorTextFocus && editorLangId == shwvs && sheepWeave.addTermSideMode"
+      },
+      {
+        "command": "sheepWeave.cancelAddTermSide",
+        "key": "escape",
+        "when": "editorTextFocus && (editorLangId == shwvs || editorLangId == shwvt) && sheepWeave.addTermSideMode"
       }
     ],
     "configuration": {

@@ -3,13 +3,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 
+// https://docs.oasis-open.org/xliff/xliff-core/v2.1/os/xliff-core-v2.1-os.html#file-formats
+// tikal で変換できる拡張子が分かればここに追加する
 export const supportedExtensions: string[] = [
   '.docx', '.pptx', '.xlsx',
   '.html', '.xhtml',
   '.xml',
   '.json', '.yaml', '.yml',
   '.properties', '.po',
-  '.csv', '.tsv'
+  '.csv', '.tsv',
+  '.xlf', '.xliff', '.mqxliff', '.mxliff', '.sdlxliff'
 ];
 
 export function resolveTikalPath(): string {
@@ -68,13 +71,13 @@ export function runTikal(
   targetLang?: string
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    
+
     const args: string[] = [];
-    
+
     if (filter && filter !== 'auto') {
       args.push('-fc', filter);
     }
-    
+
     if (sourceLang) {
       args.push('-sl', sourceLang);
     }
@@ -88,26 +91,41 @@ export function runTikal(
       args.push('-m');
     }
 
-    // Node.js will automatically quote if needed when shell: false or handle it if shell: true
-    args.push(file);
+    // Node.js will automatically quote if needed when shell: false, 
+    // but with shell: true on Windows, we should explicitly double-quote paths with spaces.
+    args.push(`"${file}"`);
 
     console.log(`Running Tikal: ${tikalPath} ${args.join(' ')}`);
 
-    const p = spawn(tikalPath, args, { shell: true }); 
+    let stdout = '';
+    let stderr = '';
 
-    p.stdout.on('data', d => console.log(`[tikal] ${d.toString()}`));
-    p.stderr.on('data', d => console.error(`[tikal:error] ${d.toString()}`));
+    const p = spawn(tikalPath, args, { shell: true });
+
+    p.stdout.on('data', d => {
+      const content = d.toString();
+      stdout += content;
+      console.log(`[tikal] ${content}`);
+    });
+    p.stderr.on('data', d => {
+      const content = d.toString();
+      stderr += content;
+      console.error(`[tikal:error] ${content}`);
+    });
 
     p.on('close', code => {
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`Tikal exited with code ${code} for file: ${file}`));
+        // Provide the captured stderr (or stdout as fallback) to the reject reason
+        const errorDetail = stderr.trim() || stdout.trim();
+        const errorMessage = `Tikal exited with code ${code} for file "${file}".\n${errorDetail}`;
+        reject(new Error(errorMessage));
       }
     });
 
     p.on('error', err => {
-        reject(err);
+      reject(err);
     });
   });
 }

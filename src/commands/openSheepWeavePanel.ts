@@ -14,6 +14,15 @@ import { renderConfirmedDecorations } from '../features/decorators';
 // 現在表示されているパネルを保持する変数。一度に一つだけ表示するために使います
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
 
+/**
+ * Webviewにメッセージを送信するヘルパー関数
+ */
+export function notifyWebview(message: any) {
+    if (currentPanel) {
+        currentPanel.webview.postMessage(message);
+    }
+}
+
 // 現在アクティブなエディタがある列（カラム）を取得します
 export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFocus: boolean = false) {
     // すでにパネルが開いている場合は、新しく作らずにそのパネルを最前面に表示（reveal）します。
@@ -171,15 +180,21 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFo
 
             // メッセージの種類に応じて、処理を Handler クラスに振り分け
             try {
-                if (message.type.startsWith('shuttle-')) {
+                // message.type または message.command のどちらでも受け取れるようにする
+                const cmd = message.type || message.command;
+                vscode.window.setStatusBarMessage(`[SheepWeave] Executing: ${cmd}`, 5000);
+
+                if (cmd && cmd.startsWith('shuttle-')) {
                     // プロジェクト管理系（インポート/エクスポートなど）
                     await AdminHandler.handle(message, globalShWvData, rootPath, panel);
-                } else {
+                } else if (cmd) {
                     // 翻訳データ操作系
                     await CoreHandler.handle(message, globalShWvData, rootPath, panel);
+                } else {
+                    console.warn('Unknown message format received from webview', message);
                 }
             } catch (error) {
-                vscode.window.showErrorMessage(`Error executing ${message.type}: ${error}`);
+                vscode.window.showErrorMessage(`Error executing ${message.type || 'command'}: ${error}`);
                 console.error(error);
             }
         },

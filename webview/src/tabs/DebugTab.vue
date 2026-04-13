@@ -16,31 +16,33 @@ const copyStore = () => {
 </script>
 
 <template>
-  <div v-if="shwvStore.hasData">
-    <a-list>
-        <a-list-item>
-            <a-typography-text>Current Position: {{ shwvStore.crtPos }}</a-typography-text>
-        </a-list-item>
-        <a-list-item>
-            <a-typography-text>Max Position: {{ shwvStore.maxPos }}</a-typography-text>
-        </a-list-item>
-        <a-list-item>
-            <a-typography-text>Meta Information: {{ shwvStore.meta }}</a-typography-text>
-        </a-list-item>
-        <a-list-item>
-            <a-typography-text>Units ({{ shwvStore.units.length }}):</a-typography-text>
-            <a-list v-for="unit in shwvStore.units">
+    <div id="debug-tab">
+        <div v-if="shwvStore.hasData">
+            <a-list>
                 <a-list-item>
-                    <a-typography-text>{{ unit }}</a-typography-text>
+                    <a-typography-text>Current Position: {{ shwvStore.crtPos }}</a-typography-text>
+                </a-list-item>
+                <a-list-item>
+                    <a-typography-text>Max Position: {{ shwvStore.maxPos }}</a-typography-text>
+                </a-list-item>
+                <a-list-item>
+                    <a-typography-text>Meta Information: {{ shwvStore.meta }}</a-typography-text>
+                </a-list-item>
+                <a-list-item>
+                    <a-typography-text>Units ({{ shwvStore.units.length }}):</a-typography-text>
+                    <a-list v-for="unit in shwvStore.units">
+                        <a-list-item>
+                            <a-typography-text>{{ unit }}</a-typography-text>
+                        </a-list-item>
+                    </a-list>
                 </a-list-item>
             </a-list>
-        </a-list-item>
-    </a-list>
-    <a-button @click="copyStore">Copy Store</a-button>
-  </div>
-  <div v-else>
-    <Nodata />
-  </div>
+            <a-button @click="copyStore">Copy Store</a-button>
+        </div>
+        <div v-else>
+            <Nodata />
+        </div>
+    </div>
 </template>
 
 <style scoped>

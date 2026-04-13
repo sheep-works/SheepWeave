@@ -15,6 +15,18 @@ export const useShWvStore = defineStore('shwv', {
             this.maxPos = this.units.length - 1;
             console.log('ShWvData loaded into store:', data);
         },
+        updateUnits(updatedUnits: ShWvUnit[]) {
+            for (const newUnit of updatedUnits) {
+                const index = this.units.findIndex(u => u.idx === newUnit.idx);
+                if (index !== -1) {
+                    // リアクティビティを確実にするため、新しいオブジェクトとして代入
+                    this.units[index] = { ...newUnit };
+                }
+            }
+            // 配列全体の再代入で確実にVueに通知
+            this.units = [...this.units];
+            console.log(`Incremental update: ${updatedUnits.length} units synchronized to store.`);
+        },
         clearData() {
             this.meta = null;
             this.units = [];
@@ -62,6 +74,17 @@ export const useShWvStore = defineStore('shwv', {
                     }
                 }
             }
+        },
+        getFilteredUnits(src: string, tgt: string): (ShWvUnit & { ori: string })[] {
+            const s = src?.toLowerCase();
+            const t = tgt?.toLowerCase();
+            return this.units
+                .filter(unit => {
+                    if (s && !(unit.src || "").toLowerCase().includes(s)) return false;
+                    if (t && !(unit.tgt || "").toLowerCase().includes(t)) return false;
+                    return true;
+                })
+                .map(unit => ({ ...unit, ori: unit.tgt }));
         }
     },
     getters: {

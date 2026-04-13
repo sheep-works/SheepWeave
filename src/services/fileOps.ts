@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ShWvData } from './core/ShWvData';
@@ -221,27 +222,46 @@ export async function runTikalExtraction(root: string, sourceLang: string, targe
 
         for (const file of files) {
             try {
-                await runTikal(tikalPath, filter, file, 'extract', sourceLang, targetLang);
-                
-                // Tikal outputs file.ext.xlf in the same directory (02_SOURCE)
-                const generatedXlf = file + '.xlf';
-                
-                // Wait a tiny bit for FS sync if needed? (optional, usually spawn close is enough)
-                if (exists(generatedXlf)) {
-                    const xlfBasename = path.basename(generatedXlf);
+                const ext = path.extname(file).toLowerCase();
+                // Check if the file is already an XLIFF derivative
+                const isXliff = ['.xlf', '.xliff', '.mqxliff', '.mxliff', '.sdlxliff'].includes(ext);
+
+                if (isXliff) {
+                    // Direct copy for XLIFF-like files, skipping Okapi extraction
+                    const xlfBasename = path.basename(file);
                     const destXlf = path.join(xlfDir, xlfBasename);
-                    if (exists(destXlf)) fs.unlinkSync(destXlf); // Overwrite if exists in 03_XLF_JSON
-                    fs.renameSync(generatedXlf, destXlf);
-                    
+
+                    if (exists(destXlf)) fs.unlinkSync(destXlf);
+                    fs.copyFileSync(file, destXlf);
+
                     const fileStatus = projectManager.data.okapi.find(g => g.filter === filter)?.files.find(f => f.source === file);
                     if (fileStatus) {
                         fileStatus.status = 'extracted';
                         fileStatus.xliff = destXlf;
                     }
                 } else {
-                    console.error(`XLF not found after extraction: ${generatedXlf}`);
+                    await runTikal(tikalPath, filter, file, 'extract', sourceLang, targetLang);
+
+                    // Tikal outputs file.ext.xlf in the same directory (02_SOURCE)
+                    const generatedXlf = file + '.xlf';
+
+                    if (exists(generatedXlf)) {
+                        const xlfBasename = path.basename(generatedXlf);
+                        const destXlf = path.join(xlfDir, xlfBasename);
+                        if (exists(destXlf)) fs.unlinkSync(destXlf); // Overwrite if exists in 03_XLF_JSON
+                        fs.renameSync(generatedXlf, destXlf);
+
+                        const fileStatus = projectManager.data.okapi.find(g => g.filter === filter)?.files.find(f => f.source === file);
+                        if (fileStatus) {
+                            fileStatus.status = 'extracted';
+                            fileStatus.xliff = destXlf;
+                        }
+                    } else {
+                        console.error(`XLF not found after extraction: ${generatedXlf}`);
+                    }
                 }
             } catch (error: any) {
+                vscode.window.showErrorMessage(`Failed to extract file ${path.basename(file)}: ${error.message || error}`);
                 console.error(`Failed to extract file ${file} with filter ${filter}:`, error);
             }
             // Save project.json incrementally after each file to ensure persistence
@@ -277,10 +297,10 @@ export async function postprocessor(root: string) {
             const originalName = fileInfo.name;
             const ext = path.extname(originalName);
             const baseName = path.basename(originalName, ext);
-            
+
             const originalXlfPath = path.join(root, 'Working', '03_XLF_JSON', originalName);
             const completedXlfPath = path.join(completedDir, baseName + '-done' + ext);
-            
+
             const slicedUnits = data.body.units.slice(fileInfo.start, fileInfo.end + 1);
             await data.saveXlf(completedXlfPath, originalXlfPath, slicedUnits);
         }
@@ -310,17 +330,27 @@ export async function runPackage(root: string) {
                     const originalName = path.basename(file.xliff);
                     const ext = path.extname(originalName);
                     const baseName = path.basename(originalName, ext);
-                    
                     const completedXlfPath = path.join(completedDir, baseName + '-done' + ext);
-                    
+
                     if (exists(completedXlfPath)) {
-                        // Determine the expected xlf name in 02_SOURCE (Tikal expects it beside the source)
-                        const expectedXlf = file.source + '.xlf';
-                        fs.copyFileSync(completedXlfPath, expectedXlf);
-                        
-                        file.status = 'translated';
-                        filesToMerge.push(file.source);
-                        xlfFilesToCleanup.push(expectedXlf);
+                        const originalExt = path.extname(file.source).toLowerCase();
+                        const isXliff = ['.xlf', '.xliff', '.mqxliff', '.mxliff', '.sdlxliff'].includes(originalExt);
+
+                        if (isXliff) {
+                            // Direct copy for XLIFF-like files, skipping Okapi merge
+                            const finalDest = path.join(packageDir, path.basename(file.source));
+                            if (exists(finalDest)) fs.unlinkSync(finalDest);
+                            fs.copyFileSync(completedXlfPath, finalDest);
+                            file.status = 'merged';
+                        } else {
+                            // Determine the expected xlf name in 02_SOURCE (Tikal expects it beside the source)
+                            const expectedXlf = file.source + '.xlf';
+                            fs.copyFileSync(completedXlfPath, expectedXlf);
+                            
+                            file.status = 'translated';
+                            filesToMerge.push(file.source);
+                            xlfFilesToCleanup.push(expectedXlf);
+                        }
                     }
                 }
             }
@@ -329,6 +359,8 @@ export async function runPackage(root: string) {
         if (filesToMerge.length > 0) {
             try {
                 for (const srcFile of filesToMerge) {
+                    // srcFile is the absolute path to the native file in 02_SOURCE
+                    // Tikal -m expects the source file path and will look for sourcefile.xlf
                     await runTikal(tikalPath, group.filter, srcFile + '.xlf', 'merge', sourceLang, targetLang);
                 }
 
@@ -355,13 +387,14 @@ export async function runPackage(root: string) {
 
                     if (mergedFile) {
                         const finalDest = path.join(packageDir, path.basename(mergedFile));
-                        if(exists(finalDest)) fs.unlinkSync(finalDest); // prevent renaming error if exists
+                        if (exists(finalDest)) fs.unlinkSync(finalDest); // prevent renaming error if exists
                         fs.renameSync(mergedFile, finalDest);
                         const fileStatus = projectManager.data.okapi.find((g: any) => g.filter === group.filter)?.files.find((f: any) => f.source === srcFile);
                         if (fileStatus) fileStatus.status = 'merged';
                     }
                 }
             } catch (error: any) {
+                vscode.window.showErrorMessage(`Failed to merge files for filter ${group.filter}: ${error.message || error}`);
                 console.error(`Failed to merge filter ${group.filter}`, error);
             }
         }

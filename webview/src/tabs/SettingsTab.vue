@@ -23,12 +23,14 @@ function handleFontSizeChange(value: number) {
 </script>
 
 <template>
-  <div class="settings-tab">
+  <div id="settings-tab">
     <div class="header">
-      <icon-settings :style="{ fontSize: '24px', marginRight: '8px' }" />
-      <a-typography-title :heading="4" style="margin: 0">Settings</a-typography-title>
+      <a-space>
+        <icon-settings :style="{ fontSize: '24px', marginRight: '8px' }" />
+        <a-typography-title :heading="4" style="margin: 0">Settings</a-typography-title>
+      </a-space>
     </div>
-    
+
     <a-divider />
 
     <a-form :model="config" layout="vertical" class="settings-form">
@@ -38,15 +40,11 @@ function handleFontSizeChange(value: number) {
 
       <a-card title="Translation Display" :bordered="false" class="settings-card">
         <a-form-item label="Table Font Size (px)">
-          <a-input-number 
-            v-model="localFontSize" 
-            :min="8" 
-            :max="72" 
-            @change="handleFontSizeChange"
-            style="width: 120px"
-          />
+          <a-input-number v-model="localFontSize" :min="8" :max="72" @change="handleFontSizeChange"
+            style="width: 120px" />
           <template #extra>
-            <div style="margin-top: 4px;">Adjust the font size of the text in the Translate tab for better readability.</div>
+            <div style="margin-top: 4px;">Adjust the font size of the text in the Translate tab for better readability.
+            </div>
           </template>
         </a-form-item>
       </a-card>
@@ -55,7 +53,7 @@ function handleFontSizeChange(value: number) {
 </template>
 
 <style scoped>
-.settings-tab {
+#settings-tab {
   padding: 24px;
   max-width: 600px;
   margin: 0 auto;
