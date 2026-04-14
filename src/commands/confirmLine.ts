@@ -17,6 +17,11 @@ export function confirmLineCommand() {
     // Apply decorations
     renderConfirmedDecorations(editor);
 
-    // Move to the next line automatically
-    vscode.commands.executeCommand('cursorDown');
+    // 次の行の先頭にカーソルを移動
+    const nextLine = line + 1;
+    if (nextLine < editor.document.lineCount) {
+        const nextPosition = new vscode.Position(nextLine, 0);
+        editor.selection = new vscode.Selection(nextPosition, nextPosition);
+        editor.revealRange(new vscode.Range(nextPosition, nextPosition));
+    }
 }

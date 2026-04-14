@@ -1,6 +1,6 @@
 import { ShWvBody, ShWvMeta, ShWvUnit } from "../../types/datatype";
 import { getExtention } from "../../util";
-import { shwv2xlf, parseTranslationFiles } from "../converter";
+import { shwv2xlfLike, parseTranslationFiles } from "../converter";
 import { readFileSync, writeFileSync } from "fs";
 import { DirHelper } from "./DirHelper";
 import { ShWvDiffer } from "./ShWvDiffer";
@@ -11,6 +11,7 @@ export class ShWvData {
     public ver!: number;
     public meta!: ShWvMeta;
     public body!: ShWvBody;
+    public phrases: { input: string, phrase: string }[] = [];
 
     constructor() {
         this.clear();
@@ -26,6 +27,7 @@ export class ShWvData {
             tbFiles: []
         };
         this.body = new ShWvBody();
+        this.phrases = [];
     }
 
     public async parse(filepaths: string[]): Promise<void> {
@@ -174,6 +176,21 @@ export class ShWvData {
             const body = new ShWvBody(parsed.body.units, parsed.body.terms || []);
             this.body = body;
         }
+
+        this.loadPhrases(root);
+    }
+
+    public loadPhrases(root: string): void {
+        const phrasePathFull = path.join(root, DirHelper.rootToPhrases);
+        if (fs.existsSync(phrasePathFull)) {
+            try {
+                const content = fs.readFileSync(phrasePathFull, 'utf-8');
+                this.phrases = JSON.parse(content);
+            } catch (e) {
+                console.error('Failed to load phrases:', e);
+                this.phrases = [];
+            }
+        }
     }
 
     public save(root: string): void {
@@ -232,7 +249,7 @@ export class ShWvData {
     }
 
     public async saveXlf(filepath: string, originalXlfPath: string, slicedUnits: ShWvUnit[]): Promise<void> {
-        const newXlf = await shwv2xlf(readFileSync(originalXlfPath, 'utf-8'), slicedUnits);
+        const newXlf = await shwv2xlfLike(originalXlfPath, readFileSync(originalXlfPath, 'utf-8'), slicedUnits);
         writeFileSync(filepath, newXlf);
     }
 }

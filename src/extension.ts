@@ -11,19 +11,32 @@ import { confirmLineCommand } from './commands/confirmLine';
 import { initEditorGuard } from './features/editorGuard';
 import { initDecorators, renderConfirmedDecorations } from './features/decorators';
 import { initShortcuts } from './features/shortcuts';
+import { TbCompletionProvider, PhraseCompletionProvider } from './features/intellisense';
 import { globalShWvData, globalDirector } from './store';
+import { findProjectRoot } from './util';
 
 // Expose standard events here if needed
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, your extension "sheep-weave" is now active!');
 
-    // Eagerly load project data on startup so decorations work immediately
-    const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (rootPath) {
-        globalShWvData.load(rootPath);
-        globalDirector.initializeFromState();
+    // プロジェクトデータをロード（アクティブなエディタに基づいてルートを特定）
+    let lastLoadedRoot: string | undefined = undefined;
+
+    function loadProjectData(editor: vscode.TextEditor | undefined) {
+        if (!editor) return;
+        const filePath = editor.document.uri.fsPath;
+        const root = findProjectRoot(filePath);
+        if (root && root !== lastLoadedRoot) {
+            globalShWvData.load(root);
+            globalDirector.initializeFromState();
+            lastLoadedRoot = root;
+            console.log(`Loaded project data from: ${root}`);
+        }
     }
+
+    // 初回ロード
+    loadProjectData(vscode.window.activeTextEditor);
 
     context.subscriptions.push(
         vscode.commands.registerCommand('sheepWeave.openPanel', () => {
@@ -58,6 +71,9 @@ export function activate(context: vscode.ExtensionContext) {
     // Render decorations globally whenever an editor is shown
     vscode.window.onDidChangeActiveTextEditor(editor => {
         if (editor) {
+            // プロジェクトルートが変わっていれば再読み込み
+            loadProjectData(editor);
+            
             renderConfirmedDecorations(editor);
 
             // .shwvt ファイルがアクティブになった時、パネルが開いていなければ自動で開く
@@ -78,6 +94,18 @@ export function activate(context: vscode.ExtensionContext) {
     initEditorGuard(context);
     initDecorators(context);
     initShortcuts(context);
+
+    // 用語集（TB）の入力補完を登録
+    context.subscriptions.push(
+        vscode.languages.registerCompletionItemProvider(
+            { language: 'shwvt', scheme: 'file' },
+            new TbCompletionProvider()
+        ),
+        vscode.languages.registerCompletionItemProvider(
+            { language: 'shwvt', scheme: 'file' },
+            new PhraseCompletionProvider()
+        )
+    );
 }
 
 export function deactivate() { }

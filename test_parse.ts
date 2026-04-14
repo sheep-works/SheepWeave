@@ -1,8 +1,0 @@
-﻿import { parseStringPromise } from "xml2js";
-import { readFileSync } from "fs";
-async function test() {
-    const content = readFileSync("d:/Code/SheepWeave/sample/rednote.xlsx.xlf", "utf-8");
-    const data = await parseStringPromise(content);
-    console.log(JSON.stringify(data.xliff.file[0].body[0].group[0].group[0], null, 2));
-}
-test();

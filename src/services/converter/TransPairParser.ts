@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import type { ShWvFileInfo, TranslationPair } from '../../types/datatype';
 
-import { xlf2Pairs } from './XlfParser';
+import { xlfLike2Pairs } from './XlifLikeParser';
 import { tmx2Pairs } from './TmxParser';
 import { tbx2Pairs } from './TbxParser';
 import { csv2Pairs, xlsx2Pairs } from './SpreadsheetParser';
@@ -19,9 +19,9 @@ export async function parseTranslationFiles(filepaths: string[]): Promise<{ file
         let units: TranslationPair[] = [];
 
         try {
-            if (ext === '.xlf' || ext === '.xliff' || ext === '.mxliff') {
+            if (ext === '.xlf' || ext === '.xliff' || ext === '.mxliff' || ext === '.sdlxliff' || ext === '.mqxliff') {
                 const content = readFileSync(filepath, 'utf-8');
-                units = await xlf2Pairs(content, globalIdx);
+                units = await xlfLike2Pairs(filepath, content, globalIdx);
             } else if (ext === '.tmx') {
                 const content = readFileSync(filepath, 'utf-8');
                 units = await tmx2Pairs(content, globalIdx);

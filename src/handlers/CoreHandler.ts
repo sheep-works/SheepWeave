@@ -12,7 +12,7 @@ export class CoreHandler {
     public static async handle(message: any, globalShWvData: ShWvData, rootPath: string, panel: vscode.WebviewPanel) {
         switch (message.type) {
             case 'open-current':
-                vscode.env.openExternal(vscode.Uri.file(rootPath));
+                vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(rootPath));
                 break;
             case 'archive-previous':
                 await initDirs(rootPath);
@@ -82,6 +82,7 @@ export class CoreHandler {
             case 'export-xliff':
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {
+                    await CoreHandler.ensureSavedAndSynced(globalShWvData, rootPath);
                     await postprocessor(rootPath);
                     vscode.window.showInformationMessage('Postprocessing Finished (XLIFF exported)');
                 } finally {
@@ -91,6 +92,7 @@ export class CoreHandler {
             case 'merge-to-final':
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {
+                    await CoreHandler.ensureSavedAndSynced(globalShWvData, rootPath);
                     await runPackage(rootPath);
                     vscode.window.showInformationMessage('Native Files Packaged (Merged)');
                 } finally {
@@ -171,5 +173,26 @@ export class CoreHandler {
             default:
                 break;
         }
+    }
+
+    /**
+     * エディタの未保存内容を保存し、データモデル (globalShWvData) を実ファイルの内容と同期させた上で、
+     * data.json への書き出しを強制的に行います。
+     */
+    private static async ensureSavedAndSynced(globalShWvData: ShWvData, rootPath: string) {
+        const shwvtPath = DirHelper.getShwvtPath(rootPath);
+        
+        // 1. エディタがDirty（未保存）なら保存する
+        const docs = vscode.workspace.textDocuments;
+        const targetDoc = docs.find(doc => doc.fileName === shwvtPath);
+        if (targetDoc && targetDoc.isDirty) {
+            await targetDoc.save();
+        }
+
+        // 2. 実ファイルの内容をメモリ(globalShWvData)にロード
+        globalShWvData.update(shwvtPath);
+
+        // 3. JSONファイル(data.json)に保存
+        globalShWvData.save(rootPath);
     }
 }

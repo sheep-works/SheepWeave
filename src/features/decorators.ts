@@ -1,27 +1,38 @@
 /**
  * エディタの装飾機能。
- * .shwvファイル内の数値やプレースホルダーをハイライト表示します。
+ * .shwvt (Target), .shwvs (Source), .shwv ファイル内の数値やプレースホルダーをハイライト表示します。
  */
 import * as vscode from 'vscode';
 
-// Decoration types
+// 装飾タイプ（デコレーション）の定義
+
+// 数値をハイライト（例：123, 1.23）
 const numberDecoration = vscode.window.createTextEditorDecorationType({
-    color: '#d19a66', // Example color (e.g. orange-ish like in One Dark)
+    color: '#d19a66', // オレンジ系（One Dark風）
     fontStyle: 'italic'
 });
 
+// プレースホルダーをハイライト（例：{0}, {VAR}, %s）
 const placeholderDecoration = vscode.window.createTextEditorDecorationType({
-    backgroundColor: 'rgba(255, 215, 0, 0.2)', // Light gold background
+    backgroundColor: 'rgba(255, 215, 0, 0.2)', // 薄いゴールド背景
     borderRadius: '2px'
 });
 
-const termDecoration = vscode.window.createTextEditorDecorationType({
-    textDecoration: 'underline dotted',
-    cursor: 'help' // Change cursor on hover
+// HTMLタグをハイライト（例：<b>, </div>）
+const tagDecoration = vscode.window.createTextEditorDecorationType({
+    color: '#56b6c2', // シアン/テイル系
+    fontWeight: 'bold'
 });
 
+// 用語（将来用：現在は実装が複雑なため未使用）
+const termDecoration = vscode.window.createTextEditorDecorationType({
+    textDecoration: 'underline dotted',
+    cursor: 'help'
+});
+
+// 確定済みの行全体をハイライト
 export const confirmedDecoration = vscode.window.createTextEditorDecorationType({
-    backgroundColor: 'rgba(100, 255, 100, 0.1)', // Thin green
+    backgroundColor: 'rgba(100, 255, 100, 0.1)', // 薄い緑色
     isWholeLine: true
 });
 
@@ -34,8 +45,13 @@ export function initDecorators(context: vscode.ExtensionContext) {
             return;
         }
 
-        // Only apply to .shwv
-        if (activeEditor.document.languageId !== 'shwv' && !activeEditor.document.fileName.endsWith('.shwv')) {
+        // Apply to .shwvt, .shwvs, and legacy .shwv
+        const langId = activeEditor.document.languageId;
+        const fileName = activeEditor.document.fileName;
+        const isSupported = langId === 'shwvt' || langId === 'shwvs' || langId === 'shwv' ||
+                            fileName.endsWith('.shwvt') || fileName.endsWith('.shwvs') || fileName.endsWith('.shwv');
+
+        if (!isSupported) {
             return;
         }
 
@@ -52,8 +68,7 @@ export function initDecorators(context: vscode.ExtensionContext) {
             numbers.push(decoration);
         }
 
-        // Match placeholders: {VAR}, %s, {0} etc.
-        // Simple regex for { ... } or %s
+        // 2. プレースホルダーの検索: {VAR}, %s, {0} など
         const placeholders: vscode.DecorationOptions[] = [];
         const placeholderRegex = /\{[^}]+\}|%[sd]/g;
         while ((match = placeholderRegex.exec(text))) {
@@ -63,8 +78,19 @@ export function initDecorators(context: vscode.ExtensionContext) {
             placeholders.push(decoration);
         }
 
+        // 3. HTMLタグの検索: <tag>, </tag>, <tag /> など
+        const tags: vscode.DecorationOptions[] = [];
+        const tagRegex = /<[^>]+>/g;
+        while ((match = tagRegex.exec(text))) {
+            const startPos = activeEditor.document.positionAt(match.index);
+            const endPos = activeEditor.document.positionAt(match.index + match[0].length);
+            const decoration = { range: new vscode.Range(startPos, endPos) };
+            tags.push(decoration);
+        }
+
         activeEditor.setDecorations(numberDecoration, numbers);
         activeEditor.setDecorations(placeholderDecoration, placeholders);
+        activeEditor.setDecorations(tagDecoration, tags);
         // Terms would be more complex, needing a dictionary lookup. Skipping for MVP static check.
     }
 

@@ -224,10 +224,11 @@ export async function runTikalExtraction(root: string, sourceLang: string, targe
             try {
                 const ext = path.extname(file).toLowerCase();
                 // Check if the file is already an XLIFF derivative
-                const isXliff = ['.xlf', '.xliff', '.mqxliff', '.mxliff', '.sdlxliff'].includes(ext);
+                // .xlf, .xliff, .mxliff, .mqxliff, .sdlxliff は Tikal を通さず直接処理する
+                const isXliff = ['.xlf', '.xliff', '.mxliff', '.mqxliff', '.sdlxliff'].includes(ext);
 
                 if (isXliff) {
-                    // Direct copy for XLIFF-like files, skipping Okapi extraction
+                    // Direct copy for standard XLIFF-like files, skipping Okapi extraction
                     const xlfBasename = path.basename(file);
                     const destXlf = path.join(xlfDir, xlfBasename);
 
@@ -334,10 +335,10 @@ export async function runPackage(root: string) {
 
                     if (exists(completedXlfPath)) {
                         const originalExt = path.extname(file.source).toLowerCase();
-                        const isXliff = ['.xlf', '.xliff', '.mqxliff', '.mxliff', '.sdlxliff'].includes(originalExt);
+                        const isXliff = ['.xlf', '.xliff', '.mxliff', '.mqxliff', '.sdlxliff'].includes(originalExt);
 
                         if (isXliff) {
-                            // Direct copy for XLIFF-like files, skipping Okapi merge
+                            // Direct copy for standard XLIFF-like files, skipping Okapi merge
                             const finalDest = path.join(packageDir, path.basename(file.source));
                             if (exists(finalDest)) fs.unlinkSync(finalDest);
                             fs.copyFileSync(completedXlfPath, finalDest);

@@ -27,7 +27,13 @@ export function notifyWebview(message: any) {
 export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFocus: boolean = false) {
     // すでにパネルが開いている場合は、新しく作らずにそのパネルを最前面に表示（reveal）します。
     if (currentPanel) {
-        currentPanel.reveal(vscode.ViewColumn.Beside, preserveFocus);
+        // 既に表示されており、かつ自動起動（preserveFocus=true）の場合は、
+        // ユーザーが意図的に配置した場所（カラム）を尊重して何もしないようにします。
+        if (preserveFocus && currentPanel.visible) {
+            return;
+        }
+        // それ以外（非表示時や手動コマンド実行時）は、現在のカラムを維持して表示します。
+        currentPanel.reveal(currentPanel.viewColumn || vscode.ViewColumn.Beside, preserveFocus);
         return;
     }
 

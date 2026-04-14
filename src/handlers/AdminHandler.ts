@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { ShWvData } from '../services/core/ShWvData';
 import { SheepShuttle } from '../management';
+import { DirHelper } from '../services/core/DirHelper';
 
 export class AdminHandler {
     public static async handle(message: any, globalShWvData: ShWvData, rootPath: string, panel: vscode.WebviewPanel) {
@@ -13,12 +14,15 @@ export class AdminHandler {
          * @param rootPath プロジェクトのルートパス
          * @param panel メッセージを返すためのWebviewパネル
          */
+        const managePath = DirHelper.getManagePath(rootPath);
+
         switch (message.type) {
             // メッセージの種類（type）によって処理を分岐させる
             case 'shuttle-export-json':
                 // SheepShuttleサービスを使い、外部からプロジェクトデータを取り込む
                 try {
-                    const jsonPath = path.join(rootPath, 'export.json');
+                    fs.mkdirSync(managePath, { recursive: true });
+                    const jsonPath = path.join(managePath, 'export.json');
                     SheepShuttle.exportToJson(globalShWvData, jsonPath);
                     vscode.window.showInformationMessage(`Exported to ${jsonPath}`);
                 } catch (e) {
@@ -27,7 +31,8 @@ export class AdminHandler {
                 break;
             case 'shuttle-export-csv':
                 try {
-                    const csvPath = path.join(rootPath, 'export.csv');
+                    fs.mkdirSync(managePath, { recursive: true });
+                    const csvPath = path.join(managePath, 'export.csv');
                     SheepShuttle.exportToCsv(globalShWvData, csvPath);
                     vscode.window.showInformationMessage(`Exported to ${csvPath}`);
                 } catch (e) {
@@ -36,7 +41,8 @@ export class AdminHandler {
                 break;
             case 'shuttle-split-file':
                 try {
-                    const outDirFile = path.join(rootPath, 'splits_by_file');
+                    fs.mkdirSync(managePath, { recursive: true });
+                    const outDirFile = path.join(managePath, 'splits_by_file');
                     SheepShuttle.splitByFile(globalShWvData, outDirFile);
                     vscode.window.showInformationMessage(`Files split in ${outDirFile}`);
                 } catch (e) {
@@ -45,9 +51,10 @@ export class AdminHandler {
                 break;
             case 'shuttle-split-length':
                 try {
+                    fs.mkdirSync(managePath, { recursive: true });
                     const payload = message.payload || {};
                     const maxLength = payload.maxLength || 1000;
-                    const outDirLength = path.join(rootPath, 'splits_by_length');
+                    const outDirLength = path.join(managePath, 'splits_by_length');
                     SheepShuttle.splitByLength(globalShWvData, maxLength, outDirLength);
                     vscode.window.showInformationMessage(`Files split by length in ${outDirLength}`);
                 } catch (e) {
@@ -56,7 +63,8 @@ export class AdminHandler {
                 break;
             case 'shuttle-export-jsonl':
                 try {
-                    const jsonlPath = path.join(rootPath, 'export.jsonl');
+                    fs.mkdirSync(managePath, { recursive: true });
+                    const jsonlPath = path.join(managePath, 'export.jsonl');
                     SheepShuttle.exportToJsonl(globalShWvData, jsonlPath);
                     vscode.window.showInformationMessage(`Exported JSONL to ${jsonlPath}`);
                 } catch (e) {
@@ -65,10 +73,11 @@ export class AdminHandler {
                 break;
             case 'shuttle-chunk-jsonl':
                 try {
+                    fs.mkdirSync(managePath, { recursive: true });
                     const payload = message.payload || {};
                     const maxChars = payload.maxTokens || 4000;
                     const jsonlContent = SheepShuttle.chunkJsonl(globalShWvData, maxChars);
-                    const outputPath = path.join(rootPath, 'export_chunked.jsonl');
+                    const outputPath = path.join(managePath, 'export_chunked.jsonl');
 
                     fs.writeFileSync(outputPath, jsonlContent, 'utf-8');
                     vscode.window.showInformationMessage(`Exported chunked JSONL to ${outputPath}`);
@@ -78,7 +87,7 @@ export class AdminHandler {
                 break;
             case 'shuttle-import-jsonl':
                 try {
-                    const jsonlPath = path.join(rootPath, 'export_chunked.jsonl');
+                    const jsonlPath = path.join(managePath, 'export_chunked.jsonl');
                     if (!fs.existsSync(jsonlPath)) {
                         vscode.window.showErrorMessage(`File not found: ${jsonlPath}`);
                         return;

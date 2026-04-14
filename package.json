@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "publisher": "sheepweave",
   "engines": {
     "vscode": "^1.96.0"
@@ -241,6 +241,16 @@
           "type": "number",
           "default": 14,
           "description": "Base font size (in px) for the Translate Tab table."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[shwvt]": {
+        "editor.wordBasedSuggestions": "off",
+        "editor.quickSuggestions": {
+          "other": true,
+          "comments": false,
+          "strings": false
         }
       }
     }
