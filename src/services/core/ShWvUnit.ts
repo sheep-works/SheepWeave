@@ -10,6 +10,7 @@ export class ShWvUnit {
     isSub?: boolean;
     status: 0 | 1 | 2;
     ref: ShWvRef;
+    placeholders?: Record<number, string>;
 
     constructor(pair: TranslationPair) {
         this.idx = pair.idx;
@@ -20,5 +21,6 @@ export class ShWvUnit {
         this.isSub = pair.isSub;
         this.status = (pair as any).status || 0;
         this.ref = new ShWvRef();
+        this.placeholders = pair.placeholders;
     }
 }

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { IconFilter, IconCheckCircle, IconSync } from '@arco-design/web-vue/es/icon';
+import { IconFilter, IconCheckCircle, IconSync, IconLoop } from '@arco-design/web-vue/es/icon';
 import { useShWvStore } from '../store/shwv';
 import type { ShWvUnit } from '../../../src/types/datatype'
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 
 const shwvStore = useShWvStore();
 const emit = defineEmits(['FilterCommand']);
@@ -11,10 +11,33 @@ const srcFilter = ref('');
 const tgtFilter = ref('');
 const filteredUnits = ref<(ShWvUnit & { ori: string })[]>([]);
 
+const isPropagating = ref(false);
+
 const handleFilter = () => {
+    isPropagating.value = true;
+    emit('FilterCommand', 'save-and-propagate');
+    
+    // Auto-fallback in case backend response takes too long or fails
+    setTimeout(() => {
+        if (isPropagating.value) {
+            isPropagating.value = false;
+            applyFilterLogic();
+        }
+    }, 1000);
+};
+
+// Listen for updated units from backend save-and-propagate
+watch(() => shwvStore.units, () => {
+    if (isPropagating.value) {
+        isPropagating.value = false;
+        applyFilterLogic();
+    }
+});
+
+const applyFilterLogic = () => {
     try {
         const rawUnits = shwvStore.getFilteredUnits(srcFilter.value, tgtFilter.value);
-        
+
         // Sort: idx !== -1 first, then idx === -1 at the bottom
         const sorted = [...rawUnits].sort((a, b) => {
             if (a.idx === -1 && b.idx !== -1) return 1;
@@ -32,7 +55,7 @@ const handleFilter = () => {
 const handleApply = () => {
     // 実際に変更があったもの（tgt !== ori）かつ有効なidx（>= 0）のみを抽出
     const updates = filteredUnits.value.filter(u => u.tgt !== u.ori && u.idx >= 0);
-    
+
     if (updates.length === 0) {
         return;
     }
@@ -46,6 +69,10 @@ const clearFilter = () => {
     srcFilter.value = '';
     tgtFilter.value = '';
     handleFilter();
+};
+
+const resetUnit = (unit: ShWvUnit & { ori: string }) => {
+    unit.tgt = unit.ori;
 };
 
 </script>
@@ -75,13 +102,14 @@ const clearFilter = () => {
             </a-col>
             <a-col :span="6">
                 <a-space>
-                    <a-button type="primary" @click="handleFilter">
+                    <a-button type="primary" @click="handleFilter" :loading="isPropagating">
                         <template #icon><icon-filter /></template>
                         Filter
                     </a-button>
-                    <a-button type="outline" status="success" :disabled="filteredUnits.length === 0" @click="handleApply">
+                    <a-button type="outline" status="success" :disabled="filteredUnits.length === 0"
+                        @click="handleApply">
                         <template #icon><icon-check-circle /></template>
-                        Apply ({{ filteredUnits.filter(u => u.tgt !== u.ori && u.idx >= 0).length }})
+                        Apply ({{filteredUnits.filter(u => u.tgt !== u.ori && u.idx >= 0).length}})
                     </a-button>
                 </a-space>
             </a-col>
@@ -113,19 +141,26 @@ const clearFilter = () => {
                             <div class="src-text">{{ unit.src }}</div>
                         </a-col>
                         <a-col :span="11">
-                            <a-input v-model="unit.tgt"
-                                :placeholder="unit.idx === -1 ? '(Read-only TM)' : 'Enter translation...'"
-                                :readonly="unit.idx === -1" 
-                                :status="unit.tgt !== unit.ori ? 'warning' : ''"
-                                :style="unit.idx === -1 ? { opacity: 0.6 } : {}" />
+                            <a-space fill>
+                                <a-textarea v-model="unit.tgt"
+                                    :placeholder="unit.idx === -1 ? '(Read-only TM)' : 'Enter translation...'"
+                                    :readonly="unit.idx === -1" :status="unit.tgt !== unit.ori ? 'warning' : ''"
+                                    :style="unit.idx === -1 ? { opacity: 0.6 } : {}" />
+                                <a-button v-if="unit.idx !== -1" type="text" size="small" @click="resetUnit(unit)"
+                                    :disabled="unit.tgt === unit.ori">
+                                    <template #icon><icon-loop /></template>
+                                </a-button>
+                            </a-space>
                         </a-col>
                     </a-row>
                 </a-list-item>
             </a-list>
             <a-empty v-else>
                 <template #extra>
-                    <a-typography-text v-if="srcFilter || tgtFilter">No units match "{{ srcFilter || tgtFilter }}"</a-typography-text>
-                    <a-typography-text v-else type="secondary">Enter keywords to filter and bulk-edit segments</a-typography-text>
+                    <a-typography-text v-if="srcFilter || tgtFilter">No units match "{{ srcFilter || tgtFilter
+                        }}"</a-typography-text>
+                    <a-typography-text v-else type="secondary">Enter keywords to filter and bulk-edit
+                        segments</a-typography-text>
                 </template>
             </a-empty>
         </div>

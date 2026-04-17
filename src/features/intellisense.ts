@@ -15,19 +15,27 @@ export class TbCompletionProvider implements vscode.CompletionItemProvider {
         // 現在の行に対応するユニットを取得
         const lineIdx = position.line;
         const units = globalDirector.state.body.units;
-        const unit = units.find(u => u.idx === lineIdx);
+
+        // 高速化: まず行番号と同じインデックスを試す
+        const unit = (units[lineIdx] && units[lineIdx].idx === lineIdx)
+            ? units[lineIdx]
+            : units.find(u => u.idx === lineIdx);
 
         if (!unit || !unit.ref || !unit.ref.tb || unit.ref.tb.length === 0) {
             return undefined;
         }
 
         const items: vscode.CompletionItem[] = [];
+        const seenLabels = new Set<string>();
         
         // TB (Termbase) のターゲット用語を補完候補として作成
         for (const tb of unit.ref.tb) {
+            if (token.isCancellationRequested) return undefined;
+
             for (const tgt of tb.tgts) {
-                // すでに同じ内容がアイテムにないか確認
-                if (items.some(item => item.label === tgt)) continue;
+                // すでに同じ内容がアイテムにないか確認 (Setを使用して O(1) に)
+                if (seenLabels.has(tgt)) continue;
+                seenLabels.add(tgt);
 
                 const item = new vscode.CompletionItem(tgt, vscode.CompletionItemKind.Reference);
                 item.detail = `[TB] ${tb.src} → ${tgt}`;
@@ -58,6 +66,9 @@ export class TbCompletionProvider implements vscode.CompletionItemProvider {
  * phrase.json に定義されたプロジェクト固有のフレーズに基づいた入力補完を提供します。
  */
 export class PhraseCompletionProvider implements vscode.CompletionItemProvider {
+    private cachedPhrases: any[] | undefined = undefined;
+    private cachedItems: vscode.CompletionItem[] | undefined = undefined;
+
     provideCompletionItems(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -70,11 +81,17 @@ export class PhraseCompletionProvider implements vscode.CompletionItemProvider {
             return undefined;
         }
 
+        // キャッシュチェック（phrases 配列の参照が変わっていなければ使い回す）
+        if (this.cachedPhrases === phrases && this.cachedItems) {
+            return this.cachedItems;
+        }
+
         const items: vscode.CompletionItem[] = [];
         
         for (const p of phrases) {
+            if (token.isCancellationRequested) return undefined;
+
             // labelをフレーズにし、filterTextをショートカット(input)にする
-            // これにより、ショートカットを入力した際にフレーズが候補に表示される
             const item = new vscode.CompletionItem(p.phrase, vscode.CompletionItemKind.Snippet);
             item.insertText = p.phrase;
             item.filterText = p.input;
@@ -85,6 +102,9 @@ export class PhraseCompletionProvider implements vscode.CompletionItemProvider {
             
             items.push(item);
         }
+
+        this.cachedPhrases = phrases;
+        this.cachedItems = items;
 
         return items;
     }

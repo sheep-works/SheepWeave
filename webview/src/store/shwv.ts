@@ -5,13 +5,19 @@ export const useShWvStore = defineStore('shwv', {
     state: () => ({
         meta: null as ShWvMeta | null,
         units: [] as ShWvUnit[],
+        phrases: [] as { input: string, phrase: string }[],
+        concordanceData: null as { query: string, mode: string, tbMatches: any[], tmMatches: any[], currentDocumentMatches: any[] } | null,
         crtPos: 0,
         maxPos: 0,
     }),
     actions: {
-        loadData(data: { meta: ShWvMeta; units: ShWvUnit[] }) {
+        setConcordanceData(data: { query: string, mode: string, tbMatches: any[], tmMatches: any[], currentDocumentMatches: any[] }) {
+            this.concordanceData = data;
+        },
+        loadData(data: { meta: ShWvMeta; units: ShWvUnit[]; phrases?: { input: string, phrase: string }[] }) {
             this.meta = data.meta;
             this.units = data.units || [];
+            this.phrases = data.phrases || [];
             this.maxPos = this.units.length - 1;
             console.log('ShWvData loaded into store:', data);
         },
@@ -38,43 +44,10 @@ export const useShWvStore = defineStore('shwv', {
                 if (status !== undefined) {
                     oldUnit.status = status as 0 | 1 | 2;
                 }
-                this.propagateTranslation(this.crtPos, textInOldPos);
             }
             this.crtPos = newPos;
         },
-        /**
-         * Propagates a translation to all units that have quoted this unit as a TM match.
-         */
-        propagateTranslation(sourceIdx: number, text: string) {
-            const sourceUnit = this.units[sourceIdx];
-            if (!sourceUnit || !sourceUnit.ref) return;
 
-            // Synchronize tgt to all the units that quoted this sentence as TM (Fuzzy)
-            if (sourceUnit.ref.quoted) {
-                for (const [quotedIdx, ratio] of sourceUnit.ref.quoted) {
-                    const referencingUnit = this.units.find(u => u.idx === quotedIdx);
-                    if (referencingUnit) {
-                        const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === sourceUnit.idx);
-                        if (tmRef) {
-                            tmRef.tgt = text;
-                        }
-                    }
-                }
-            }
-
-            // Synchronize tgt to all the units that quoted this sentence as TM (100%)
-            if (sourceUnit.ref.quoted100) {
-                for (const quotedIdx of sourceUnit.ref.quoted100) {
-                    const referencingUnit = this.units.find(u => u.idx === quotedIdx);
-                    if (referencingUnit) {
-                        const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === sourceUnit.idx);
-                        if (tmRef) {
-                            tmRef.tgt = text;
-                        }
-                    }
-                }
-            }
-        },
         getFilteredUnits(src: string, tgt: string): (ShWvUnit & { ori: string })[] {
             const s = src?.toLowerCase();
             const t = tgt?.toLowerCase();

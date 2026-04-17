@@ -36,6 +36,22 @@ const rowspan = computed(() => {
             <td>-</td>
         </tr>
 
+        <!-- placeholders がある場合 -->
+        <template v-if="shwvStore.crtUnit.placeholders && Object.keys(shwvStore.crtUnit.placeholders).length > 0">
+            <tr>
+                <td colspan="2" style="text-align: right; font-size: 0.8em; opacity: 0.8; border-top: 1px dashed var(--vscode-widget-border);">
+                    Placeholders
+                </td>
+                <td colspan="2" style="border-top: 1px dashed var(--vscode-widget-border);">
+                    <a-space wrap>
+                        <a-tag v-for="(val, key) in shwvStore.crtUnit.placeholders" :key="key" color="arcoblue" bordered>
+                            {@{{ key }}} = {{ val }}
+                        </a-tag>
+                    </a-space>
+                </td>
+            </tr>
+        </template>
+
         <!-- TMなど、次セクションとの区切りのための空白行（擬似マージン） -->
         <tr class="tbody-spacer">
             <td colspan="4"></td>

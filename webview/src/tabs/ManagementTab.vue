@@ -33,6 +33,47 @@ const copyStore = () => {
         Message.error('Failed to copy: ' + err);
     });
 };
+
+const stats = ref<{
+    none: { src: number, tgt: number, count: number },
+    confirmed: { src: number, tgt: number, count: number },
+    proofed: { src: number, tgt: number, count: number },
+    total: { src: number, tgt: number, count: number }
+} | null>(null);
+
+function calculateStats() {
+    const s = {
+        none: { src: 0, tgt: 0, count: 0 },
+        confirmed: { src: 0, tgt: 0, count: 0 },
+        proofed: { src: 0, tgt: 0, count: 0 },
+        total: { src: 0, tgt: 0, count: 0 }
+    };
+
+    shwvStore.units.forEach(u => {
+        const srcLen = (u.src || "").length;
+        const tgtLen = (u.tgt || u.pre || "").length;
+
+        s.total.src += srcLen;
+        s.total.tgt += tgtLen;
+        s.total.count++;
+
+        if (u.status === 1) {
+            s.confirmed.src += srcLen;
+            s.confirmed.tgt += tgtLen;
+            s.confirmed.count++;
+        } else if (u.status === 2) {
+            s.proofed.src += srcLen;
+            s.proofed.tgt += tgtLen;
+            s.proofed.count++;
+        } else {
+            s.none.src += srcLen;
+            s.none.tgt += tgtLen;
+            s.none.count++;
+        }
+    });
+
+    stats.value = s;
+}
 </script>
 
 <template>
@@ -78,8 +119,43 @@ const copyStore = () => {
                     </a-space>
                 </a-space>
             </a-card>
-            <a-card title="4. Debug" v-if="shwvStore.hasData">
-                <a-button @click="copyStore">Copy Store</a-button>
+
+            <a-card title="4. Project Statistics (Character Count)">
+                <template #extra>
+                    <a-button type="primary" size="mini" @click="calculateStats">Recalculate</a-button>
+                </template>
+                <div v-if="stats">
+                    <a-descriptions :column="1" bordered>
+                        <a-descriptions-item label="Total">
+                            {{ stats.total.count }} segments (SRC: {{ stats.total.src }} | TGT: {{ stats.total.tgt }})
+                        </a-descriptions-item>
+                        <a-descriptions-item label="Confirmed">
+                            <a-typography-text type="success">
+                                {{ stats.confirmed.count }} segments (SRC: {{ stats.confirmed.src }} | TGT: {{
+                                    stats.confirmed.tgt }})
+                            </a-typography-text>
+                        </a-descriptions-item>
+                        <a-descriptions-item label="Proofed">
+                            <a-typography-text type="warning">
+                                {{ stats.proofed.count }} segments (SRC: {{ stats.proofed.src }} | TGT: {{ stats.proofed.tgt
+                                }})
+                            </a-typography-text>
+                        </a-descriptions-item>
+                        <a-descriptions-item label="None">
+                            {{ stats.none.count }} segments (SRC: {{ stats.none.src }} | TGT: {{ stats.none.tgt }})
+                        </a-descriptions-item>
+                    </a-descriptions>
+                </div>
+                <div v-else style="text-align: center; color: var(--color-text-3);">
+                    Click Recalculate to see project volume.
+                </div>
+            </a-card>
+
+            <a-card title="5. Debug" v-if="shwvStore.hasData">
+                <a-space>
+                    <a-button @click="copyStore">Copy Store</a-button>
+                    <a-button type="outline" status="warning" @click="handleCommand('legacy-analyze')">Legacy TB Analyze (Verify)</a-button>
+                </a-space>
                 <a-link href="https://sheep-works.github.io/SheepPress/json-viewer.html" target="_blank">Paste
                     Here</a-link>
             </a-card>

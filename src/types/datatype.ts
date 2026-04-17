@@ -11,4 +11,5 @@ export interface TranslationPair {
     tgt: string;
     note?: string;
     isSub?: boolean;
+    placeholders?: Record<number, string>;
 }

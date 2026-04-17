@@ -22,6 +22,9 @@ export function initShortcuts(context: vscode.ExtensionContext) {
         }),
         vscode.commands.registerCommand('sheepWeave.replaceAllWithTb', () => {
             replaceAllWithTb();
+        }),
+        vscode.commands.registerCommand('sheepWeave.copySource', () => {
+            copySource();
         })
     );
 }
@@ -34,7 +37,8 @@ function replaceWithTm(index: number) {
     const unit = globalShWvData.body.units[line];
 
     if (unit && unit.ref.tms && unit.ref.tms[index]) {
-        const tgt = unit.ref.tms[index].tgt;
+        const tm = unit.ref.tms[index];
+        const tgt = tm.idx !== -1 ? (globalShWvData.body.units[tm.idx]?.tgt || tm.tgt) : tm.tgt;
         const lineItem = editor.document.lineAt(line);
 
         editor.edit(editBuilder => {
@@ -94,6 +98,20 @@ function replaceAllWithTb() {
             });
             vscode.window.showInformationMessage(`SheepWeave: Replaced all occurrences of "${selectedText}" with "${replacement}".`);
         }
+    }
+}
+
+function copySource() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || !isShwvtFile(editor.document)) return;
+
+    const line = editor.selection.active.line;
+    const unit = globalShWvData.body.units[line];
+
+    if (unit) {
+        const src = unit.src;
+        vscode.env.clipboard.writeText(src);
+        vscode.window.setStatusBarMessage(`SheepWeave: Source copied to clipboard.`, 2000);
     }
 }
 

@@ -6,6 +6,7 @@ import { DirHelper } from './core/DirHelper';
 import { globalShWvData } from '../store';
 import { groupFilesByFilter, resolveTikalPath, runTikal } from './tikal';
 import { ProjectManager, ProjectFileStatus } from './core/ProjectManager';
+import { SheepShuttle } from 'sheepshuttle';
 
 // Helper to ensure directory exists
 function ensureDir(p: string) { if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true }); }
@@ -140,6 +141,30 @@ export async function copyDataToWorking(root: string) {
                 copyRecursive(srcPath, destPath);
             } else {
                 fs.copyFileSync(srcPath, destPath);
+            }
+        }
+    }
+
+    // 4. Special Handle: Check Data/Ref for legacy project JSONs and split them
+    const dataRef = path.join(root, 'Data', 'Ref');
+    if (exists(dataRef)) {
+        const jsonFiles = fs.readdirSync(dataRef).filter(f => f.toLowerCase().endsWith('.json'));
+        for (const file of jsonFiles) {
+            const jsonPath = path.join(dataRef, file);
+            try {
+                const content = fs.readFileSync(jsonPath, 'utf-8');
+                const data = JSON.parse(content);
+                // Basic structure check for ShWvData
+                if (data && data.meta && data.body && Array.isArray(data.body.units)) {
+                    const basename = path.basename(file, '.json');
+                    const tmPath = path.join(root, 'Working', '01_REF', 'TM', `${basename}-tm.json`);
+                    const tbPath = path.join(root, 'Working', '01_REF', 'TB', `${basename}-tb.json`);
+                    
+                    SheepShuttle.exportAsTmTb(data, tmPath, tbPath);
+                    vscode.window.showInformationMessage(`Extracted TM/TB from legacy reference: ${file}`);
+                }
+            } catch (e) {
+                // Not a valid JSON or not ShWvData, just skip
             }
         }
     }

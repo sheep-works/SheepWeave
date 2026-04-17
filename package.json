@@ -2,8 +2,13 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.7",
+  "version": "0.0.10",
   "publisher": "sheepweave",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sheep-works/SheepWeave.git"
+  },
   "engines": {
     "vscode": "^1.96.0"
   },
@@ -63,6 +68,10 @@
         "title": "SheepWeave: Confirm Line"
       },
       {
+        "command": "sheepWeave.copySource",
+        "title": "SheepWeave: Copy Source"
+      },
+      {
         "command": "sheepWeave.startAddTermSide",
         "title": "SheepWeave: Add Term (Side)"
       },
@@ -73,6 +82,14 @@
       {
         "command": "sheepWeave.cancelAddTermSide",
         "title": "SheepWeave: Cancel Term (Side)"
+      },
+      {
+        "command": "sheepWeave.concordanceSearchSource",
+        "title": "SheepWeave: Concordance Search (Source)"
+      },
+      {
+        "command": "sheepWeave.concordanceSearchTarget",
+        "title": "SheepWeave: Concordance Search (Target)"
       }
     ],
     "languages": [
@@ -183,6 +200,11 @@
         "when": "editorTextFocus && editorLangId == shwvt"
       },
       {
+        "command": "sheepWeave.copySource",
+        "key": "ctrl+shift+c",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
         "command": "sheepWeave.startAddTermSide",
         "key": "ctrl+t",
         "when": "editorTextFocus && editorLangId == shwvt"
@@ -201,6 +223,16 @@
         "command": "sheepWeave.cancelAddTermSide",
         "key": "escape",
         "when": "editorTextFocus && (editorLangId == shwvs || editorLangId == shwvt) && sheepWeave.addTermSideMode"
+      },
+      {
+        "command": "sheepWeave.concordanceSearchSource",
+        "key": "ctrl+k",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "sheepWeave.concordanceSearchTarget",
+        "key": "ctrl+shift+k",
+        "when": "editorTextFocus"
       }
     ],
     "configuration": {
@@ -265,6 +297,7 @@
     "vsix": "vsce package"
   },
   "devDependencies": {
+    "@types/flexsearch": "^0.7.6",
     "@types/glob": "^8.1.0",
     "@types/node": "20.x",
     "@types/vscode": "^1.96.0",
@@ -282,8 +315,9 @@
   },
   "dependencies": {
     "difflib-ts": "^1.0.3",
-    "sheepshuttle": "file:modules/SheepShuttle",
+    "flexsearch": "^0.8.212",
     "sheep-spindle": "file:modules/SheepSpindle/pkg",
+    "sheepshuttle": "file:modules/SheepShuttle",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "xml2js": "^0.6.2"
   }

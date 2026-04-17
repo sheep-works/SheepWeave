@@ -8,6 +8,7 @@ import { prepareProjectCommand } from './commands/prepareProject';
 import { renameLikeReplaceCommand } from './commands/renameLikeReplace';
 import { startAddTermSide, confirmAddTermSide, cancelAddTermSide } from './commands/addTermSide';
 import { confirmLineCommand } from './commands/confirmLine';
+import { concordanceSearchCommand } from './commands/concordanceSearch';
 import { initEditorGuard } from './features/editorGuard';
 import { initDecorators, renderConfirmedDecorations } from './features/decorators';
 import { initShortcuts } from './features/shortcuts';
@@ -30,6 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (root && root !== lastLoadedRoot) {
             globalShWvData.load(root);
             globalDirector.initializeFromState();
+            globalDirector.loadRefData(root); // Load TM/TB for concordance search
             lastLoadedRoot = root;
             console.log(`Loaded project data from: ${root}`);
         }
@@ -66,6 +68,15 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('sheepWeave.startAddTermSide', () => startAddTermSide()),
         vscode.commands.registerCommand('sheepWeave.confirmAddTermSide', () => confirmAddTermSide()),
         vscode.commands.registerCommand('sheepWeave.cancelAddTermSide', () => cancelAddTermSide()),
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('sheepWeave.concordanceSearchSource', () => {
+            concordanceSearchCommand('source');
+        }),
+        vscode.commands.registerCommand('sheepWeave.concordanceSearchTarget', () => {
+            concordanceSearchCommand('target');
+        })
     );
 
     // Render decorations globally whenever an editor is shown

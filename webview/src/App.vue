@@ -6,8 +6,10 @@ import FlowTab from './tabs/FlowTab.vue';
 import TranslateTab from './tabs/TranslateTab.vue';
 import DebugTab from './tabs/DebugTab.vue';
 import ManagementTab from './tabs/ManagementTab.vue';
+import InfoTab from './tabs/InfoTab.vue';
 import SettingsTab from './tabs/SettingsTab.vue';
 import FilterTab from './tabs/FilterTab.vue';
+import ConcordanceTab from './tabs/ConcordanceTab.vue';
 import { storeToRefs } from 'pinia';
 
 
@@ -87,6 +89,10 @@ onMounted(() => {
             case 'SELECT_TAB':
                 if (message.data) activeTab.value = message.data;
                 break;
+            case 'CONCORDANCE_SEARCH_RES':
+                shwvStore.setConcordanceData(message.data);
+                activeTab.value = 'concordance';
+                break;
         }
     });
 
@@ -108,7 +114,7 @@ onMounted(() => {
                     </a-select>
                 </a-space>
             </a-layout-header>
-            <a-tabs>
+            <a-tabs :active-key="activeTab" @change="(k) => activeTab = k as string">
                 <a-tab-pane key="flow" title="Flow">
                     <FlowTab @FlowCommand="handleCommand" :config="config" />
                 </a-tab-pane>
@@ -121,8 +127,14 @@ onMounted(() => {
                 <a-tab-pane key="management" title="Management">
                     <ManagementTab @ManageCommand="handleCommand" />
                 </a-tab-pane>
+                <a-tab-pane key="concordance" title="Concordance">
+                    <ConcordanceTab @ConcordanceCommand="handleCommand" />
+                </a-tab-pane>
+                <a-tab-pane key="information" title="Information">
+                    <InfoTab />
+                </a-tab-pane>
                 <a-tab-pane key="settings" title="Settings">
-                    <SettingsTab :config="config" @updateConfig="updateConfig" />
+                    <SettingsTab :config="config" @updateConfig="updateConfig" @SettingsCommand="handleCommand" />
                 </a-tab-pane>
                 <!-- <a-tab-pane key="debug" title="Debug">
                     <DebugTab />

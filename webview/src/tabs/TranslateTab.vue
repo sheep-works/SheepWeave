@@ -54,7 +54,7 @@ defineProps({
                             <div v-if="tm.file" class="file-text">{{ tm.file }}</div>
                         </td>
                         <td v-html="tm.diff || tm.src"></td>
-                        <td colspan="2">{{ tm.tgt }}</td>
+                        <td colspan="2">{{ tm.idx === -1 ? tm.tgt : (shwvStore.units[tm.idx] && shwvStore.units[tm.idx].idx === tm.idx ? shwvStore.units[tm.idx].tgt : tm.tgt) }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -87,7 +87,7 @@ table {
     overflow-wrap: break-word;
 }
 
-:deep(td) {
+:deep(td:not(:first-child)) {
     font-size: v-bind('fontSize + "px"');
 }
 

@@ -103,7 +103,6 @@ export class ShWvData {
         const targetUnit = this.body.units[index];
         if (targetUnit) {
             targetUnit.tgt = text;
-            this.propagateTranslation(index, text);
         }
     }
 
@@ -116,10 +115,6 @@ export class ShWvData {
                 targetUnit.tgt = newUnit.tgt;
                 targetUnit.status = newUnit.status;
                 affected.add(newUnit.idx);
-                
-                // プロパゲーションによる二次的な変更も追跡
-                const secondary = this.propagateTranslation(newUnit.idx, newUnit.tgt);
-                secondary.forEach(idx => affected.add(idx));
             }
         }
         return Array.from(affected);
@@ -129,35 +124,32 @@ export class ShWvData {
      * Propagates a translation to all units that have quoted this unit as a TM match.
      * Handles both fuzzy matches (quoted) and 100% matches (quoted100).
      */
-    public propagateTranslation(sourceIdx: number, text: string): number[] {
-        const affected = new Set<number>();
-        const sourceUnit = this.body.units[sourceIdx];
-        if (!sourceUnit) return [];
+    public propagateAllTranslations(): void {
+        for (const unit of this.body.units) {
+            if (!unit.tgt) continue;
 
-        // Synchronize tgt to all the units that quoted this sentence as TM (Fuzzy)
-        for (const [quotedIdx, ratio] of sourceUnit.ref.quoted) {
-            const referencingUnit = this.body.units.find(u => u.idx === quotedIdx);
-            if (referencingUnit) {
-                const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === sourceUnit.idx);
+            // Synchronize tgt to all the units that quoted this sentence as TM (Fuzzy)
+            for (const [quotedIdx, ratio] of unit.ref.quoted) {
+                const referencingUnit = this.body.units[quotedIdx];
+                if (!referencingUnit || referencingUnit.idx !== quotedIdx) continue;
+
+                const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === unit.idx);
                 if (tmRef) {
-                    tmRef.tgt = text;
-                    affected.add(referencingUnit.idx);
+                    tmRef.tgt = unit.tgt;
+                }
+            }
+
+            // Synchronize tgt to all the units that quoted this sentence as TM (100%)
+            for (const quotedIdx of unit.ref.quoted100) {
+                const referencingUnit = this.body.units[quotedIdx];
+                if (!referencingUnit || referencingUnit.idx !== quotedIdx) continue;
+
+                const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === unit.idx);
+                if (tmRef) {
+                    tmRef.tgt = unit.tgt;
                 }
             }
         }
-
-        // Synchronize tgt to all the units that quoted this sentence as TM (100%)
-        for (const quotedIdx of sourceUnit.ref.quoted100) {
-            const referencingUnit = this.body.units.find(u => u.idx === quotedIdx);
-            if (referencingUnit) {
-                const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === sourceUnit.idx);
-                if (tmRef) {
-                    tmRef.tgt = text;
-                    affected.add(referencingUnit.idx);
-                }
-            }
-        }
-        return Array.from(affected);
     }
 
     public load(root: string): void {
@@ -194,12 +186,13 @@ export class ShWvData {
     }
 
     public save(root: string): void {
+        this.propagateAllTranslations();
         const storagePathFull = DirHelper.getStoragePath(root);
         writeFileSync(storagePathFull, JSON.stringify({ meta: this.meta, body: this.body }, null, 2));
         // body.unitsをjsonファイルに出力する
     }
 
-    public async analyze(root: string): Promise<void> {
+    public async analyze(root: string, legacy: boolean = false): Promise<void> {
         const units = this.body.units;
 
         // Load TM files
@@ -244,8 +237,13 @@ export class ShWvData {
             });
         }
 
+        // Include internal terms
+        if (this.body.terms && this.body.terms.length > 0) {
+            termbase.push(...this.body.terms.map(t => ({ ...t, file: "Internal" })));
+        }
+
         // Delegate search and analysis to ShWvDiffer
-        await ShWvDiffer.analyze(units, memories, termbase);
+        await ShWvDiffer.analyze(units, memories, termbase, root, legacy);
     }
 
     public async saveXlf(filepath: string, originalXlfPath: string, slicedUnits: ShWvUnit[]): Promise<void> {

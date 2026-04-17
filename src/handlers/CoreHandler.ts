@@ -51,7 +51,7 @@ export class CoreHandler {
                     const shwvData = await preprocessor(rootPath);
                     if (shwvData) {
                         globalDirector.initializeFromState();
-                        panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: shwvData.meta, units: shwvData.body.units } });
+                        panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: shwvData.meta, units: shwvData.body.units, phrases: shwvData.phrases } });
                     }
                     vscode.window.showInformationMessage('Preprocessing Started (Data loaded to Webview)');
                 } finally {
@@ -62,7 +62,7 @@ export class CoreHandler {
                 globalShWvData.load(rootPath);
                 globalDirector.initializeFromState();
                 if (globalShWvData.meta && globalShWvData.body?.units?.length > 0) {
-                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units } });
+                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalShWvData.phrases } });
                     vscode.window.showInformationMessage('Data Loaded and Synchronized');
                 }
                 break;
@@ -72,9 +72,22 @@ export class CoreHandler {
                     await syncRefDir(rootPath);
                     await globalShWvData.analyze(rootPath);
                     globalDirector.initializeFromState();
+                    globalDirector.loadRefData(rootPath); // Refresh TM/TB
                     globalShWvData.save(rootPath);
-                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units } });
+                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalShWvData.phrases } });
                     vscode.window.showInformationMessage('Re-analysis completed and data updated');
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
+            case 'legacy-analyze':
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    await globalShWvData.analyze(rootPath, true);
+                    globalDirector.initializeFromState();
+                    globalShWvData.save(rootPath);
+                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalShWvData.phrases } });
+                    vscode.window.showInformationMessage('Legacy Re-analysis completed and results updated');
                 } finally {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
@@ -99,6 +112,72 @@ export class CoreHandler {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
                 break;
+            case 'save-and-propagate':
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    await CoreHandler.ensureSavedAndSynced(globalShWvData, rootPath);
+                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalShWvData.phrases } });
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
+            case 'manual-concordance':
+                try {
+                    const query = message.payload.query;
+                    const mode = message.payload.mode;
+                    if (!query) break;
+
+                    const resultsBuffer = await globalDirector.tmIndex.searchAsync(query, 10);
+                    const matchingIds = new Set<number>();
+                    if (resultsBuffer && resultsBuffer.length > 0) {
+                        for (const resultObj of resultsBuffer) {
+                            if (resultObj && resultObj.result) {
+                                for (const r of resultObj.result) {
+                                    matchingIds.add(r as number);
+                                }
+                            }
+                        }
+                    }
+
+                    const tmMatches = [];
+                    for (const id of matchingIds) {
+                        const entry = globalDirector.tmData[id];
+                        if (entry) tmMatches.push(entry);
+                    }
+
+                    const tbMatches = [];
+                    const qLowerCase = query.toLowerCase();
+                    for (const entry of globalDirector.tbData) {
+                        if (mode === 'source' && entry.src.toLowerCase().includes(qLowerCase)) {
+                            tbMatches.push(entry);
+                        } else if (mode === 'target' && entry.tgt.toLowerCase().includes(qLowerCase)) {
+                            tbMatches.push(entry);
+                        }
+                    }
+
+                    const currentDocumentMatches = [];
+                    for (const unit of globalShWvData.body.units) {
+                        if (mode === 'source' && unit.src.toLowerCase().includes(qLowerCase)) {
+                            currentDocumentMatches.push(unit);
+                        } else if (mode === 'target' && (unit.tgt || unit.pre || '').toLowerCase().includes(qLowerCase)) {
+                            currentDocumentMatches.push(unit);
+                        }
+                    }
+
+                    panel.webview.postMessage({
+                        type: 'CONCORDANCE_DATA',
+                        data: {
+                            query,
+                            mode: mode === 'source' ? 'Source' : 'Target',
+                            tmMatches,
+                            tbMatches,
+                            currentDocumentMatches
+                        }
+                    });
+                } catch (e) {
+                    console.error("Manual concordance error:", e);
+                }
+                break;
             case 'alert':
                 vscode.window.showErrorMessage(message.text);
                 break;
@@ -116,7 +195,7 @@ export class CoreHandler {
                 if (globalShWvData.meta && globalShWvData.body.units.length > 0) {
                     panel.webview.postMessage({
                         type: 'SHWV_DATA_LOADED',
-                        data: { meta: globalShWvData.meta, units: globalShWvData.body.units }
+                        data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalShWvData.phrases }
                     });
                 }
                 break;
@@ -169,6 +248,14 @@ export class CoreHandler {
                 if (updatePayload.fontSize !== undefined) {
                     await workspaceConfig.update('translateTab.fontSize', updatePayload.fontSize, vscode.ConfigurationTarget.Global);
                 }
+                break;
+            case 'update-phrases':
+                const phrasesPayload = message.payload || [];
+                globalShWvData.phrases = phrasesPayload;
+                // phrase.json に保存
+                const phrasePath = path.join(rootPath, DirHelper.rootToPhrases);
+                fs.writeFileSync(phrasePath, JSON.stringify(phrasesPayload, null, 2));
+                vscode.window.showInformationMessage('phrase.json updated successfully.');
                 break;
             default:
                 break;

@@ -1,6 +1,8 @@
 import { SequenceMatcher } from 'difflib-ts';
 import { ShWvRefTm } from './ShWvRefTm';
 import { ShWvUnit } from './ShWvUnit';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class ShWvDiffer {
     private static matcher = new SequenceMatcher(null, "", "");
@@ -34,21 +36,33 @@ export class ShWvDiffer {
      * Orchestrates the analysis of units using WASM candidate search and precise diffing.
      * Updates units in-place with TM and TB matches.
      */
-    static async analyze(units: ShWvUnit[], memories: any[], termbase: any[]) {
+    static async analyze(units: ShWvUnit[], memories: any[], termbase: any[], rootPath?: string, legacy: boolean = false) {
         const tmList = memories.map(m => m.src);
         const textList = units.map(u => u.src);
         const tbList = termbase.map(t => t.src);
 
+        // TB Logging setup
+        let logLines: string[] = [];
+        const logHeader = `--- TB Matching Log (${new Date().toISOString()}) ---\nMode: ${legacy ? 'Legacy (Iterative)' : 'WASM (Aho-Corasick)'}\n\n`;
+        logLines.push(logHeader);
+
         // Call WASM analytical functions
-        // Using require to ensure it correctly resolves at runtime since we linked it in package.json
         const { analyze_all } = require('sheep-spindle');
         const results = analyze_all(tmList, textList, tbList, 0.6, 5);
+
+        // First, clear old analysis data for all units
+        for (const unit of units) {
+            unit.ref.tms = [];
+            unit.ref.tb = [];
+            unit.ref.quoted = [];
+            unit.ref.quoted100 = [];
+        }
 
         for (let i = 0; i < units.length; i++) {
             const currentUnit = units[i];
             const currentResult = results[i];
 
-            // Retrieve TM match sources (External from memories, Internal from previous units)
+            // 1. Process TM Matches (External and Internal)
             const tmSources = currentResult.t.map((idx: number) => memories[idx]);
             const internalSources = currentResult.i.map((idx: number) => ({
                 idx: units[idx].idx,
@@ -70,40 +84,79 @@ export class ShWvDiffer {
                 }
             }
 
-            // Calculate precise difflib-based opcodes and ratios only for these few top matches
+            // Calculate precise ratios and diffs
             const diffedTms = this.computeDiffsForWasm(uniqueSources, currentUnit.src);
             currentUnit.ref.tms = diffedTms.slice(0, 5);
 
-            // Match TB (Glossary)
-            for (const tbIdx of currentResult.g) {
-                const tb = termbase[tbIdx];
-                const tbTarget = tb.tgt || tb.pre || "";
-                let existingTb = currentUnit.ref.tb.find(t => t.src === tb.src);
-                if (existingTb) {
-                    if (!existingTb.tgts.includes(tbTarget)) {
-                        existingTb.tgts.push(tbTarget);
+            // 2. Process TB Matches (Glossary)
+            if (!legacy) {
+                // WASM Aho-Corasick result
+                const tbIndices = currentResult.g || [];
+                for (const tbIdx of tbIndices) {
+                    const tb = termbase[tbIdx];
+                    if (!tb) continue;
+                    
+                    const tbTarget = tb.tgt || tb.pre || "";
+                    let existingEntry = currentUnit.ref.tb.find(t => t.src === tb.src);
+                    
+                    logLines.push(`[Unit ${i}] Match (WASM): "${tb.src}" -> "${tbTarget}" (${tb.file})\n`);
+
+                    if (existingEntry) {
+                        if (!existingEntry.tgts.includes(tbTarget)) {
+                            existingEntry.tgts.push(tbTarget);
+                        }
+                    } else {
+                        currentUnit.ref.tb.push({
+                            src: tb.src,
+                            tgts: [tbTarget],
+                            file: tb.file
+                        });
                     }
-                } else {
-                    currentUnit.ref.tb.push({
-                        src: tb.src,
-                        tgts: [tbTarget],
-                        file: tb.file
-                    });
+                }
+            } else {
+                // Legacy substring-based matching in TS
+                for (let j = 0; j < termbase.length; j++) {
+                    const tb = termbase[j];
+                    if (tb.src && currentUnit.src.includes(tb.src)) {
+                        const tbTarget = tb.tgt || tb.pre || "";
+                        let existingEntry = currentUnit.ref.tb.find(t => t.src === tb.src);
+                        
+                        logLines.push(`[Unit ${i}] Match (Legacy): "${tb.src}" -> "${tbTarget}" (${tb.file})\n`);
+
+                        if (existingEntry) {
+                            if (!existingEntry.tgts.includes(tbTarget)) {
+                                existingEntry.tgts.push(tbTarget);
+                            }
+                        } else {
+                            currentUnit.ref.tb.push({
+                                src: tb.src,
+                                tgts: [tbTarget],
+                                file: tb.file
+                            });
+                        }
+                    }
                 }
             }
         }
 
-        // Synchronization of back-references (which units are quoted by which)
-        // Reset old quotes first if necessary? Or assume this is called on a fresh/cleared state.
-        for (const unit of units) {
-            unit.ref.quoted = [];
-            unit.ref.quoted100 = [];
+        // Finalize Logging
+        if (rootPath) {
+            try {
+                const logDir = path.join(rootPath, 'Working', '04_SHWV');
+                if (fs.existsSync(logDir)) {
+                    const logPath = path.join(logDir, 'tb_matching.log');
+                    fs.writeFileSync(logPath, logLines.join(''), 'utf-8');
+                }
+            } catch (e) {
+                console.error('Failed to write TB log:', e);
+            }
         }
 
+        // 3. Synchronization of back-references (which units are quoted by which)
         for (let i = units.length - 1; i >= 0; i--) {
             const currentUnit = units[i];
             for (const tm of currentUnit.ref.tms) {
-                if (tm.idx !== -1) { // Skip external memory refs which have idx -1
+                if (tm.idx !== -1) { 
                     const referencedUnit = units.find(u => u.idx === tm.idx);
                     if (referencedUnit) {
                         if (tm.ratio === 100) {
