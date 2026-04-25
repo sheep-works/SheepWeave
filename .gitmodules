@@ -4,3 +4,6 @@
 [submodule "modules/SheepShuttle"]
 	path = modules/SheepShuttle
 	url = git@github.com:sheep-works/SheepShuttle.git
+[submodule "modules/SheepComb"]
+	path = modules/SheepComb
+	url = git@github.com:sheep-works/SheepCombV2.git

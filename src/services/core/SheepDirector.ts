@@ -84,6 +84,32 @@ export class SheepDirector {
     }
 
     /**
+     * Propagates a translation to all segments marked as 100% matched (identical) 
+     * in the current unit's ref.quoted100.
+     */
+    public propagateQuoted100(lineIdx: number, text: string): number[] {
+        const unit = (this.state.body.units[lineIdx] && this.state.body.units[lineIdx].idx === lineIdx)
+            ? this.state.body.units[lineIdx]
+            : this.state.body.units.find(u => u.idx === lineIdx);
+
+        if (!unit || !unit.ref.quoted100 || unit.ref.quoted100.length === 0) return [];
+
+        const affectedIdxs: number[] = [];
+        for (const targetIdx of unit.ref.quoted100) {
+            const targetUnit = (this.state.body.units[targetIdx] && this.state.body.units[targetIdx].idx === targetIdx)
+                ? this.state.body.units[targetIdx]
+                : this.state.body.units.find(u => u.idx === targetIdx);
+
+            if (targetUnit) {
+                targetUnit.tgt = text;
+                targetUnit.status = 1; // Auto confirm identical segments
+                affectedIdxs.push(targetIdx);
+            }
+        }
+        return affectedIdxs;
+    }
+
+    /**
      * Loads TM and TB data directly into memory and indexes them for Concordance Search
      */
     public async loadRefData(rootPath: string) {
@@ -127,6 +153,26 @@ export class SheepDirector {
                     this.tbData.push({ src: u.src, tgt: u.tgt || "", file: info?.name || 'TB' });
                 });
             }
+        }
+
+        // --- Logging for verification V0.0.11 ---
+        try {
+            const debugDir = path.join(rootPath, 'debug');
+            if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+            const logPath = path.join(debugDir, 'flexsearch_index.log');
+            const logContent = {
+                timestamp: new Date().toISOString(),
+                stats: {
+                    tmTotal: this.tmData.length,
+                    tbTotal: this.tbData.length
+                },
+                tm: this.tmData,
+                tb: this.tbData
+            };
+            fs.writeFileSync(logPath, JSON.stringify(logContent, null, 2), 'utf-8');
+            console.log(`[SheepDirector] Flexsearch index logged to: ${logPath}`);
+        } catch (err) {
+            console.error("[SheepDirector] Failed to write Flexsearch log:", err);
         }
     }
 }

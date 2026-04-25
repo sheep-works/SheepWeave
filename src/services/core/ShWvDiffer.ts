@@ -99,7 +99,7 @@ export class ShWvDiffer {
                     const tbTarget = tb.tgt || tb.pre || "";
                     let existingEntry = currentUnit.ref.tb.find(t => t.src === tb.src);
                     
-                    logLines.push(`[Unit ${i}] Match (WASM): "${tb.src}" -> "${tbTarget}" (${tb.file})\n`);
+                    // logLines.push(`[Unit ${i}] Match (WASM): "${tb.src}" -> "${tbTarget}" (${tb.file})\n`);
 
                     if (existingEntry) {
                         if (!existingEntry.tgts.includes(tbTarget)) {
@@ -121,7 +121,7 @@ export class ShWvDiffer {
                         const tbTarget = tb.tgt || tb.pre || "";
                         let existingEntry = currentUnit.ref.tb.find(t => t.src === tb.src);
                         
-                        logLines.push(`[Unit ${i}] Match (Legacy): "${tb.src}" -> "${tbTarget}" (${tb.file})\n`);
+                        // logLines.push(`[Unit ${i}] Match (Legacy): "${tb.src}" -> "${tbTarget}" (${tb.file})\n`);
 
                         if (existingEntry) {
                             if (!existingEntry.tgts.includes(tbTarget)) {
@@ -139,6 +139,7 @@ export class ShWvDiffer {
             }
         }
 
+        /*
         // Finalize Logging
         if (rootPath) {
             try {
@@ -151,6 +152,7 @@ export class ShWvDiffer {
                 console.error('Failed to write TB log:', e);
             }
         }
+        */
 
         // 3. Synchronization of back-references (which units are quoted by which)
         for (let i = units.length - 1; i >= 0; i--) {

@@ -236,10 +236,10 @@ export async function runTikalExtraction(root: string, sourceLang: string, targe
     const xlfDir = path.join(root, 'Working', '03_XLF_JSON');
     ensureDir(xlfDir);
 
-    const tikalPath = resolveTikalPath();
     const projectManager = new ProjectManager(root);
 
     const groups = groupFilesByFilter(sourceDir);
+    let tikalPath: string | undefined;
 
     for (const [filter, files] of Object.entries(groups)) {
         const fileStatuses = files.map(f => ({ source: f, xliff: null as string | null, status: 'error' as ProjectFileStatus['status'] }));
@@ -266,6 +266,9 @@ export async function runTikalExtraction(root: string, sourceLang: string, targe
                         fileStatus.xliff = destXlf;
                     }
                 } else {
+                    if (!tikalPath) {
+                        tikalPath = resolveTikalPath();
+                    }
                     await runTikal(tikalPath, filter, file, 'extract', sourceLang, targetLang);
 
                     // Tikal outputs file.ext.xlf in the same directory (02_SOURCE)
@@ -319,6 +322,15 @@ export async function postprocessor(root: string) {
         const completedDir = path.join(root, 'Working', '05_COMPLETED');
         ensureDir(completedDir);
 
+        // Copy all JSON ShWvData files for persistence in Completed
+        const xlfJsonDir = path.join(root, 'Working', '03_XLF_JSON');
+        if (fs.existsSync(xlfJsonDir)) {
+            const jsonFiles = fs.readdirSync(xlfJsonDir).filter(f => f.toLowerCase().endsWith('.json'));
+            for (const f of jsonFiles) {
+                fs.copyFileSync(path.join(xlfJsonDir, f), path.join(completedDir, f));
+            }
+        }
+
         for (const fileInfo of data.meta.files) {
             const originalName = fileInfo.name;
             const ext = path.extname(originalName);
@@ -341,10 +353,10 @@ export async function runPackage(root: string) {
     const packageDir = path.join(root, 'Working', '06_PACKAGE');
     ensureDir(packageDir);
 
-    const tikalPath = resolveTikalPath();
     const projectManager = new ProjectManager(root);
     const sourceLang = projectManager.data.sourceLanguage;
     const targetLang = projectManager.data.targetLanguage;
+    let tikalPath: string | undefined;
 
     for (const group of projectManager.data.okapi) {
         const filesToMerge: string[] = [];
@@ -384,9 +396,13 @@ export async function runPackage(root: string) {
 
         if (filesToMerge.length > 0) {
             try {
+                if (filesToMerge.length > 0 && !tikalPath) {
+                    tikalPath = resolveTikalPath();
+                }
                 for (const srcFile of filesToMerge) {
                     // srcFile is the absolute path to the native file in 02_SOURCE
                     // Tikal -m expects the source file path and will look for sourcefile.xlf
+                    // @ts-ignore
                     await runTikal(tikalPath, group.filter, srcFile + '.xlf', 'merge', sourceLang, targetLang);
                 }
 

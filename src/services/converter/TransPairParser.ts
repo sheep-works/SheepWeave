@@ -26,10 +26,11 @@ export async function parseTranslationFiles(filepaths: string[]): Promise<{ file
                 let globalId = 0;
                 const globalPlaceholders: Record<string, Record<number, string>> = {};
 
-                content = content.replace(/(<source[^>]*>)([\s\S]*?)(<\/source>)/g, (match, open, inner, close) => {
+                content = content.replace(/(<(source|target)[^>]*>)([\s\S]*?)(<\/\2>)/g, (match, open, tagname, inner, close) => {
                     let placeholders: Record<number, string> = {};
                     let counter = 0;
-                    const newInner = inner.replace(/<[^>]+>/g, (tagMatch: string) => {
+                    // Match raw <tag> or escaped &lt;tag&gt;
+                    const newInner = inner.replace(/(<[^>]+>|&lt;[\s\S]*?&gt;)/g, (tagMatch: string) => {
                         placeholders[counter] = tagMatch;
                         const replaceString = `{@${counter}}`;
                         counter++;
@@ -44,11 +45,20 @@ export async function parseTranslationFiles(filepaths: string[]): Promise<{ file
                 let parsedUnits = await xlfLike2Pairs(filepath, content, globalIdx);
 
                 for (let unit of parsedUnits) {
+                    unit.placeholders = {};
+                    
                     if (unit.src) {
                         const match = unit.src.match(/^__SHEEP_(\d+)__/);
                         if (match) {
                             unit.src = unit.src.substring(match[0].length);
-                            unit.placeholders = globalPlaceholders[match[0]];
+                            Object.assign(unit.placeholders, globalPlaceholders[match[0]]);
+                        }
+                    }
+                    if (unit.tgt) {
+                        const match = unit.tgt.match(/^__SHEEP_(\d+)__/);
+                        if (match) {
+                            unit.tgt = unit.tgt.substring(match[0].length);
+                            Object.assign(unit.placeholders, globalPlaceholders[match[0]]);
                         }
                     }
                 }

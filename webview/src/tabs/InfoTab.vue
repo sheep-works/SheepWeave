@@ -20,20 +20,20 @@ const shwvStore = useShWvStore();
             <a-card title="Project Metadata" :bordered="false">
                 <a-descriptions :column="1" bordered>
                     <a-descriptions-item label="Source Language">
-                        {{ shwvStore.meta.sourceLang }}
+                        {{ shwvStore.meta?.sourceLang }}
                     </a-descriptions-item>
                     <a-descriptions-item label="Target Language">
-                        {{ shwvStore.meta.targetLang }}
+                        {{ shwvStore.meta?.targetLang }}
                     </a-descriptions-item>
                     <a-descriptions-item label="Bilingual Path">
-                        <span class="path-text">{{ shwvStore.meta.bilingualPath }}</span>
+                        <span class="path-text">{{ shwvStore.meta?.bilingualPath }}</span>
                     </a-descriptions-item>
                 </a-descriptions>
             </a-card>
 
             <a-card title="Source Files" :bordered="false" style="margin-top: 1rem;">
                 <a-list size="small">
-                    <a-list-item v-for="file in shwvStore.meta.files" :key="file.name">
+                    <a-list-item v-for="file in shwvStore.meta?.files" :key="file.name">
                         <span class="file-name">{{ file.name }}</span>
                         <template #actions>
                             <span class="file-range">Units: {{ file.start }} - {{ file.end }}</span>
@@ -42,17 +42,17 @@ const shwvStore = useShWvStore();
                 </a-list>
             </a-card>
 
-            <a-card title="TM Files" :bordered="false" style="margin-top: 1rem;" v-if="shwvStore.meta.tmFiles?.length">
+            <a-card title="TM Files" :bordered="false" style="margin-top: 1rem;" v-if="shwvStore.meta?.tmFiles?.length">
                 <a-list size="small">
-                    <a-list-item v-for="f in shwvStore.meta.tmFiles" :key="f">
+                    <a-list-item v-for="f in shwvStore.meta?.tmFiles" :key="f">
                         {{ f }}
                     </a-list-item>
                 </a-list>
             </a-card>
 
-            <a-card title="TB Files" :bordered="false" style="margin-top: 1rem;" v-if="shwvStore.meta.tbFiles?.length">
+            <a-card title="TB Files" :bordered="false" style="margin-top: 1rem;" v-if="shwvStore.meta?.tbFiles?.length">
                 <a-list size="small">
-                    <a-list-item v-for="f in shwvStore.meta.tbFiles" :key="f">
+                    <a-list-item v-for="f in shwvStore.meta?.tbFiles" :key="f">
                         {{ f }}
                     </a-list-item>
                 </a-list>

@@ -114,7 +114,7 @@ onMounted(() => {
                     </a-select>
                 </a-space>
             </a-layout-header>
-            <a-tabs :active-key="activeTab" @change="(k) => activeTab = k as string">
+            <a-tabs :active-key="activeTab" @change="(k: any) => activeTab = k as string">
                 <a-tab-pane key="flow" title="Flow">
                     <FlowTab @FlowCommand="handleCommand" :config="config" />
                 </a-tab-pane>

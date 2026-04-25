@@ -51,6 +51,7 @@ export class CoreHandler {
                     const shwvData = await preprocessor(rootPath);
                     if (shwvData) {
                         globalDirector.initializeFromState();
+                        await globalDirector.loadRefData(rootPath);
                         panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: shwvData.meta, units: shwvData.body.units, phrases: shwvData.phrases } });
                     }
                     vscode.window.showInformationMessage('Preprocessing Started (Data loaded to Webview)');
@@ -61,6 +62,7 @@ export class CoreHandler {
             case 'load':
                 globalShWvData.load(rootPath);
                 globalDirector.initializeFromState();
+                await globalDirector.loadRefData(rootPath);
                 if (globalShWvData.meta && globalShWvData.body?.units?.length > 0) {
                     panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalShWvData.phrases } });
                     vscode.window.showInformationMessage('Data Loaded and Synchronized');
@@ -165,10 +167,10 @@ export class CoreHandler {
                     }
 
                     panel.webview.postMessage({
-                        type: 'CONCORDANCE_DATA',
+                        type: 'CONCORDANCE_SEARCH_RES', // Standardized to match ConcordanceTab expectation
                         data: {
                             query,
-                            mode: mode === 'source' ? 'Source' : 'Target',
+                            mode: mode === 'source' ? 'source' : 'target',
                             tmMatches,
                             tbMatches,
                             currentDocumentMatches
@@ -247,6 +249,46 @@ export class CoreHandler {
                 const workspaceConfig = vscode.workspace.getConfiguration('sheepWeave');
                 if (updatePayload.fontSize !== undefined) {
                     await workspaceConfig.update('translateTab.fontSize', updatePayload.fontSize, vscode.ConfigurationTarget.Global);
+                }
+                break;
+            case 'propagate-quoted':
+                try {
+                    const { idx, tgt } = message.payload;
+                    const affectedIdxs = globalDirector.propagateQuoted100(idx, tgt);
+                    
+                    if (affectedIdxs.length > 0) {
+                        const shwvtPath = DirHelper.getShwvtPath(rootPath);
+                        const shwvtUri = vscode.Uri.file(shwvtPath);
+                        const doc = await vscode.workspace.openTextDocument(shwvtUri);
+
+                        const edit = new vscode.WorkspaceEdit();
+                        for (const targetIdx of affectedIdxs) {
+                            const unit = globalShWvData.body.units[targetIdx];
+                            if (unit && targetIdx < doc.lineCount) {
+                                edit.replace(shwvtUri, doc.lineAt(targetIdx).range, unit.tgt);
+                            }
+                        }
+                        await vscode.workspace.applyEdit(edit);
+
+                        // Sync extensions state
+                        globalDirector.initializeFromState();
+                        if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.uri.fsPath === shwvtPath) {
+                            const { renderConfirmedDecorations } = require('../features/decorators');
+                            renderConfirmedDecorations(vscode.window.activeTextEditor);
+                        }
+
+                        // Notify Webview
+                        const affectedUnits = affectedIdxs.map(idx => globalShWvData.body.units[idx]).filter(u => !!u);
+                        panel.webview.postMessage({
+                            type: 'UNITS_UPDATED',
+                            data: { units: affectedUnits, meta: globalShWvData.meta }
+                        });
+                        vscode.window.showInformationMessage(`Propagated to ${affectedIdxs.length} identical segments.`);
+                    } else {
+                        vscode.window.showInformationMessage('No identical segments found to propagate.');
+                    }
+                } catch (err) {
+                    vscode.window.showErrorMessage(`Failed to propagate: ${err}`);
                 }
                 break;
             case 'update-phrases':

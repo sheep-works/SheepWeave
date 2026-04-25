@@ -4,6 +4,24 @@ import { useShWvStore } from '../store/shwv';
 
 const shwvStore = useShWvStore();
 
+const handlePropagate = () => {
+    const unit = shwvStore.crtUnit;
+    if (unit && unit.ref.quoted100?.length > 0) {
+        // Emit to parent or postMessage directly if handled globally
+        // Since handleCommand is in App.vue, we can postMessage here if we had access, 
+        // but it's cleaner to let App.vue handle events.
+        // For simplicity in this structure, we'll use window.postMessage directly
+        // or just let a global handler catch it.
+        const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
+        if (vscode) {
+            vscode.postMessage({
+                type: 'propagate-quoted',
+                payload: { idx: unit.idx, tgt: unit.tgt }
+            });
+        }
+    }
+};
+
 const rowspan = computed(() => {
     return Math.max(1, shwvStore.crtUnit?.ref?.tb?.length || 0);
 });
@@ -15,7 +33,12 @@ const rowspan = computed(() => {
         <template v-if="shwvStore.crtUnit.ref.tb.length > 0">
             <tr v-for="(tb, tbx) in shwvStore.crtUnit.ref.tb" :key="tbx">
                 <td v-if="tbx === 0" :rowspan="rowspan">
-                    {{ shwvStore.crtUnit.idx + 1 }}
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                        <span>{{ shwvStore.crtUnit.idx + 1 }}</span>
+                        <a-tag v-if="shwvStore.crtUnit.ref.quoted100?.length > 0" color="green" size="small">
+                            Q {{ shwvStore.crtUnit.ref.quoted100.length }}
+                        </a-tag>
+                    </div>
                 </td>
                 <td v-if="tbx === 0" :rowspan="rowspan">
                     {{ shwvStore.crtUnit.src }}
@@ -30,7 +53,14 @@ const rowspan = computed(() => {
 
         <!-- ref.tb がない場合（1行表示） -->
         <tr v-else>
-            <td>{{ shwvStore.crtUnit.idx + 1 }}</td>
+            <td>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                    <span>{{ shwvStore.crtUnit.idx + 1 }}</span>
+                    <a-tag v-if="shwvStore.crtUnit.ref.quoted100?.length > 0" color="green" size="small">
+                        Q {{ shwvStore.crtUnit.ref.quoted100.length }}
+                    </a-tag>
+                </div>
+            </td>
             <td>{{ shwvStore.crtUnit.src }}</td>
             <td>-</td>
             <td>-</td>
@@ -51,6 +81,15 @@ const rowspan = computed(() => {
                 </td>
             </tr>
         </template>
+
+        <!-- Propagation Button -->
+        <tr v-if="shwvStore.crtUnit.ref.quoted100?.length > 0">
+            <td colspan="4" style="background: var(--vscode-editor-inactiveSelectionBackground); text-align: center; border-radius: 4px;">
+                <a-button type="primary" status="success" size="small" @click="handlePropagate">
+                    Auto Propagate to {{ shwvStore.crtUnit.ref.quoted100.length }} identical units
+                </a-button>
+            </td>
+        </tr>
 
         <!-- TMなど、次セクションとの区切りのための空白行（擬似マージン） -->
         <tr class="tbody-spacer">

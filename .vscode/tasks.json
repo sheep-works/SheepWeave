@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "type": "npm",
+            "type": "yarn",
             "script": "watch",
             "problemMatcher": {
                 "owner": "typescript",
@@ -32,14 +32,14 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "label": "npm: watch"
+            "label": "yarn: watch"
         },
         {
-            "type": "npm",
+            "type": "yarn",
             "script": "compile",
             "problemMatcher": "$ts-webpack",
             "group": "build",
-            "label": "npm: compile"
+            "label": "yarn: compile"
         }
     ]
 }

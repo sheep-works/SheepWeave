@@ -1,6 +1,6 @@
 {
     "name": "sheep-weave-webview",
-    "version": "0.0.0",
+    "version": "0.0.11",
     "scripts": {
         "dev": "vite",
         "build": "vite build",

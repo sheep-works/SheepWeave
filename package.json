@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.10",
+  "version": "0.0.12",
   "publisher": "sheepweave",
   "license": "MIT",
   "repository": {
@@ -10,7 +10,7 @@
     "url": "https://github.com/sheep-works/SheepWeave.git"
   },
   "engines": {
-    "vscode": "^1.96.0"
+    "vscode": "^1.95.0"
   },
   "categories": [
     "Other"
@@ -288,19 +288,19 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run package",
-    "compile": "npm run build:webview && webpack",
-    "watch": "npm run build:webview && webpack --watch",
-    "package": "npm run build:webview && webpack --mode production --devtool hidden-source-map",
+    "vscode:prepublish": "yarn package",
+    "compile": "yarn build:webview && webpack",
+    "watch": "yarn build:webview && webpack --watch",
+    "package": "yarn build:webview && webpack --mode production --devtool hidden-source-map",
     "lint": "eslint src --ext ts",
-    "build:webview": "cd webview && npm run build",
-    "vsix": "vsce package"
+    "build:webview": "cd webview && yarn build",
+    "vsix": "node -e \"if (!require('fs').existsSync('packages')) require('fs').mkdirSync('packages')\" && vsce package --out packages/"
   },
   "devDependencies": {
     "@types/flexsearch": "^0.7.6",
     "@types/glob": "^8.1.0",
     "@types/node": "20.x",
-    "@types/vscode": "^1.96.0",
+    "@types/vscode": "^1.95.0",
     "@types/xml2js": "^0.4.14",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",

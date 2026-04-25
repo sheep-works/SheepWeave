@@ -6,8 +6,7 @@ async function test() {
       <file>
         <body>
           <trans-unit id="1">
-            <source>Hello <b id="1">bold</b> and <ph id="2"/> world.</source>
-            <target>Hola <b id="1">audaz</b> y <ph id="2"/> mundo.</target>
+            <source>Hello &lt;b id="1"&gt;bold&lt;/b&gt; and &lt;ph id="2"/&gt; world.</source>
           </trans-unit>
         </body>
       </file>
@@ -16,12 +15,15 @@ async function test() {
     let globalId = 0;
     const globalPlaceholders: Record<string, Record<number, string>> = {};
 
+    // Improved regex to catch <tag> and &lt;tag&gt;
+    // Also including target
     content = content.replace(/(<(?:source|target)[^>]*>)([\s\S]*?)(<\/(?:source|target)>)/g, (match, open, inner, close) => {
         let placeholders: Record<number, string> = {};
         let counter = 0;
-        const newInner = inner.replace(/<[^>]+>/g, (tagMatch) => {
+        // Updated regex to catch both raw and escaped tags
+        const newInner = inner.replace(/(<[^>]+>|&lt;[\s\S]*?&gt;)/g, (tagMatch) => {
             placeholders[counter] = tagMatch;
-            const replaceString = `{${counter}}`;
+            const replaceString = `{@${counter}}`;
             counter++;
             return replaceString;
         });
@@ -45,19 +47,8 @@ async function test() {
         srcPlaceholders = globalPlaceholders[srcMatch[0]];
     }
 
-    let tgt = tu.target[0];
-    const tgtMatch = tgt.match(/^__SHEEP_(\d+)__/);
-    let tgtPlaceholders = {};
-    if (tgtMatch) {
-        tgt = tgt.substring(tgtMatch[0].length);
-        tgtPlaceholders = globalPlaceholders[tgtMatch[0]];
-    }
-
     console.log("Parsed Src:", src);
     console.log("Src Placeholders:", srcPlaceholders);
-    
-    console.log("Parsed Tgt:", tgt);
-    console.log("Tgt Placeholders:", tgtPlaceholders);
 }
 
 test();

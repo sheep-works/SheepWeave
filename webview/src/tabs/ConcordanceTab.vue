@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useShWvStore } from '../store/shwv';
 
 const store = useShWvStore();
@@ -21,7 +21,7 @@ function highlight(text: string, query: string): string {
     // Simple global case-insensitive replace keeping original case
     // For safer approach without v-html, we'd need a component. To keep it simple, we use v-html but escape first.
     // Escaping helper
-    const escapeHTML = (str: string) => str.replace(/[&<>'"]/g, 
+    const escapeHTML = (str: string) => str.replace(/[&<>'"]/g,
         tag => ({
             '&': '&amp;',
             '<': '&lt;',
@@ -30,7 +30,7 @@ function highlight(text: string, query: string): string {
             '"': '&quot;'
         }[tag] || tag)
     );
-    
+
     let safeText = escapeHTML(text);
     let safeQuery = escapeHTML(query);
     const regex = new RegExp(`(${safeQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -43,13 +43,8 @@ function highlight(text: string, query: string): string {
     <div class="concordance-tab">
         <div class="manual-search-container">
             <a-space>
-                <a-input-search 
-                    v-model="manualQuery" 
-                    placeholder="Enter text to search..." 
-                    style="width: 300px" 
-                    @search="handleManualSearch"
-                    @press-enter="handleManualSearch"
-                />
+                <a-input-search v-model="manualQuery" placeholder="Enter text to search..." style="width: 300px"
+                    @search="handleManualSearch" @press-enter="handleManualSearch" />
                 <a-radio-group v-model="manualMode" type="button">
                     <a-radio value="source">Source</a-radio>
                     <a-radio value="target">Target</a-radio>
@@ -60,7 +55,8 @@ function highlight(text: string, query: string): string {
 
         <div v-if="!data && !manualQuery" class="empty-state">
             <p>No concordance search results yet.</p>
-            <p class="subtitle">Select text in the editor and press <code>Ctrl+K</code> (Source) or <code>Ctrl+Shift+K</code> (Target) to search.</p>
+            <p class="subtitle">Select text in the editor and press <code>Ctrl+K</code> (Source) or
+                <code>Ctrl+Shift+K</code> (Target) to search.</p>
         </div>
         <div v-else-if="data" class="results-container">
             <div class="header">
@@ -72,8 +68,9 @@ function highlight(text: string, query: string): string {
 
             <!-- TB Matches -->
             <div class="section" v-if="data.tbMatches?.length > 0">
-                <h3 class="section-title tb-title">Terminology Matches <span class="badge">{{ data.tbMatches.length }}</span></h3>
-                <div class="card" v-for="(match, i) in data.tbMatches" :key="'tb'+i">
+                <h3 class="section-title tb-title">Terminology Matches <span class="badge">{{ data.tbMatches.length
+                        }}</span></h3>
+                <div class="card" v-for="(match, i) in data.tbMatches" :key="'tb' + i">
                     <div class="card-meta">{{ match.file || 'TB' }}</div>
                     <div class="card-body">
                         <div class="col">
@@ -90,8 +87,9 @@ function highlight(text: string, query: string): string {
 
             <!-- TM Matches -->
             <div class="section" v-if="data.tmMatches?.length > 0">
-                <h3 class="section-title tm-title">Translation Memory <span class="badge">{{ data.tmMatches.length }}</span></h3>
-                <div class="card" v-for="(match, i) in data.tmMatches" :key="'tm'+i">
+                <h3 class="section-title tm-title">Translation Memory <span class="badge">{{ data.tmMatches.length
+                        }}</span></h3>
+                <div class="card" v-for="(match, i) in data.tmMatches" :key="'tm' + i">
                     <div class="card-meta">{{ match.file || 'TM' }} (ID: {{ match.id }})</div>
                     <div class="card-body">
                         <div class="col">
@@ -108,9 +106,11 @@ function highlight(text: string, query: string): string {
 
             <!-- Active Document Matches -->
             <div class="section" v-if="data.currentDocumentMatches?.length > 0">
-                <h3 class="section-title doc-title">Current Document <span class="badge">{{ data.currentDocumentMatches.length }}</span></h3>
-                <div class="card" v-for="(match, i) in data.currentDocumentMatches" :key="'doc'+i">
-                    <div class="card-meta">Unit: {{ match.idx }} <span v-if="match.status === 1" class="status conf">Confirmed</span></div>
+                <h3 class="section-title doc-title">Current Document <span class="badge">{{
+                    data.currentDocumentMatches.length }}</span></h3>
+                <div class="card" v-for="(match, i) in data.currentDocumentMatches" :key="'doc' + i">
+                    <div class="card-meta">Unit: {{ match.idx }} <span v-if="match.status === 1"
+                            class="status conf">Confirmed</span></div>
                     <div class="card-body">
                         <div class="col">
                             <strong>Source</strong>
@@ -124,7 +124,8 @@ function highlight(text: string, query: string): string {
                 </div>
             </div>
 
-            <div v-if="data.tbMatches?.length === 0 && data.tmMatches?.length === 0 && data.currentDocumentMatches?.length === 0" class="no-hits">
+            <div v-if="data.tbMatches?.length === 0 && data.tmMatches?.length === 0 && data.currentDocumentMatches?.length === 0"
+                class="no-hits">
                 No matches found.
             </div>
         </div>
@@ -153,10 +154,12 @@ function highlight(text: string, query: string): string {
     margin-top: 3rem;
     color: var(--vscode-descriptionForeground);
 }
+
 .empty-state .subtitle {
     font-size: 0.9em;
     opacity: 0.8;
 }
+
 code {
     background: var(--vscode-textCodeBlock-background);
     padding: 2px 4px;
@@ -173,6 +176,7 @@ code {
     margin: 0 0 0.5rem 0;
     font-size: 1.4rem;
 }
+
 .query-info {
     font-size: 0.95rem;
 }
@@ -180,6 +184,7 @@ code {
 .section {
     margin-bottom: 2rem;
 }
+
 .section-title {
     font-size: 1.1rem;
     margin-bottom: 0.5rem;
@@ -187,9 +192,18 @@ code {
     align-items: center;
     gap: 0.5rem;
 }
-.tb-title { color: var(--vscode-terminal-ansiYellow); }
-.tm-title { color: var(--vscode-terminal-ansiBlue); }
-.doc-title { color: var(--vscode-terminal-ansiGreen); }
+
+.tb-title {
+    color: var(--vscode-terminal-ansiYellow);
+}
+
+.tm-title {
+    color: var(--vscode-terminal-ansiBlue);
+}
+
+.doc-title {
+    color: var(--vscode-terminal-ansiGreen);
+}
 
 .badge {
     background: var(--vscode-badge-background);
@@ -206,7 +220,7 @@ code {
     border-radius: 4px;
     margin-bottom: 1rem;
     padding: 0.5rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .card-meta {
