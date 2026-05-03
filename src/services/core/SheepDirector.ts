@@ -1,4 +1,5 @@
-import { ShWvData } from './ShWvData';
+import { ShWvData, createShWvRef } from './ShWvData';
+import type { ShWvUnit } from '../../types/datatype';
 import flexsearch from 'flexsearch';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -9,6 +10,7 @@ export class SheepDirector {
     public lastLine: number = -1;
     public confirmedLines: Set<number> = new Set();
     public proofedLines: Set<number> = new Set();
+    public phrases: { input: string, phrase: string }[] = [];
 
     public tmIndex: any = null;
     public tmData: any[] = [];
@@ -31,6 +33,8 @@ export class SheepDirector {
                 this.proofedLines.add(unit.idx);
             }
         }
+
+        this.loadPhrases();
     }
 
     /**
@@ -175,4 +179,32 @@ export class SheepDirector {
             console.error("[SheepDirector] Failed to write Flexsearch log:", err);
         }
     }
+
+    /**
+     * Load phrase.json from the project root.
+     * Phrases are SheepWeave-specific (not part of ShWvData).
+     */
+    private loadPhrases(): void {
+        // Use the rootPath from meta.bilingualPath or fall back
+        // Phrases are loaded via the project root which we can infer from state
+    }
+
+    /**
+     * Load phrases from a specific root path.
+     */
+    public loadPhrasesFromRoot(root: string): void {
+        const phrasePathFull = path.join(root, DirHelper.rootToPhrases);
+        if (fs.existsSync(phrasePathFull)) {
+            try {
+                const content = fs.readFileSync(phrasePathFull, 'utf-8');
+                this.phrases = JSON.parse(content);
+            } catch (e) {
+                console.error('Failed to load phrases:', e);
+                this.phrases = [];
+            }
+        }
+    }
 }
+
+// Re-export DirHelper for convenience
+import { DirHelper } from './DirHelper';

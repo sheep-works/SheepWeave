@@ -31,6 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (root && root !== lastLoadedRoot) {
             globalShWvData.load(root);
             globalDirector.initializeFromState();
+            globalDirector.loadPhrasesFromRoot(root);
             globalDirector.loadRefData(root); // Load TM/TB for concordance search
             lastLoadedRoot = root;
             console.log(`Loaded project data from: ${root}`);

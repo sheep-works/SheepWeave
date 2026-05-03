@@ -45,7 +45,7 @@ const nodeConfig = {
         new CopyWebpackPlugin({
             patterns: [
                 {
-                    from: path.join(__dirname, 'modules/SheepSpindle/pkg/sheep_spindle_bg.wasm'),
+                    from: path.join(__dirname, 'modules/SheepComb/logic/pkg/sheep_spindle_bg.wasm'),
                     to: path.join(__dirname, 'dist')
                 }
             ]

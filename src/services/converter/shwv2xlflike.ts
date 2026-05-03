@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { ShWvUnit } from '../../types/datatype';
+import type { ShWvUnit } from '../../types/datatype';
 import { shwv2xlf } from './xlf/Shwv2Xliff';
 import { shwv2sdlxliff } from './sdlxliff/Shwv2Sdlxliff';
 import { shwv2mxliff } from './mxliff/Shwv2Mxliff';
@@ -25,12 +25,12 @@ export async function shwv2xlfLike(filepath: string, xmlContent: string, shwvUni
             processedPre = processedPre.replace(/\{@(\d+)\}/g, replacer);
         }
 
-        const newUnit = new ShWvUnit(unit as any);
-        Object.assign(newUnit, unit);
-        newUnit.src = processedSrc;
-        newUnit.tgt = processedTgt;
-        newUnit.pre = processedPre;
-        return newUnit;
+        return {
+            ...unit,
+            src: processedSrc,
+            tgt: processedTgt,
+            pre: processedPre,
+        } as ShWvUnit;
     });
 
     switch (ext) {

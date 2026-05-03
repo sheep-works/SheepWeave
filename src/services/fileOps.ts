@@ -6,7 +6,7 @@ import { DirHelper } from './core/DirHelper';
 import { globalShWvData } from '../store';
 import { groupFilesByFilter, resolveTikalPath, runTikal } from './tikal';
 import { ProjectManager, ProjectFileStatus } from './core/ProjectManager';
-import { SheepShuttle } from 'sheepshuttle';
+import { SheepShuttle } from '../management';
 
 // Helper to ensure directory exists
 function ensureDir(p: string) { if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true }); }

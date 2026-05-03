@@ -1,33 +1,66 @@
-import { ShWvBody, ShWvMeta, ShWvUnit } from "../../types/datatype";
+import type { ShWvBody, ShWvMeta, ShWvUnit, ShWvRef, TranslationPair } from "../../types/datatype";
 import { getExtention } from "../../util";
 import { shwv2xlfLike, parseTranslationFiles } from "../converter";
 import { readFileSync, writeFileSync } from "fs";
 import { DirHelper } from "./DirHelper";
-import { ShWvDiffer } from "./ShWvDiffer";
 import * as path from 'path';
 import * as fs from 'fs';
+// --- Local adapter for analysis (avoids pulling in SheepComb's full dependency graph) ---
+import { ShuttleAnalyzer } from './ShuttleAdapter';
+
+// ============================================================================
+// Factory functions (replacing class constructors)
+// ============================================================================
+
+export function createShWvUnit(pair: TranslationPair): ShWvUnit {
+    return {
+        idx: pair.idx,
+        src: pair.src,
+        pre: pair.tgt || '',
+        tgt: '',
+        note: pair.note,
+        isSub: pair.isSub,
+        status: (pair as any).status || 0,
+        ref: createShWvRef(),
+        placeholders: pair.placeholders,
+    };
+}
+
+export function createShWvRef(): ShWvRef {
+    return { tms: [], tb: [], quoted: [], quoted100: [] };
+}
+
+export function createEmptyBody(): ShWvBody {
+    return { units: [], terms: [] };
+}
+
+export function createEmptyMeta(): ShWvMeta {
+    return {
+        bilingualPath: '',
+        files: [],
+        sourceLang: '',
+        targetLang: '',
+        tmFiles: [],
+        tbFiles: [],
+    };
+}
+
+// ============================================================================
+// ShWvData class — data container + file I/O + VS Code extension operations
+// ============================================================================
 
 export class ShWvData {
     public ver!: number;
     public meta!: ShWvMeta;
     public body!: ShWvBody;
-    public phrases: { input: string, phrase: string }[] = [];
 
     constructor() {
         this.clear();
     }
 
     public clear(): void {
-        this.meta = {
-            bilingualPath: "",
-            files: [],
-            sourceLang: "",
-            targetLang: "",
-            tmFiles: [],
-            tbFiles: []
-        };
-        this.body = new ShWvBody();
-        this.phrases = [];
+        this.meta = createEmptyMeta();
+        this.body = createEmptyBody();
     }
 
     public async parse(filepaths: string[]): Promise<void> {
@@ -36,12 +69,9 @@ export class ShWvData {
             this.meta.files.push(...fileinfo);
         }
         if (units && units.length > 0) {
-            this.body.units.push(...units.map(u => new ShWvUnit(u)));
+            this.body.units.push(...units.map(u => createShWvUnit(u)));
         }
     }
-    // xlfファイルを読み込む
-    // ファイル名をmeta.filesに格納する
-    // body.unitsにtrans-unitの内容を追加していく
 
     public extract(mode: "source" | "target" | "both-horizontal" | "both-vertical"): string[] {
         switch (mode) {
@@ -54,7 +84,7 @@ export class ShWvData {
             case "both-vertical":
                 return this.extractBothVertical();
             default:
-                throw new Error('mode is not source or target or respect or both-horizontal or both-vertical');
+                throw new Error('mode is not source or target or both-horizontal or both-vertical');
         }
     }
 
@@ -157,31 +187,18 @@ export class ShWvData {
         if (fs.existsSync(storagePathFull)) {
             const content = fs.readFileSync(storagePathFull, 'utf-8');
             const parsed = JSON.parse(content);
-            this.meta = new ShWvMeta(
-                parsed.meta.bilingualPath,
-                parsed.meta.files,
-                parsed.meta.sourceLang,
-                parsed.meta.targetLang,
-                parsed.meta.tmFiles || [],
-                parsed.meta.tbFiles || []
-            );
-            const body = new ShWvBody(parsed.body.units, parsed.body.terms || []);
-            this.body = body;
-        }
-
-        this.loadPhrases(root);
-    }
-
-    public loadPhrases(root: string): void {
-        const phrasePathFull = path.join(root, DirHelper.rootToPhrases);
-        if (fs.existsSync(phrasePathFull)) {
-            try {
-                const content = fs.readFileSync(phrasePathFull, 'utf-8');
-                this.phrases = JSON.parse(content);
-            } catch (e) {
-                console.error('Failed to load phrases:', e);
-                this.phrases = [];
-            }
+            this.meta = {
+                bilingualPath: parsed.meta.bilingualPath || '',
+                files: parsed.meta.files || [],
+                sourceLang: parsed.meta.sourceLang || '',
+                targetLang: parsed.meta.targetLang || '',
+                tmFiles: parsed.meta.tmFiles || [],
+                tbFiles: parsed.meta.tbFiles || [],
+            };
+            this.body = {
+                units: parsed.body.units || [],
+                terms: parsed.body.terms || [],
+            };
         }
     }
 
@@ -242,8 +259,45 @@ export class ShWvData {
             termbase.push(...this.body.terms.map(t => ({ ...t, file: "Internal" })));
         }
 
-        // Delegate search and analysis to ShWvDiffer
-        await ShWvDiffer.analyze(units, memories, termbase, root, legacy);
+        // Delegate search and analysis to SheepComb's ShuttleAnalyzer
+        const { analyze_all } = require('sheep-spindle');
+        const analyzer = new ShuttleAnalyzer();
+        const shwvData = {
+            define: { name: 'SHWV_DATA' as const, version: '1.0' as const },
+            meta: this.meta,
+            body: this.body,
+        };
+        await analyzer.analyze(shwvData, memories, termbase, analyze_all, legacy);
+    }
+
+    /**
+     * Adds a term to body.terms and updates all units that contain the source text.
+     * Returns the list of units that were updated.
+     */
+    public addTerm(src: string, tgt: string): ShWvUnit[] {
+        const updatedUnits: ShWvUnit[] = [];
+        // 重複チェック（サイレントに無視）
+        const exists = this.body.terms.some(t => t.src === src && t.tgt === tgt);
+        if (!exists) {
+            this.body.terms.push({ src, tgt });
+        }
+        // 全ユニットの原文を走査し、該当するユニットの ref.tb に追加
+        for (const unit of this.body.units) {
+            if (unit.src.includes(src)) {
+                // 既に同じ src の tb エントリがあれば tgt を追加、なければ新規作成
+                const existing = unit.ref.tb.find(tb => tb.src === src);
+                if (existing) {
+                    if (!existing.tgts.includes(tgt)) {
+                        existing.tgts.push(tgt);
+                        updatedUnits.push(unit);
+                    }
+                } else {
+                    unit.ref.tb.push({ src, tgts: [tgt] });
+                    updatedUnits.push(unit);
+                }
+            }
+        }
+        return updatedUnits;
     }
 
     public async saveXlf(filepath: string, originalXlfPath: string, slicedUnits: ShWvUnit[]): Promise<void> {

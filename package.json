@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "publisher": "sheepweave",
   "license": "MIT",
   "repository": {
@@ -316,8 +316,7 @@
   "dependencies": {
     "difflib-ts": "^1.0.3",
     "flexsearch": "^0.8.212",
-    "sheep-spindle": "file:modules/SheepSpindle/pkg",
-    "sheepshuttle": "file:modules/SheepShuttle",
+    "sheep-spindle": "file:modules/SheepComb/logic/pkg",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "xml2js": "^0.6.2"
   }

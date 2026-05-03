@@ -51,8 +51,9 @@ export class CoreHandler {
                     const shwvData = await preprocessor(rootPath);
                     if (shwvData) {
                         globalDirector.initializeFromState();
+                        globalDirector.loadPhrasesFromRoot(rootPath);
                         await globalDirector.loadRefData(rootPath);
-                        panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: shwvData.meta, units: shwvData.body.units, phrases: shwvData.phrases } });
+                        panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: shwvData.meta, units: shwvData.body.units, phrases: globalDirector.phrases } });
                     }
                     vscode.window.showInformationMessage('Preprocessing Started (Data loaded to Webview)');
                 } finally {
@@ -62,9 +63,10 @@ export class CoreHandler {
             case 'load':
                 globalShWvData.load(rootPath);
                 globalDirector.initializeFromState();
+                globalDirector.loadPhrasesFromRoot(rootPath);
                 await globalDirector.loadRefData(rootPath);
                 if (globalShWvData.meta && globalShWvData.body?.units?.length > 0) {
-                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalShWvData.phrases } });
+                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalDirector.phrases } });
                     vscode.window.showInformationMessage('Data Loaded and Synchronized');
                 }
                 break;
@@ -76,7 +78,7 @@ export class CoreHandler {
                     globalDirector.initializeFromState();
                     globalDirector.loadRefData(rootPath); // Refresh TM/TB
                     globalShWvData.save(rootPath);
-                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalShWvData.phrases } });
+                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalDirector.phrases } });
                     vscode.window.showInformationMessage('Re-analysis completed and data updated');
                 } finally {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
@@ -88,7 +90,7 @@ export class CoreHandler {
                     await globalShWvData.analyze(rootPath, true);
                     globalDirector.initializeFromState();
                     globalShWvData.save(rootPath);
-                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalShWvData.phrases } });
+                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalDirector.phrases } });
                     vscode.window.showInformationMessage('Legacy Re-analysis completed and results updated');
                 } finally {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
@@ -118,7 +120,7 @@ export class CoreHandler {
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {
                     await CoreHandler.ensureSavedAndSynced(globalShWvData, rootPath);
-                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalShWvData.phrases } });
+                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalDirector.phrases } });
                 } finally {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
@@ -197,7 +199,7 @@ export class CoreHandler {
                 if (globalShWvData.meta && globalShWvData.body.units.length > 0) {
                     panel.webview.postMessage({
                         type: 'SHWV_DATA_LOADED',
-                        data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalShWvData.phrases }
+                        data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalDirector.phrases }
                     });
                 }
                 break;
@@ -293,7 +295,7 @@ export class CoreHandler {
                 break;
             case 'update-phrases':
                 const phrasesPayload = message.payload || [];
-                globalShWvData.phrases = phrasesPayload;
+                globalDirector.phrases = phrasesPayload;
                 // phrase.json に保存
                 const phrasePath = path.join(rootPath, DirHelper.rootToPhrases);
                 fs.writeFileSync(phrasePath, JSON.stringify(phrasesPayload, null, 2));

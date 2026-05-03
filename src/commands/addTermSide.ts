@@ -104,7 +104,7 @@ export async function confirmAddTermSide(): Promise<void> {
     const { tgtText, targetEditor } = pendingAddTerm;
 
     // 用語を登録し、変更されたユニット（TB情報が更新された行）を取得
-    const updatedUnits = globalShWvData.body.addTerm(srcText, tgtText);
+    const updatedUnits = globalShWvData.addTerm(srcText, tgtText);
 
     // データを保存
     const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;

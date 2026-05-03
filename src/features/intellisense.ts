@@ -76,7 +76,7 @@ export class PhraseCompletionProvider implements vscode.CompletionItemProvider {
         context: vscode.CompletionContext
     ): vscode.ProviderResult<vscode.CompletionItem[]> {
         
-        const phrases = globalDirector.state.phrases;
+        const phrases = globalDirector.phrases;
         if (!phrases || phrases.length === 0) {
             return undefined;
         }
