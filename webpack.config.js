@@ -20,6 +20,9 @@ const nodeConfig = {
     resolve: {
         mainFields: ['module', 'main'],
         extensions: ['.ts', '.js'],
+        extensionAlias: {
+            '.js': ['.js', '.ts', '.tsx']
+        }
     },
     module: {
         rules: [

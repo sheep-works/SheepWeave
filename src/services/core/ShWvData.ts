@@ -1,6 +1,6 @@
 import type { ShWvBody, ShWvMeta, ShWvUnit, ShWvRef, TranslationPair } from "../../types/datatype";
 import { getExtention } from "../../util";
-import { shwv2xlfLike, parseTranslationFiles } from "../converter";
+import { shwv2xlfLike } from "../converter";
 import { readFileSync, writeFileSync } from "fs";
 import { DirHelper } from "./DirHelper";
 import * as path from 'path';
@@ -64,12 +64,35 @@ export class ShWvData {
     }
 
     public async parse(filepaths: string[]): Promise<void> {
-        const { fileinfo, units } = await parseTranslationFiles(filepaths);
-        if (fileinfo && fileinfo.length > 0) {
-            this.meta.files.push(...fileinfo);
+        // Provide DOMParser shim
+        if (!(globalThis as any).DOMParser) {
+            (globalThis as any).DOMParser = require('@xmldom/xmldom').DOMParser;
         }
-        if (units && units.length > 0) {
-            this.body.units.push(...units.map(u => createShWvUnit(u)));
+        
+        const { SheepShuttle } = require('../../../modules/SheepComb/logic/shuttle/sheepShuttle');
+        const shuttle = new SheepShuttle();
+        
+        const files = filepaths.map(p => {
+            const ext = p.split('.').pop()?.toLowerCase() || '';
+            const isBinary = ['xlsx', 'docx'].includes(ext);
+            return {
+                name: path.basename(p),
+                content: isBinary ? fs.readFileSync(p) : fs.readFileSync(p, 'utf-8')
+            };
+        });
+
+        await shuttle.parse(files);
+        shuttle.process();
+        shuttle.convert();
+
+        const parsedData = shuttle.data;
+        if (parsedData) {
+            if (parsedData.meta.files && parsedData.meta.files.length > 0) {
+                this.meta.files.push(...parsedData.meta.files);
+            }
+            if (parsedData.body.units && parsedData.body.units.length > 0) {
+                this.body.units.push(...parsedData.body.units);
+            }
         }
     }
 
@@ -224,11 +247,27 @@ export class ShWvData {
             this.meta.tmFiles = tmFileList; // Populate meta if empty
         }
 
+        // Provide DOMParser shim
+        if (!(globalThis as any).DOMParser) {
+            (globalThis as any).DOMParser = require('@xmldom/xmldom').DOMParser;
+        }
+        const { SheepShuttle } = require('../../../modules/SheepComb/logic/shuttle/sheepShuttle');
+
         if (tmFileList.length > 0) {
             const tmFilesFull = tmFileList.map(f => path.join(tmDir, f));
-            const parsedTm = await parseTranslationFiles(tmFilesFull);
-            memories = parsedTm.units.map((u, i) => {
-                const info = parsedTm.fileinfo.find(f => i >= f.start && i <= f.end);
+            const shuttleTm = new SheepShuttle();
+            const tmFiles = tmFilesFull.map(p => {
+                const ext = p.split('.').pop()?.toLowerCase() || '';
+                const isBinary = ['xlsx', 'docx'].includes(ext);
+                return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : fs.readFileSync(p, 'utf-8') };
+            });
+            await shuttleTm.parse(tmFiles);
+            shuttleTm.process();
+            shuttleTm.convert();
+            const parsedTm = shuttleTm.data;
+
+            memories = parsedTm.body.units.map((u: any, i: number) => {
+                const info = parsedTm.meta.files.find((f: any) => i >= f.start && i <= f.end);
                 return { idx: -1, src: u.src, tgt: u.tgt, freeze: true, file: info?.name };
             });
         }
@@ -247,9 +286,19 @@ export class ShWvData {
 
         if (tbFileList.length > 0) {
             const tbFilesFull = tbFileList.map(f => path.join(tbDir, f));
-            const parsedTb = await parseTranslationFiles(tbFilesFull);
-            termbase = parsedTb.units.map((u, i) => {
-                const info = parsedTb.fileinfo.find(f => i >= f.start && i <= f.end);
+            const shuttleTb = new SheepShuttle();
+            const tbFiles = tbFilesFull.map(p => {
+                const ext = p.split('.').pop()?.toLowerCase() || '';
+                const isBinary = ['xlsx', 'docx'].includes(ext);
+                return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : fs.readFileSync(p, 'utf-8') };
+            });
+            await shuttleTb.parse(tbFiles);
+            shuttleTb.process();
+            shuttleTb.convert();
+            const parsedTb = shuttleTb.data;
+
+            termbase = parsedTb.body.units.map((u: any, i: number) => {
+                const info = parsedTb.meta.files.find((f: any) => i >= f.start && i <= f.end);
                 return { ...u, file: info?.name };
             });
         }
