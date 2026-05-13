@@ -39,7 +39,11 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     // 初回ロード
-    loadProjectData(vscode.window.activeTextEditor);
+    try {
+        loadProjectData(vscode.window.activeTextEditor);
+    } catch (e) {
+        console.error('Failed to load project data during activation:', e);
+    }
 
     context.subscriptions.push(
         vscode.commands.registerCommand('sheepWeave.openPanel', () => {

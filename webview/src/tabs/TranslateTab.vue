@@ -20,8 +20,8 @@ defineProps({
     <div id="translate-tab">
         <div class="header">
             <a-space>
-            <icon-translate :style="{ fontSize: '24px', marginRight: '8px' }" />
-            <a-typography-title :heading="4" style="margin: 0">Translate</a-typography-title>
+                <icon-translate :style="{ fontSize: '24px', marginRight: '8px' }" />
+                <a-typography-title :heading="4" style="margin: 0">Translate</a-typography-title>
             </a-space>
         </div>
 
@@ -49,12 +49,13 @@ defineProps({
                 <tbody v-if="shwvStore.crtUnit.ref.tms.length > 0">
                     <tr v-for="tm in shwvStore.crtUnit.ref.tms" :key="tm.idx" :class="{ 'is-external': tm.idx === -1 }">
                         <td :title="tm.file">
-                            {{ tm.idx === -1 ? 'TM' : '# ' + tm.idx }}<br>
+                            {{ tm.idx === -1 ? 'TM' : '# ' + tm.idx + 1 }}<br>
                             <span class="ratio-text">{{ tm.ratio }}%</span>
                             <div v-if="tm.file" class="file-text">{{ tm.file }}</div>
                         </td>
                         <td v-html="tm.diff || tm.src"></td>
-                        <td colspan="2">{{ tm.idx === -1 ? tm.tgt : (shwvStore.units[tm.idx] && shwvStore.units[tm.idx].idx === tm.idx ? shwvStore.units[tm.idx].tgt : tm.tgt) }}</td>
+                        <td colspan="2">{{ tm.idx === -1 ? tm.tgt : (shwvStore.units[tm.idx] &&
+                            shwvStore.units[tm.idx].idx === tm.idx ? shwvStore.units[tm.idx].tgt : tm.tgt) }}</td>
                     </tr>
                 </tbody>
             </table>

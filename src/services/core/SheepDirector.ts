@@ -123,12 +123,14 @@ export class SheepDirector {
         if (!(globalThis as any).DOMParser) {
             (globalThis as any).DOMParser = require('@xmldom/xmldom').DOMParser;
         }
+        console.log("[SheepDirector] Loading SheepShuttle for TM...");
         const { SheepShuttle } = require('../../../modules/SheepComb/logic/shuttle/sheepShuttle');
 
         const tmDir = path.join(rootPath, 'Working', '01_REF', 'TM');
         if (fs.existsSync(tmDir)) {
             const files = fs.readdirSync(tmDir).filter(f => fs.statSync(path.join(tmDir, f)).isFile());
             if (files.length > 0) {
+                console.log("[SheepDirector] Instantiating SheepShuttle for TM...");
                 const shuttleTm = new SheepShuttle();
                 const tmFilesInfo = files.map(f => {
                     const p = path.join(tmDir, f);

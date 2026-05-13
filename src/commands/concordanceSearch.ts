@@ -50,26 +50,8 @@ export function doConcordanceSearch(query: string, mode: 'source' | 'target') {
         );
     }
 
-    // 2. TM Matches (using FlexSearch)
-    if (globalDirector.tmIndex) {
-        const results = globalDirector.tmIndex.search(query, {
-            index: mode === 'source' ? 'src' : 'tgt',
-            limit: 50 // reasonable limit 
-        });
-
-        if (results && results.length > 0 && typeof results[0] === 'object' && 'result' in results[0]) {
-            // Document based search result might look like [{ field: 'src', result: [id1, id2] }]
-            const fieldResult = results.find((r: any) => r.field === (mode === 'source' ? 'src' : 'tgt'));
-            if (fieldResult && fieldResult.result) {
-                const limit = fieldResult.result.slice(0, 50);
-                tmMatches = limit.map((id: any) => globalDirector.tmData.find(d => d.id === id)).filter((v: any) => v);
-            }
-        } else {
-            // direct array response
-            const limit = results.slice(0, 50);
-            tmMatches = limit.map((id: any) => globalDirector.tmData.find(d => d.id === id)).filter((v: any) => v);
-        }
-    }
+    // 2. TM Matches (using ShuttleSearch)
+    tmMatches = globalDirector.concordance.search(query, mode, 50);
 
     // 3. Current Document Matches
     if (globalDirector.state && globalDirector.state.body && globalDirector.state.body.units) {

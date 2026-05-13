@@ -2,8 +2,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "type": "yarn",
-            "script": "watch",
+            "label": "yarn: watch",
+            "type": "shell",
+            "command": "yarn watch",
             "problemMatcher": {
                 "owner": "typescript",
                 "fileLocation": [
@@ -35,11 +36,11 @@
             "label": "yarn: watch"
         },
         {
-            "type": "yarn",
-            "script": "compile",
+            "label": "yarn: compile",
+            "type": "shell",
+            "command": "yarn compile",
             "problemMatcher": "$ts-webpack",
-            "group": "build",
-            "label": "yarn: compile"
+            "group": "build"
         }
     ]
 }

@@ -47,15 +47,22 @@ export class CoreHandler {
                 break;
             case 'convert-to-shwv':
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                console.log("[CoreHandler] Starting convert-to-shwv...");
                 try {
                     const shwvData = await preprocessor(rootPath);
+                    console.log("[CoreHandler] Preprocessor finished.");
                     if (shwvData) {
+                        console.log("[CoreHandler] Initializing director and loading ref data...");
                         globalDirector.initializeFromState();
                         globalDirector.loadPhrasesFromRoot(rootPath);
                         await globalDirector.loadRefData(rootPath);
+                        console.log("[CoreHandler] Ref data loaded. Sending SHWV_DATA_LOADED to webview.");
                         panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: shwvData.meta, units: shwvData.body.units, phrases: globalDirector.phrases } });
                     }
                     vscode.window.showInformationMessage('Preprocessing Started (Data loaded to Webview)');
+                } catch (err: any) {
+                    console.error("[CoreHandler] Error during convert-to-shwv:", err);
+                    vscode.window.showErrorMessage(`Error executing convert-to-shwv: ${err.message || err}\nStack: ${err.stack}`);
                 } finally {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
@@ -128,26 +135,10 @@ export class CoreHandler {
             case 'manual-concordance':
                 try {
                     const query = message.payload.query;
-                    const mode = message.payload.mode;
+                    const mode = (message.payload.mode === 'source' ? 'source' : 'target') as 'source' | 'target';
                     if (!query) break;
 
-                    const resultsBuffer = await globalDirector.tmIndex.searchAsync(query, 10);
-                    const matchingIds = new Set<number>();
-                    if (resultsBuffer && resultsBuffer.length > 0) {
-                        for (const resultObj of resultsBuffer) {
-                            if (resultObj && resultObj.result) {
-                                for (const r of resultObj.result) {
-                                    matchingIds.add(r as number);
-                                }
-                            }
-                        }
-                    }
-
-                    const tmMatches = [];
-                    for (const id of matchingIds) {
-                        const entry = globalDirector.tmData[id];
-                        if (entry) tmMatches.push(entry);
-                    }
+                    const tmMatches = globalDirector.concordance.search(query, mode, 50);
 
                     const tbMatches = [];
                     const qLowerCase = query.toLowerCase();
