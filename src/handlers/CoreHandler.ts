@@ -47,22 +47,18 @@ export class CoreHandler {
                 break;
             case 'convert-to-shwv':
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
-                console.log("[CoreHandler] Starting convert-to-shwv...");
                 try {
                     const shwvData = await preprocessor(rootPath);
-                    console.log("[CoreHandler] Preprocessor finished.");
                     if (shwvData) {
-                        console.log("[CoreHandler] Initializing director and loading ref data...");
                         globalDirector.initializeFromState();
                         globalDirector.loadPhrasesFromRoot(rootPath);
                         await globalDirector.loadRefData(rootPath);
-                        console.log("[CoreHandler] Ref data loaded. Sending SHWV_DATA_LOADED to webview.");
                         panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: shwvData.meta, units: shwvData.body.units, phrases: globalDirector.phrases } });
                     }
                     vscode.window.showInformationMessage('Preprocessing Started (Data loaded to Webview)');
                 } catch (err: any) {
                     console.error("[CoreHandler] Error during convert-to-shwv:", err);
-                    vscode.window.showErrorMessage(`Error executing convert-to-shwv: ${err.message || err}\nStack: ${err.stack}`);
+                    vscode.window.showErrorMessage(`Error executing convert-to-shwv: ${err.message || err}`);
                 } finally {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }

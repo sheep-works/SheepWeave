@@ -45,8 +45,6 @@ export class ShuttleSearch {
 
         try {
             const fs: any = flexsearch;
-            console.log("[ShuttleSearch] flexsearch module type:", typeof fs);
-            if (fs) console.log("[ShuttleSearch] flexsearch keys:", Object.keys(fs));
             const FlexDocument = fs && (fs.Document || fs.default?.Document || fs);
             if (!FlexDocument) {
                 throw new Error("FlexSearch Document constructor not found");

@@ -69,17 +69,8 @@ export class ShWvData {
             (globalThis as any).DOMParser = require('@xmldom/xmldom').DOMParser;
         }
         
-        console.log("[ShWvData] Loading SheepShuttle...");
         const { SheepShuttle } = require('../../../modules/SheepComb/logic/shuttle/sheepShuttle');
-        console.log("[ShWvData] Instantiating SheepShuttle...");
-        let shuttle: any;
-        try {
-            shuttle = new SheepShuttle();
-        } catch (e: any) {
-            console.error("[ShWvData] Failed to instantiate SheepShuttle:", e);
-            throw new Error(`Failed to instantiate SheepShuttle: ${e.message}\nStack: ${e.stack}`);
-        }
-        console.log("[ShWvData] SheepShuttle instantiated.");
+        const shuttle = new SheepShuttle();
         
         const files = filepaths.map(p => {
             const ext = p.split('.').pop()?.toLowerCase() || '';
