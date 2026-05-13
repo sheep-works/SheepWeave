@@ -1,13 +1,7 @@
 import * as path from 'path';
 import type { ShWvUnit } from '../../types/datatype';
-import { shwv2xlf } from './xlf/Shwv2Xliff';
-import { shwv2sdlxliff } from './sdlxliff/Shwv2Sdlxliff';
-import { shwv2mxliff } from './mxliff/Shwv2Mxliff';
-import { shwv2mqxliff } from './mqxliff/Shwv2Mqxliff';
 
 export async function shwv2xlfLike(filepath: string, xmlContent: string, shwvUnits: ShWvUnit[]): Promise<string> {
-    const ext = path.extname(filepath).toLowerCase();
-
     // Restore tags from placeholders
     const processedUnits = shwvUnits.map(unit => {
         let processedSrc = unit.src || '';
@@ -33,17 +27,23 @@ export async function shwv2xlfLike(filepath: string, xmlContent: string, shwvUni
         } as ShWvUnit;
     });
 
-    switch (ext) {
-        case '.xlf':
-        case '.xliff':
-            return await shwv2xlf(xmlContent, processedUnits);
-        case '.sdlxliff':
-            return await shwv2sdlxliff(xmlContent, processedUnits);
-        case '.mxliff':
-            return await shwv2mxliff(xmlContent, processedUnits);
-        case '.mqxliff':
-            return await shwv2mqxliff(xmlContent, processedUnits);
-        default:
-            return await shwv2xlf(xmlContent, processedUnits);
+    // Provide DOMParser and XMLSerializer shims
+    if (!(globalThis as any).DOMParser) {
+        (globalThis as any).DOMParser = require('@xmldom/xmldom').DOMParser;
     }
+    if (!(globalThis as any).XMLSerializer) {
+        (globalThis as any).XMLSerializer = require('@xmldom/xmldom').XMLSerializer;
+    }
+
+    const { SheepShuttle } = require('../../../modules/SheepComb/logic/shuttle/sheepShuttle');
+    const shuttle = new SheepShuttle();
+    
+    // Create dummy data
+    shuttle.data = {
+        define: { name: 'SHWV_DATA', version: '1.0' },
+        meta: { bilingualPath: '', files: [], sourceLang: '', targetLang: '', tmFiles: [], tbFiles: [] },
+        body: { units: processedUnits, terms: [] }
+    } as any;
+
+    return await shuttle.build(xmlContent);
 }

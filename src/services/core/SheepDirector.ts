@@ -1,9 +1,9 @@
 import { ShWvData, createShWvRef } from './ShWvData';
 import type { ShWvUnit } from '../../types/datatype';
-import flexsearch from 'flexsearch';
 import * as path from 'path';
 import * as fs from 'fs';
-import { parseTranslationFiles } from '../converter';
+
+import { ShuttleSearch } from './ShuttleSearch';
 
 export class SheepDirector {
     public state: ShWvData;
@@ -12,12 +12,13 @@ export class SheepDirector {
     public proofedLines: Set<number> = new Set();
     public phrases: { input: string, phrase: string }[] = [];
 
-    public tmIndex: any = null;
+    public concordance: ShuttleSearch;
     public tmData: any[] = [];
     public tbData: { src: string, tgt: string, file: string }[] = [];
 
     constructor() {
         this.state = new ShWvData();
+        this.concordance = new ShuttleSearch();
     }
 
     /**
@@ -113,37 +114,41 @@ export class SheepDirector {
         return affectedIdxs;
     }
 
-    /**
-     * Loads TM and TB data directly into memory and indexes them for Concordance Search
-     */
     public async loadRefData(rootPath: string) {
         this.tmData = [];
         this.tbData = [];
+        this.concordance.clear();
 
-        // Initialize FlexSearch Document with full tokenization for better substring matching support
-        // We use string splitting for CJK tokenization support if needed, but 'full' is a good start.
-        this.tmIndex = new flexsearch.Document({
-            document: {
-                id: "id",
-                index: ["src", "tgt"],
-                store: true
-            },
-            tokenize: "full",
-            encode: (str: string) => str.split('') // Character-level indexing for robust CJK substring matches
-        });
+        // Provide DOMParser shim
+        if (!(globalThis as any).DOMParser) {
+            (globalThis as any).DOMParser = require('@xmldom/xmldom').DOMParser;
+        }
+        const { SheepShuttle } = require('../../../modules/SheepComb/logic/shuttle/sheepShuttle');
 
         const tmDir = path.join(rootPath, 'Working', '01_REF', 'TM');
         if (fs.existsSync(tmDir)) {
             const files = fs.readdirSync(tmDir).filter(f => fs.statSync(path.join(tmDir, f)).isFile());
             if (files.length > 0) {
-                const parsedTm = await parseTranslationFiles(files.map(f => path.join(tmDir, f)));
-                parsedTm.units.forEach((u, i) => {
-                    const info = parsedTm.fileinfo.find(f => i >= f.start && i <= f.end);
-                    const tmEntry = { id: i, src: u.src, tgt: u.tgt || "", file: info?.name || 'TM' };
-                    this.tmData.push(tmEntry);
-                    // Async addition 
-                    this.tmIndex.add(tmEntry);
+                const shuttleTm = new SheepShuttle();
+                const tmFilesInfo = files.map(f => {
+                    const p = path.join(tmDir, f);
+                    const ext = p.split('.').pop()?.toLowerCase() || '';
+                    const isBinary = ['xlsx', 'docx'].includes(ext);
+                    return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : fs.readFileSync(p, 'utf-8') };
                 });
+                await shuttleTm.parse(tmFilesInfo);
+                shuttleTm.process();
+                shuttleTm.convert();
+                const parsedTm = shuttleTm.data;
+
+                if (parsedTm) {
+                    this.concordance.indexUnits(parsedTm.body.units);
+                    parsedTm.body.units.forEach((u: any, i: number) => {
+                        const info = parsedTm.meta.files.find((f: any) => i >= f.start && i <= f.end);
+                        const tmEntry = { id: i, src: u.src, tgt: u.tgt || "", file: info?.name || 'TM' };
+                        this.tmData.push(tmEntry);
+                    });
+                }
             }
         }
 
@@ -151,11 +156,24 @@ export class SheepDirector {
         if (fs.existsSync(tbDir)) {
             const files = fs.readdirSync(tbDir).filter(f => fs.statSync(path.join(tbDir, f)).isFile());
             if (files.length > 0) {
-                const parsedTb = await parseTranslationFiles(files.map(f => path.join(tbDir, f)));
-                parsedTb.units.forEach((u, i) => {
-                    const info = parsedTb.fileinfo.find(f => i >= f.start && i <= f.end);
-                    this.tbData.push({ src: u.src, tgt: u.tgt || "", file: info?.name || 'TB' });
+                const shuttleTb = new SheepShuttle();
+                const tbFilesInfo = files.map(f => {
+                    const p = path.join(tbDir, f);
+                    const ext = p.split('.').pop()?.toLowerCase() || '';
+                    const isBinary = ['xlsx', 'docx'].includes(ext);
+                    return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : fs.readFileSync(p, 'utf-8') };
                 });
+                await shuttleTb.parse(tbFilesInfo);
+                shuttleTb.process();
+                shuttleTb.convert();
+                const parsedTb = shuttleTb.data;
+
+                if (parsedTb) {
+                    parsedTb.body.units.forEach((u: any, i: number) => {
+                        const info = parsedTb.meta.files.find((f: any) => i >= f.start && i <= f.end);
+                        this.tbData.push({ src: u.src, tgt: u.tgt || "", file: info?.name || 'TB' });
+                    });
+                }
             }
         }
 
