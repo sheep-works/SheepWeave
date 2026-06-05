@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia';
-import type { ShWvMeta, ShWvUnit } from '../../../src/types/datatype';
+import type { ShWvMeta, ShWvUnit, ProjectInfo } from '../../../src/types/datatype';
 
 export const useShWvStore = defineStore('shwv', {
     state: () => ({
         meta: null as ShWvMeta | null,
         units: [] as ShWvUnit[],
+        projectInfo: null as ProjectInfo | null,
         phrases: [] as { input: string, phrase: string }[],
         concordanceData: null as { query: string, mode: string, tbMatches: any[], tmMatches: any[], currentDocumentMatches: any[] } | null,
         crtPos: 0,
@@ -14,10 +15,11 @@ export const useShWvStore = defineStore('shwv', {
         setConcordanceData(data: { query: string, mode: string, tbMatches: any[], tmMatches: any[], currentDocumentMatches: any[] }) {
             this.concordanceData = data;
         },
-        loadData(data: { meta: ShWvMeta; units: ShWvUnit[]; phrases?: { input: string, phrase: string }[] }) {
+        loadData(data: { meta: ShWvMeta; units: ShWvUnit[]; phrases?: { input: string, phrase: string }[]; projectInfo?: ProjectInfo }) {
             this.meta = data.meta;
             this.units = data.units || [];
             this.phrases = data.phrases || [];
+            this.projectInfo = data.projectInfo || null;
             this.maxPos = this.units.length - 1;
             console.log('ShWvData loaded into store:', data);
         },

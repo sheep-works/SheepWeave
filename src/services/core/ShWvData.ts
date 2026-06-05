@@ -1,4 +1,4 @@
-import type { ShWvBody, ShWvMeta, ShWvUnit, ShWvRef, TranslationPair } from "../../types/datatype";
+import type { ShWvBody, ShWvMeta, ShWvUnit, ShWvRef, TranslationPair, ProjectInfo } from "../../types/datatype";
 import { getExtention } from "../../util";
 import { shwv2xlfLike } from "../converter";
 import { readFileSync, writeFileSync } from "fs";
@@ -53,6 +53,7 @@ export class ShWvData {
     public ver!: number;
     public meta!: ShWvMeta;
     public body!: ShWvBody;
+    public projectInfo?: ProjectInfo;
 
     constructor() {
         this.clear();
@@ -81,18 +82,28 @@ export class ShWvData {
             };
         });
 
-        await shuttle.parse(files);
-        shuttle.process();
-        shuttle.convert();
+        try {
+            await shuttle.parse(files);
+            shuttle.process();
+            shuttle.convert();
 
-        const parsedData = shuttle.data;
-        if (parsedData) {
-            if (parsedData.meta.files && parsedData.meta.files.length > 0) {
-                this.meta.files.push(...parsedData.meta.files);
+            const parsedData = shuttle.data;
+            if (parsedData) {
+                if (parsedData.meta.files && parsedData.meta.files.length > 0) {
+                    this.meta.files.push(...parsedData.meta.files);
+                }
+                if (parsedData.body.units && parsedData.body.units.length > 0) {
+                    this.body.units.push(...parsedData.body.units);
+                } else {
+                    console.error('[SheepWeave] shuttle.data.body.units is empty after parsing!');
+                    require('vscode').window.showWarningMessage('Warning: No units parsed from file.');
+                }
+            } else {
+                console.error('[SheepWeave] shuttle.data is null after convert!');
             }
-            if (parsedData.body.units && parsedData.body.units.length > 0) {
-                this.body.units.push(...parsedData.body.units);
-            }
+        } catch (e: any) {
+            console.error('[SheepWeave] Error during shuttle parsing:', e);
+            require('vscode').window.showErrorMessage('Parse Error: ' + e.message);
         }
     }
 
@@ -208,28 +219,86 @@ export class ShWvData {
     public load(root: string): void {
         const storagePathFull = DirHelper.getStoragePath(root);
         if (fs.existsSync(storagePathFull)) {
-            const content = fs.readFileSync(storagePathFull, 'utf-8');
-            const parsed = JSON.parse(content);
-            this.meta = {
-                bilingualPath: parsed.meta.bilingualPath || '',
-                files: parsed.meta.files || [],
-                sourceLang: parsed.meta.sourceLang || '',
-                targetLang: parsed.meta.targetLang || '',
-                tmFiles: parsed.meta.tmFiles || [],
-                tbFiles: parsed.meta.tbFiles || [],
-            };
-            this.body = {
-                units: parsed.body.units || [],
-                terms: parsed.body.terms || [],
-            };
+            try {
+                const content = fs.readFileSync(storagePathFull, 'utf-8');
+                const parsed = JSON.parse(content);
+                this.meta = {
+                    bilingualPath: parsed.meta?.bilingualPath || '',
+                    files: parsed.meta?.files || [],
+                    sourceLang: parsed.meta?.sourceLang || '',
+                    targetLang: parsed.meta?.targetLang || '',
+                    tmFiles: parsed.meta?.tmFiles || [],
+                    tbFiles: parsed.meta?.tbFiles || [],
+                };
+                this.body = {
+                    units: parsed.body?.units || [],
+                    terms: parsed.body?.terms || [],
+                };
+                if (parsed.projectInfo || parsed.define?.version === '1.1') {
+                    this.projectInfo = parsed.projectInfo;
+                }
+
+                // If unified project.json (Ver 1.1) is loaded, and Working folders/files are missing, automatically restore them.
+                if (parsed.define?.version === '1.1' && this.body.units.length > 0) {
+                    const shwvsPath = DirHelper.getShwvsPath(root);
+                    const shwvtPath = DirHelper.getShwvtPath(root);
+                    if (!fs.existsSync(shwvsPath) || !fs.existsSync(shwvtPath)) {
+                        // 1. Recreate required working folders
+                        const dirs = [
+                            'Working',
+                            'Working/01_REF',
+                            'Working/01_REF/TM',
+                            'Working/01_REF/TB',
+                            'Working/02_SOURCE',
+                            'Working/03_XLF_JSON',
+                            'Working/04_SHWV',
+                            'Working/05_COMPLETED',
+                            'Working/06_PACKAGE'
+                        ];
+                        for (const d of dirs) {
+                            const p = path.join(root, d);
+                            if (!fs.existsSync(p)) {
+                                fs.mkdirSync(p, { recursive: true });
+                            }
+                        }
+
+                        // 2. Extract and write Source.shwvs and Target.shwvt files
+                        const scrs = this.extract("source");
+                        const tgt = this.extract("target");
+                        fs.writeFileSync(shwvsPath, scrs.join('\n'), 'utf-8');
+                        fs.writeFileSync(shwvtPath, tgt.join('\n'), 'utf-8');
+                        console.log(`Automatically restored Working directory folders and translation files in Working/04_SHWV`);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load ShWvData from", storagePathFull, e);
+            }
         }
     }
 
     public save(root: string): void {
         this.propagateAllTranslations();
         const storagePathFull = DirHelper.getStoragePath(root);
-        writeFileSync(storagePathFull, JSON.stringify({ meta: this.meta, body: this.body }, null, 2));
-        // body.unitsをjsonファイルに出力する
+        
+        // If projectInfo in memory is missing, try to read it from disk
+        if (!this.projectInfo && fs.existsSync(storagePathFull)) {
+            try {
+                const content = fs.readFileSync(storagePathFull, 'utf-8');
+                const parsed = JSON.parse(content);
+                if (parsed && parsed.projectInfo) {
+                    this.projectInfo = parsed.projectInfo;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        writeFileSync(storagePathFull, JSON.stringify({
+            define: { name: 'SHWV_DATA', version: '1.1' },
+            meta: this.meta,
+            body: this.body,
+            projectInfo: this.projectInfo
+        }, null, 2), 'utf-8');
     }
 
     public async analyze(root: string, legacy: boolean = false): Promise<void> {
@@ -312,7 +381,7 @@ export class ShWvData {
         const { analyze_all } = require('sheep-spindle');
         const analyzer = new ShuttleAnalyzer();
         const shwvData = {
-            define: { name: 'SHWV_DATA' as const, version: '1.0' as const },
+            define: { name: 'SHWV_DATA' as const, version: '1.1' as const },
             meta: this.meta,
             body: this.body,
         };

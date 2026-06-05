@@ -60,6 +60,12 @@ export async function archiveWorking(root: string) {
     // Recursive move
     moveRecursive(working, targetArchiveDir);
 
+    // Also move project.json to archive
+    const projectJson = path.join(root, 'project.json');
+    if (exists(projectJson)) {
+        fs.renameSync(projectJson, path.join(targetArchiveDir, 'project.json'));
+    }
+
     // Ensure Working is empty (moveRecursive should have moved everything)
     // Verify?
 }
@@ -321,6 +327,11 @@ export async function postprocessor(root: string) {
 
         const completedDir = path.join(root, 'Working', '05_COMPLETED');
         ensureDir(completedDir);
+
+        // Copy project.json for persistence in Completed
+        if (exists(storagePath)) {
+            fs.copyFileSync(storagePath, path.join(completedDir, 'project.json'));
+        }
 
         // Copy all JSON ShWvData files for persistence in Completed
         const xlfJsonDir = path.join(root, 'Working', '03_XLF_JSON');

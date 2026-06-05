@@ -66,6 +66,15 @@ const rowspan = computed(() => {
             <td>-</td>
         </tr>
 
+        <!-- note がある場合 -->
+        <template v-if="shwvStore.crtUnit.note">
+            <tr>
+                <td colspan="4" style="font-size: 0.85em; background: var(--vscode-editor-inactiveSelectionBackground); border-radius: 4px; border-top: 1px dashed var(--vscode-widget-border);">
+                    <strong style="opacity: 0.7;">Note:</strong> {{ shwvStore.crtUnit.note }}
+                </td>
+            </tr>
+        </template>
+
         <!-- placeholders がある場合 -->
         <template v-if="shwvStore.crtUnit.placeholders && Object.keys(shwvStore.crtUnit.placeholders).length > 0">
             <tr>

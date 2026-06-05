@@ -1,9 +1,5 @@
-/**
- * プロジェクト準備のビジネスロジック。
- * アーカイブ、コピー、初期統計情報の生成、project.jsonの更新を一連の流れとして実行します。
- */
 import { archiveWorking, copyDataToWorking } from './fileOps';
-import { writeProjectJson } from './storage';
+import { ProjectManager } from './core/ProjectManager';
 
 export async function prepareProject(root: string) {
     // 1. Archive existing working directory
@@ -21,9 +17,9 @@ export async function prepareProject(root: string) {
         termsMatched: 0
     };
 
-    // 4. Update project.json
-    await writeProjectJson(root, {
-        lastPreparedAt: new Date().toISOString(),
-        stats
-    });
+    // 4. Update project.json using ProjectManager
+    const projectManager = new ProjectManager(root);
+    projectManager.data.lastPreparedAt = new Date().toISOString();
+    projectManager.data.stats = stats;
+    projectManager.save();
 }

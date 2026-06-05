@@ -2,6 +2,9 @@ import * as path from 'path';
 import type { ShWvUnit } from '../../types/datatype';
 
 export async function shwv2xlfLike(filepath: string, xmlContent: string, shwvUnits: ShWvUnit[]): Promise<string> {
+    // Strip BOM if present
+    xmlContent = xmlContent.replace(/^\uFEFF/, '');
+
     // Restore tags from placeholders
     const processedUnits = shwvUnits.map(unit => {
         let processedSrc = unit.src || '';

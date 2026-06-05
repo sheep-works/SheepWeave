@@ -93,18 +93,18 @@ export function activate(context: vscode.ExtensionContext) {
             renderConfirmedDecorations(editor);
 
             // .shwvt ファイルがアクティブになった時、パネルが開いていなければ自動で開く
-            if (editor.document.fileName.endsWith('.shwvt')) {
-                openSheepWeavePanel(context, true);
-            }
+            // if (editor.document.fileName.endsWith('.shwvt')) {
+            //     openSheepWeavePanel(context, true);
+            // }
         }
     }, null, context.subscriptions);
 
     // Initial render for already visible editors:
     if (vscode.window.activeTextEditor) {
         renderConfirmedDecorations(vscode.window.activeTextEditor);
-        if (vscode.window.activeTextEditor.document.fileName.endsWith('.shwvt')) {
-            openSheepWeavePanel(context, true);
-        }
+        // if (vscode.window.activeTextEditor.document.fileName.endsWith('.shwvt')) {
+        //     openSheepWeavePanel(context, true);
+        // }
     }
 
     initEditorGuard(context);

@@ -15,6 +15,10 @@ export type {
     ChunkedJsonlItem,
     ManagedDataType,
     ProcessorOptions,
+    ProjectFileStatus,
+    ProjectGroup,
+    ProjectStats,
+    ProjectInfo,
 } from '../../modules/SheepComb/logic/types/shwv';
 
 export declare type ExtractMode = "source" | "target" | "both-horizontal" | "both-vertical";

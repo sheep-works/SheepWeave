@@ -1,16 +1,21 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useShWvStore } from '../store/shwv';
 import { IconInfoCircle } from '@arco-design/web-vue/es/icon';
 
 const shwvStore = useShWvStore();
+const extensionVersion = (window as any).SHEEP_WEAVE_VERSION || '0.0.0';
+const testVer = ref("T0")
 </script>
 
 <template>
     <div id="info-tab">
         <div class="header">
-            <a-space>
+            <a-space align="center">
                 <icon-info-circle :style="{ fontSize: '24px', marginRight: '8px' }" />
                 <a-typography-title :heading="4" style="margin: 0">Information</a-typography-title>
+                <a-tag size="small" color="arcoblue" style="margin-left: 8px; font-weight: bold;">v{{ extensionVersion }}</a-tag>
+                <a-tag size="small" color="arcoblue" style="margin-left: 8px; font-weight: bold;" v-if="testVer !== ''">{{ testVer }}</a-tag>
             </a-space>
         </div>
 
@@ -19,11 +24,17 @@ const shwvStore = useShWvStore();
         <div v-if="shwvStore.hasData">
             <a-card title="Project Metadata" :bordered="false">
                 <a-descriptions :column="1" bordered>
+                    <a-descriptions-item label="Project Name" v-if="shwvStore.projectInfo?.projectName">
+                        <span style="font-weight: bold; color: var(--color-text-1);">{{ shwvStore.projectInfo.projectName }}</span>
+                    </a-descriptions-item>
                     <a-descriptions-item label="Source Language">
-                        {{ shwvStore.meta?.sourceLang }}
+                        {{ shwvStore.projectInfo?.sourceLanguage || shwvStore.meta?.sourceLang }}
                     </a-descriptions-item>
                     <a-descriptions-item label="Target Language">
-                        {{ shwvStore.meta?.targetLang }}
+                        {{ shwvStore.projectInfo?.targetLanguage || shwvStore.meta?.targetLang }}
+                    </a-descriptions-item>
+                    <a-descriptions-item label="Last Prepared At" v-if="shwvStore.projectInfo?.lastPreparedAt">
+                        {{ new Date(shwvStore.projectInfo.lastPreparedAt).toLocaleString() }}
                     </a-descriptions-item>
                     <a-descriptions-item label="Bilingual Path">
                         <span class="path-text">{{ shwvStore.meta?.bilingualPath }}</span>

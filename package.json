@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.14",
+  "version": "0.0.16",
   "publisher": "sheepweave",
   "license": "MIT",
   "repository": {

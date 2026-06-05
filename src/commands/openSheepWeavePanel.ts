@@ -56,7 +56,8 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFo
     currentPanel = panel;
 
     // HTMLの中身をセットします。別ファイルの getWebviewHtml で生成しています。
-    panel.webview.html = getWebviewHtml(panel.webview, context.extensionUri);
+    const version = context.extension.packageJSON.version || '0.0.0';
+    panel.webview.html = getWebviewHtml(panel.webview, context.extensionUri, version);
 
     let lastLineNumber = -1;
     let selectionTimeout: NodeJS.Timeout | null = null;

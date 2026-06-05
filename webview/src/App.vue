@@ -73,6 +73,17 @@ onMounted(() => {
                 break;
             case 'SHWV_DATA_LOADED':
                 shwvStore.loadData(message.data);
+                if (message.data.projectInfo) {
+                    if (message.data.projectInfo.projectName) {
+                        config.value.projectName = message.data.projectInfo.projectName;
+                    }
+                    if (message.data.projectInfo.sourceLanguage) {
+                        config.value.sourceLang = message.data.projectInfo.sourceLanguage;
+                    }
+                    if (message.data.projectInfo.targetLanguage) {
+                        config.value.targetLang = message.data.projectInfo.targetLanguage;
+                    }
+                }
                 break;
             case 'UNITS_UPDATED':
                 if (message.data.units) shwvStore.updateUnits(message.data.units);

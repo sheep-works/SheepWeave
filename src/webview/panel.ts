@@ -4,7 +4,7 @@
  */
 import * as vscode from 'vscode';
 
-export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
+export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri, version: string): string {
   // Local path to main script run in the webview
   const scriptPathOnDisk = vscode.Uri.joinPath(extensionUri, 'webview', 'dist', 'main.js');
   const stylePathOnDisk = vscode.Uri.joinPath(extensionUri, 'webview', 'dist', 'main.css');
@@ -31,6 +31,9 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
   </head>
   <body>
     <div id="app"></div>
+    <script nonce="${nonce}">
+      window.SHEEP_WEAVE_VERSION = "${version}";
+    </script>
     <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
   </body>
   </html>`;
