@@ -18,6 +18,9 @@ const nodeConfig = {
         devtoolModuleFilenameTemplate: '../../[resource-path]'
     },
     resolve: {
+        alias: {
+            '@sheep-family/types': path.resolve(__dirname, 'modules/SheepComb/packages/types/src/index.ts')
+        },
         mainFields: ['module', 'main'],
         extensions: ['.ts', '.js'],
         extensionAlias: {
@@ -48,7 +51,7 @@ const nodeConfig = {
         new CopyWebpackPlugin({
             patterns: [
                 {
-                    from: path.join(__dirname, 'modules/SheepComb/logic/pkg/sheep_spindle_bg.wasm'),
+                    from: path.join(__dirname, 'modules/SheepComb/packages/core/src/pkg/sheep_spindle_bg.wasm'),
                     to: path.join(__dirname, 'dist')
                 }
             ]

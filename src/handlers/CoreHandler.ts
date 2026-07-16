@@ -179,7 +179,8 @@ export class CoreHandler {
                     data: {
                         sourceLang: config.get<string>('sourceLang') || 'en-US',
                         targetLang: config.get<string>('targetLang') || 'ja-JP',
-                        fontSize: config.get<number>('translateTab.fontSize') || 14
+                        fontSize: config.get<number>('translateTab.fontSize') || 14,
+                        bobbinApiKey: config.get<string>('bobbinApiKey') || ''
                     }
                 });
 
@@ -239,6 +240,9 @@ export class CoreHandler {
                 if (updatePayload.fontSize !== undefined) {
                     await workspaceConfig.update('translateTab.fontSize', updatePayload.fontSize, vscode.ConfigurationTarget.Global);
                 }
+                if (updatePayload.bobbinApiKey !== undefined) {
+                    await workspaceConfig.update('bobbinApiKey', updatePayload.bobbinApiKey, vscode.ConfigurationTarget.Global);
+                }
                 break;
             case 'propagate-quoted':
                 try {
@@ -280,6 +284,81 @@ export class CoreHandler {
                     vscode.window.showErrorMessage(`Failed to propagate: ${err}`);
                 }
                 break;
+            case 'toggle-pe-ref':
+                try {
+                    const { idx, isPeRef } = message.payload;
+                    const unit = globalShWvData.body.units.find(u => u.idx === idx);
+                    if (unit) {
+                        unit.isPeRef = isPeRef ? true : undefined;
+                        globalShWvData.save(rootPath);
+                    }
+                } catch (err) {
+                    console.error('Failed to toggle PE Ref:', err);
+                }
+                break;
+            case 'run-llm-request':
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    const { chunk, prompt, mode } = message.payload;
+                    let finalPrompt = prompt;
+
+                    if (mode === 'advanced') {
+                        // Parse chunk to find minimum segment index
+                        const chunkArray = JSON.parse(chunk);
+                        const minIndex = chunkArray.length > 0 ? Math.min(...chunkArray.map((u: any) => u.idx)) : 0;
+
+                        // 1. Fetch preceding 3 translated context segments
+                        const precedingExamples: any[] = [];
+                        for (let i = minIndex - 1; i >= 0; i--) {
+                            const u = globalShWvData.body.units[i];
+                            if (u && u.tgt && u.tgt.trim() !== '') {
+                                precedingExamples.push({
+                                    src: u.src,
+                                    pre: u.pre || '',
+                                    tgt: u.tgt
+                                });
+                                if (precedingExamples.length >= 3) break;
+                            }
+                        }
+
+                        // 2. Fetch global pinned PE references
+                        const markedExamples = globalShWvData.body.units
+                            .filter(u => u.isPeRef && u.tgt && u.tgt.trim() !== '')
+                            .map(u => ({
+                                src: u.src,
+                                pre: u.pre || '',
+                                tgt: u.tgt
+                            }));
+
+                        let promptAdditions = '';
+
+                        if (markedExamples.length > 0) {
+                            promptAdditions += `\n\n# ユーザー指定の編集ルール（最優先）:\n`;
+                            promptAdditions += `以下はユーザーが手動で登録した手直しの修正例です。これらに示される用語の変更や文法的な手直し（PE）のパターンを最優先で適用してください。\n\n`;
+                            markedExamples.forEach((ex, idx) => {
+                                promptAdditions += `例 ${idx + 1}:\n原文: ${ex.src}\n下訳: ${ex.pre}\n手直し後: ${ex.tgt}\n---\n`;
+                            });
+                        }
+
+                        if (precedingExamples.length > 0) {
+                            promptAdditions += `\n\n# 近傍の編集履歴（参考例）:\n`;
+                            promptAdditions += `ユーザーは直前の文で以下のように手直しをしています。今回の翻訳でもこの修正傾向（トーン＆マナーや用語の選択）を考慮してください。\n\n`;
+                            precedingExamples.reverse().forEach((ex, idx) => {
+                                promptAdditions += `例 ${idx + 1}:\n原文: ${ex.src}\n下訳: ${ex.pre}\n手直し後: ${ex.tgt}\n---\n`;
+                            });
+                        }
+
+                        finalPrompt = prompt + promptAdditions;
+                    }
+
+                    const response = await runLlmRequest(chunk, finalPrompt);
+                    panel.webview.postMessage({ type: 'LLM_RESPONSE', data: { response } });
+                } catch (err: any) {
+                    panel.webview.postMessage({ type: 'LLM_ERROR', data: { error: err.message || err } });
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
             case 'update-phrases':
                 const phrasesPayload = message.payload || [];
                 globalDirector.phrases = phrasesPayload;
@@ -314,3 +393,47 @@ export class CoreHandler {
         globalShWvData.save(rootPath);
     }
 }
+
+function getSheepBobbinConfig() {
+    const os = require('os');
+    const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library/Application Support') : path.join(os.homedir(), '.config'));
+    const configPath = path.join(appData, 'SheepBobbin Local', 'config.json');
+    const config = vscode.workspace.getConfiguration('sheepWeave');
+    return {
+        API_KEY_SHEEP: config.get<string>('bobbinApiKey') || '71TMRzhzwQSvITAd01PKWVlRfI4zSLa21cdpj_RWu4c'
+    };
+}
+
+async function runLlmRequest(chunk: string, prompt: string): Promise<string> {
+    const config = getSheepBobbinConfig();
+    const honoUrl = `http://localhost:8000`;
+    const apiKey = config.API_KEY_SHEEP;
+
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-API-KEY': apiKey
+    };
+
+    try {
+        const response = await globalThis.fetch(`${honoUrl}/gen/check/user/sync`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ chunk, prompt })
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errText}`);
+        }
+
+        const resData = await response.json() as any;
+        if (resData.status === 'success') {
+            return resData.result || '';
+        } else {
+            throw new Error(resData.error || 'Unknown error from Hono API');
+        }
+    } catch (e: any) {
+        throw new Error(`Hono connection failed: ${e.message}`);
+    }
+}
+

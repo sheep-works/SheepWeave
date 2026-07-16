@@ -108,6 +108,67 @@ export class AdminHandler {
                     vscode.window.showErrorMessage(`Failed to import JSONL: ${e}`);
                 }
                 break;
+            case 'shuttle-auto-replace':
+                try {
+                    const logPath = path.join(rootPath, 'Working', '01_REF', 'auto_replace_log.jsonl');
+                    if (!fs.existsSync(logPath)) {
+                        vscode.window.showErrorMessage(`auto_replace_log.jsonl not found.`);
+                        return;
+                    }
+
+                    const logContent = fs.readFileSync(logPath, 'utf-8');
+                    const lines = logContent.split('\n').filter(l => l.trim() !== '');
+                    const replacements: {input: string, phrase: string}[] = [];
+                    for (const line of lines) {
+                        try {
+                            const parsed = JSON.parse(line);
+                            if (parsed.input && parsed.phrase !== undefined) {
+                                replacements.push(parsed);
+                            }
+                        } catch(e) {}
+                    }
+
+                    if (replacements.length === 0) {
+                        vscode.window.showInformationMessage(`No replacements found in log.`);
+                        return;
+                    }
+
+                    const shwvtPath = DirHelper.getShwvtPath(rootPath);
+                    if (!fs.existsSync(shwvtPath)) {
+                        vscode.window.showErrorMessage(`Target file not found: ${shwvtPath}`);
+                        return;
+                    }
+
+                    const uri = vscode.Uri.file(shwvtPath);
+                    const document = await vscode.workspace.openTextDocument(uri);
+                    const fullText = document.getText();
+                    
+                    let modifiedText = fullText;
+                    for (const {input, phrase} of replacements) {
+                        const escapedText = input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                        const regex = new RegExp(escapedText, "g");
+                        modifiedText = modifiedText.replace(regex, phrase);
+                    }
+                    
+                    if (modifiedText !== fullText) {
+                        const fullRange = new vscode.Range(
+                            document.positionAt(0),
+                            document.positionAt(fullText.length)
+                        );
+                        const edit = new vscode.WorkspaceEdit();
+                        edit.replace(uri, fullRange, modifiedText);
+                        await vscode.workspace.applyEdit(edit);
+                        vscode.window.showInformationMessage(`Applied ${replacements.length} rules to Target.shwvt.`);
+                        
+                        // Show the document to the user so they can save it
+                        await vscode.window.showTextDocument(document);
+                    } else {
+                        vscode.window.showInformationMessage(`No matches found to replace.`);
+                    }
+                } catch (e) {
+                    vscode.window.showErrorMessage(`Failed to apply auto replace: ${e}`);
+                }
+                break;
             default:
                 break;
         }

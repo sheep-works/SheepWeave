@@ -38,7 +38,7 @@ export async function shwv2xlfLike(filepath: string, xmlContent: string, shwvUni
         (globalThis as any).XMLSerializer = require('@xmldom/xmldom').XMLSerializer;
     }
 
-    const { SheepShuttle } = require('../../../modules/SheepComb/logic/shuttle/sheepShuttle');
+    const { SheepShuttle } = require('../../../modules/SheepComb/packages/core/src/shuttle/sheepShuttle');
     const shuttle = new SheepShuttle();
     
     // Create dummy data

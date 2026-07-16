@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "publisher": "sheepweave",
   "license": "MIT",
   "repository": {
@@ -61,7 +61,11 @@
       },
       {
         "command": "sheepWeave.renameLikeReplace",
-        "title": "SheepWeave: Rename-Like Replace"
+        "title": "SheepWeave: Rename Like Replace"
+      },
+      {
+        "command": "sheepWeave.switchTab",
+        "title": "SheepWeave: Switch Tab"
       },
       {
         "command": "sheepWeave.confirmLine",
@@ -90,6 +94,10 @@
       {
         "command": "sheepWeave.concordanceSearchTarget",
         "title": "SheepWeave: Concordance Search (Target)"
+      },
+      {
+        "command": "sheepWeave.loadLlmSelection",
+        "title": "SheepWeave: Load Selection for LLM"
       }
     ],
     "languages": [
@@ -194,6 +202,54 @@
         "when": "editorTextFocus && editorLangId == shwvt"
       },
       {
+        "command": "sheepWeave.switchTab",
+        "key": "alt+1",
+        "args": "flow",
+        "when": "editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.switchTab",
+        "key": "alt+2",
+        "args": "translate",
+        "when": "editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.switchTab",
+        "key": "alt+3",
+        "args": "filter",
+        "when": "editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.switchTab",
+        "key": "alt+4",
+        "args": "management",
+        "when": "editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.switchTab",
+        "key": "alt+5",
+        "args": "concordance",
+        "when": "editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.switchTab",
+        "key": "alt+6",
+        "args": "llm",
+        "when": "editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.switchTab",
+        "key": "alt+7",
+        "args": "information",
+        "when": "editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.switchTab",
+        "key": "alt+8",
+        "args": "settings",
+        "when": "editorLangId == shwvt"
+      },
+      {
         "command": "sheepWeave.confirmLine",
         "key": "ctrl+enter",
         "mac": "cmd+enter",
@@ -233,6 +289,11 @@
         "command": "sheepWeave.concordanceSearchTarget",
         "key": "ctrl+shift+k",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "sheepWeave.loadLlmSelection",
+        "key": "ctrl+shift+l",
+        "when": "editorTextFocus && editorLangId == shwvt"
       }
     ],
     "configuration": {
@@ -255,6 +316,11 @@
             "ja-JP",
             "zh-CN"
           ]
+        },
+        "sheepWeave.bobbinApiKey": {
+          "type": "string",
+          "default": "71TMRzhzwQSvITAd01PKWVlRfI4zSLa21cdpj_RWu4c",
+          "description": "API Key for connecting to the local SheepBobbin server."
         },
         "sheepWeave.archiveDateFormat": {
           "type": "string",
@@ -318,7 +384,7 @@
     "difflib-ts": "^1.0.3",
     "flexsearch": "^0.8.212",
     "jszip": "^3.10.1",
-    "sheep-spindle": "file:modules/SheepComb/logic/pkg",
+    "sheep-spindle": "file:modules/SheepComb/packages/core/src/pkg",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "xml2js": "^0.6.2"
   }

@@ -8,6 +8,15 @@ import * as fs from 'fs';
 // --- Local adapter for analysis (avoids pulling in SheepComb's full dependency graph) ---
 import { ShuttleAnalyzer } from './ShuttleAdapter';
 
+// Helper to read text files with encoding detection (UTF-8 / UTF-16LE)
+function readTextFile(p: string): string {
+    const buf = fs.readFileSync(p);
+    if (buf.length >= 2 && buf[0] === 0xFF && buf[1] === 0xFE) {
+        return buf.toString('utf16le');
+    }
+    return buf.toString('utf8');
+}
+
 // ============================================================================
 // Factory functions (replacing class constructors)
 // ============================================================================
@@ -70,7 +79,7 @@ export class ShWvData {
             (globalThis as any).DOMParser = require('@xmldom/xmldom').DOMParser;
         }
         
-        const { SheepShuttle } = require('../../../modules/SheepComb/logic/shuttle/sheepShuttle');
+        const { SheepShuttle } = require('../../../modules/SheepComb/packages/core/src/shuttle/sheepShuttle');
         const shuttle = new SheepShuttle();
         
         const files = filepaths.map(p => {
@@ -78,7 +87,7 @@ export class ShWvData {
             const isBinary = ['xlsx', 'docx'].includes(ext);
             return {
                 name: path.basename(p),
-                content: isBinary ? fs.readFileSync(p) : fs.readFileSync(p, 'utf-8')
+                content: isBinary ? fs.readFileSync(p) : readTextFile(p)
             };
         });
 
@@ -216,6 +225,46 @@ export class ShWvData {
         }
     }
 
+    public loadWorkflowIni(root: string): void {
+        const workflowPath = path.join(root, 'workflow.ini');
+        if (fs.existsSync(workflowPath)) {
+            try {
+                const iniContent = fs.readFileSync(workflowPath, 'utf-8');
+                const workflow: any = {};
+                iniContent.split('\n').forEach(line => {
+                    const match = line.match(/^\s*([\w]+)\s*=\s*(.*)\s*$/);
+                    if (match) {
+                        const key = match[1];
+                        const val = match[2];
+                        if (key === 'index') workflow[key] = parseInt(val, 10);
+                        else workflow[key] = val;
+                    }
+                });
+                if (workflow.index !== undefined) {
+                    this.meta.workflow = {
+                        index: workflow.index,
+                        role: workflow.role || '',
+                        name: workflow.name || ''
+                    };
+                }
+            } catch (e) {
+                console.error("Failed to load workflow.ini", e);
+            }
+        } else {
+            try {
+                const defaultIniContent = "index=1\nrole=Translation\nname=Sheep\n";
+                fs.writeFileSync(workflowPath, defaultIniContent, 'utf-8');
+                this.meta.workflow = {
+                    index: 1,
+                    role: 'Translation',
+                    name: 'Sheep'
+                };
+            } catch (e) {
+                console.error("Failed to create default workflow.ini", e);
+            }
+        }
+    }
+
     public load(root: string): void {
         const storagePathFull = DirHelper.getStoragePath(root);
         if (fs.existsSync(storagePathFull)) {
@@ -237,6 +286,8 @@ export class ShWvData {
                 if (parsed.projectInfo || parsed.define?.version === '1.1') {
                     this.projectInfo = parsed.projectInfo;
                 }
+
+                this.loadWorkflowIni(root);
 
                 // If unified project.json (Ver 1.1) is loaded, and Working folders/files are missing, automatically restore them.
                 if (parsed.define?.version === '1.1' && this.body.units.length > 0) {
@@ -294,7 +345,7 @@ export class ShWvData {
         }
 
         writeFileSync(storagePathFull, JSON.stringify({
-            define: { name: 'SHWV_DATA', version: '1.1' },
+            define: { name: 'SHWV_DATA', version: '1.3' },
             meta: this.meta,
             body: this.body,
             projectInfo: this.projectInfo
@@ -320,7 +371,7 @@ export class ShWvData {
         if (!(globalThis as any).DOMParser) {
             (globalThis as any).DOMParser = require('@xmldom/xmldom').DOMParser;
         }
-        const { SheepShuttle } = require('../../../modules/SheepComb/logic/shuttle/sheepShuttle');
+        const { SheepShuttle } = require('../../../modules/SheepComb/packages/core/src/shuttle/sheepShuttle');
 
         if (tmFileList.length > 0) {
             const tmFilesFull = tmFileList.map(f => path.join(tmDir, f));
@@ -328,7 +379,7 @@ export class ShWvData {
             const tmFiles = tmFilesFull.map(p => {
                 const ext = p.split('.').pop()?.toLowerCase() || '';
                 const isBinary = ['xlsx', 'docx'].includes(ext);
-                return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : fs.readFileSync(p, 'utf-8') };
+                return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : readTextFile(p) };
             });
             await shuttleTm.parse(tmFiles);
             shuttleTm.process();
@@ -359,7 +410,7 @@ export class ShWvData {
             const tbFiles = tbFilesFull.map(p => {
                 const ext = p.split('.').pop()?.toLowerCase() || '';
                 const isBinary = ['xlsx', 'docx'].includes(ext);
-                return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : fs.readFileSync(p, 'utf-8') };
+                return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : readTextFile(p) };
             });
             await shuttleTb.parse(tbFiles);
             shuttleTb.process();
@@ -381,7 +432,7 @@ export class ShWvData {
         const { analyze_all } = require('sheep-spindle');
         const analyzer = new ShuttleAnalyzer();
         const shwvData = {
-            define: { name: 'SHWV_DATA' as const, version: '1.1' as const },
+            define: { name: 'SHWV_DATA' as const, version: '1.3' as const },
             meta: this.meta,
             body: this.body,
         };

@@ -4,6 +4,7 @@
  */
 import * as vscode from 'vscode';
 import { globalShWvData } from '../store';
+import { openSheepWeavePanel, notifyWebview } from '../commands/openSheepWeavePanel';
 
 export function initShortcuts(context: vscode.ExtensionContext) {
     // TM 1-5 の置換コマンド
@@ -25,6 +26,14 @@ export function initShortcuts(context: vscode.ExtensionContext) {
         }),
         vscode.commands.registerCommand('sheepWeave.copySource', () => {
             copySource();
+        }),
+        vscode.commands.registerCommand('sheepWeave.loadLlmSelection', async () => {
+            await loadLlmSelection(context);
+        }),
+        vscode.commands.registerCommand('sheepWeave.switchTab', (tabId: string) => {
+            if (tabId) {
+                notifyWebview({ type: 'SELECT_TAB', data: tabId });
+            }
         })
     );
 }
@@ -117,4 +126,67 @@ function copySource() {
 
 function isShwvtFile(doc: vscode.TextDocument): boolean {
     return doc.languageId === 'shwvt' || doc.fileName.endsWith('.shwvt');
+}
+
+async function loadLlmSelection(context: vscode.ExtensionContext) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || !isShwvtFile(editor.document)) return;
+
+    await editor.document.save();
+
+    const selection = editor.selection;
+    if (selection.isEmpty) {
+        vscode.window.showWarningMessage('テキストの範囲を選択してください。');
+        return;
+    }
+
+    const startLine = selection.start.line;
+    let endLine = selection.end.line;
+    if (selection.end.character === 0 && endLine > startLine) {
+        endLine--;
+    }
+
+    const selectedUnits: any[] = [];
+    for (let i = startLine; i <= endLine; i++) {
+        const unit = globalShWvData.body.units[i];
+        if (unit) {
+            selectedUnits.push(unit);
+        }
+    }
+
+    if (selectedUnits.length === 0) {
+        vscode.window.showWarningMessage('選択範囲に翻訳ユニットが見つかりません。');
+        return;
+    }
+
+    // Format selectedUnits as custom JSONL chunk using default fields to estimate size
+    const chunkArray = selectedUnits.map(unit => {
+        const obj: any = {
+            index: unit.idx,
+            src: unit.src,
+            tgt: unit.tgt || unit.pre || ''
+        };
+        if (unit.note) obj.note = unit.note;
+        return obj;
+    });
+
+    const chunkText = JSON.stringify(chunkArray);
+
+    if (chunkText.length > 4000) {
+        vscode.window.showWarningMessage(`選択範囲が広すぎます。4000文字以下にしてください。（現在のサイズ: ${chunkText.length}文字）`);
+        return;
+    }
+
+    // Open panel if not already open
+    openSheepWeavePanel(context, true);
+
+    // Send the raw units to the Webview
+    setTimeout(() => {
+        notifyWebview({
+            type: 'LOAD_LLM_CHUNK',
+            data: {
+                units: selectedUnits
+            }
+        });
+    }, 500);
 }

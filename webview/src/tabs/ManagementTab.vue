@@ -159,6 +159,15 @@ function calculateStats() {
                 <a-link href="https://sheep-works.github.io/SheepPress/json-viewer.html" target="_blank">Paste
                     Here</a-link>
             </a-card>
+
+            <a-card title="6. Auto Replacement">
+                <a-space direction="vertical">
+                    <div style="font-size: 12px; color: var(--color-text-3);">
+                        Applies the auto_replace_log.jsonl to the current target file sequentially.
+                    </div>
+                    <a-button type="primary" status="success" @click="handleCommand('shuttle-auto-replace')">自動置換 (Apply Auto Replace Log)</a-button>
+                </a-space>
+            </a-card>
         </a-space>
     </div>
 </template>

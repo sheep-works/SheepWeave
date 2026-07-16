@@ -10,11 +10,17 @@
         "sourceMap": true,
         "rootDir": ".",
         "strict": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "baseUrl": ".",
+        "paths": {
+            "@sheep-family/types": ["modules/SheepComb/packages/types/src/index.ts"]
+        }
     },
     "include": [
         "src/**/*",
-        "modules/SheepComb/logic/types/**/*"
+        "modules/SheepComb/packages/types/src/**/*",
+        "modules/SheepComb/packages/core/src/**/*"
     ],
     "exclude": [
         "node_modules",

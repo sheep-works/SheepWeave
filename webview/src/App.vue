@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { useShWvStore } from './store/shwv';
 import { useI18nStore } from './store/i18n';
 import FlowTab from './tabs/FlowTab.vue';
@@ -10,6 +10,7 @@ import InfoTab from './tabs/InfoTab.vue';
 import SettingsTab from './tabs/SettingsTab.vue';
 import FilterTab from './tabs/FilterTab.vue';
 import ConcordanceTab from './tabs/ConcordanceTab.vue';
+import LlmTab from './tabs/LlmTab.vue';
 import { storeToRefs } from 'pinia';
 
 
@@ -35,7 +36,8 @@ const config = ref({
     projectName: 'SheepWeaveProject',
     sourceLang: 'en-US',
     targetLang: 'ja-JP',
-    fontSize: 14
+    fontSize: 14,
+    bobbinApiKey: ''
 });
 
 function handleCommand(command: string, payload?: any) {
@@ -53,6 +55,9 @@ function updateConfig(newConfig: any) {
     if (newConfig.fontSize !== undefined) {
         config.value.fontSize = newConfig.fontSize;
     }
+    if (newConfig.bobbinApiKey !== undefined) {
+        config.value.bobbinApiKey = newConfig.bobbinApiKey;
+    }
     if (vscode) {
         vscode.postMessage({ type: 'update-config', payload: newConfig });
     }
@@ -60,6 +65,23 @@ function updateConfig(newConfig: any) {
 
 onMounted(() => {
     document.body.setAttribute('arco-theme', 'dark')
+    
+    // パネル側でのタブ切り替えショートカット (Alt+1 ~ 8)
+    window.addEventListener('keydown', (e) => {
+        if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+            switch(e.key) {
+                case '1': activeTab.value = 'flow'; break;
+                case '2': activeTab.value = 'translate'; break;
+                case '3': activeTab.value = 'filter'; break;
+                case '4': activeTab.value = 'management'; break;
+                case '5': activeTab.value = 'concordance'; break;
+                case '6': activeTab.value = 'llm'; break;
+                case '7': activeTab.value = 'information'; break;
+                case '8': activeTab.value = 'settings'; break;
+            }
+        }
+    });
+
     window.addEventListener('message', event => {
         const message = event.data;
         switch (message.type) {
@@ -70,6 +92,7 @@ onMounted(() => {
                 if (message.data.sourceLang) config.value.sourceLang = message.data.sourceLang;
                 if (message.data.targetLang) config.value.targetLang = message.data.targetLang;
                 if (message.data.fontSize) config.value.fontSize = message.data.fontSize;
+                if (message.data.bobbinApiKey !== undefined) config.value.bobbinApiKey = message.data.bobbinApiKey;
                 break;
             case 'SHWV_DATA_LOADED':
                 shwvStore.loadData(message.data);
@@ -103,6 +126,47 @@ onMounted(() => {
             case 'CONCORDANCE_SEARCH_RES':
                 shwvStore.setConcordanceData(message.data);
                 activeTab.value = 'concordance';
+                break;
+            case 'LOAD_LLM_CHUNK':
+                if (message.data) {
+                    shwvStore.setLlmUnits(message.data.units);
+                    shwvStore.setLlmResponse('');
+                    activeTab.value = 'llm';
+                    
+                    nextTick(() => {
+                        if (shwvStore.llmChunk.length > 4000) {
+                            shwvStore.setLlmResponse('');
+                            shwvStore.setLlmRequesting(false);
+                            return;
+                        }
+                        if (vscode) {
+                            const promptToSend = shwvStore.llmPrompt
+                                .replace(/{source_lang}/g, shwvStore.sourceLang)
+                                .replace(/{target_lang}/g, shwvStore.targetLang);
+                            vscode.postMessage({
+                                type: 'run-llm-request',
+                                payload: {
+                                    chunk: shwvStore.llmChunk,
+                                    prompt: promptToSend,
+                                    mode: shwvStore.llmMode
+                                }
+                            });
+                            shwvStore.setLlmRequesting(true);
+                        }
+                    });
+                }
+                break;
+            case 'LLM_RESPONSE':
+                if (message.data) {
+                    shwvStore.setLlmResponse(message.data.response);
+                    shwvStore.setLlmRequesting(false);
+                }
+                break;
+            case 'LLM_ERROR':
+                if (message.data) {
+                    shwvStore.setLlmResponse('Error: ' + message.data.error);
+                    shwvStore.setLlmRequesting(false);
+                }
                 break;
         }
     });
@@ -140,6 +204,9 @@ onMounted(() => {
                 </a-tab-pane>
                 <a-tab-pane key="concordance" title="Concordance">
                     <ConcordanceTab @ConcordanceCommand="handleCommand" />
+                </a-tab-pane>
+                <a-tab-pane key="llm" title="LLM">
+                    <LlmTab @LlmCommand="handleCommand" :config="config" @updateConfig="updateConfig" />
                 </a-tab-pane>
                 <a-tab-pane key="information" title="Information">
                     <InfoTab />

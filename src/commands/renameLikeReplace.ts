@@ -60,4 +60,21 @@ export async function renameLikeReplaceCommand() {
 
     // 予約した置換をまとめて実行
     await vscode.workspace.applyEdit(edit);
+
+    // ログファイルへの追記処理
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (workspaceFolder) {
+        const fs = require('fs');
+        const path = require('path');
+        const logDir = path.join(workspaceFolder, 'Working', '01_REF');
+        if (fs.existsSync(logDir)) {
+            const logPath = path.join(logDir, 'auto_replace_log.jsonl');
+            const logEntry = JSON.stringify({ input: selectedText, phrase: newText }) + '\n';
+            try {
+                fs.appendFileSync(logPath, logEntry, 'utf-8');
+            } catch (err) {
+                console.error("Failed to append to auto_replace_log.jsonl", err);
+            }
+        }
+    }
 }

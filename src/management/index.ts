@@ -42,7 +42,7 @@ export class SheepShuttle {
         if (!fs.existsSync(outDir)) {
             fs.mkdirSync(outDir, { recursive: true });
         }
-        const shwvData = { define: { name: 'SHWV_DATA' as const, version: '1.1' as const }, meta: data.meta, body: data.body };
+        const shwvData = { define: { name: 'SHWV_DATA' as const, version: '1.2' as const }, meta: data.meta, body: data.body };
         const result = manager.splitByFile(shwvData);
         for (const [name, pairs] of result) {
             const outPath = path.join(outDir, name);
@@ -54,7 +54,7 @@ export class SheepShuttle {
         if (!fs.existsSync(outDir)) {
             fs.mkdirSync(outDir, { recursive: true });
         }
-        const shwvData = { define: { name: 'SHWV_DATA' as const, version: '1.1' as const }, meta: data.meta, body: data.body };
+        const shwvData = { define: { name: 'SHWV_DATA' as const, version: '1.2' as const }, meta: data.meta, body: data.body };
         const result = manager.splitByLength(shwvData, maxLength);
         for (const [chunkIdx, pairs] of result) {
             const outPath = path.join(outDir, `chunk_${String(chunkIdx).padStart(3, '0')}.json`);
@@ -68,14 +68,14 @@ export class SheepShuttle {
     }
 
     static chunkJsonl(data: any, maxCharsPerLine: number): string {
-        const shwvData = { define: { name: 'SHWV_DATA' as const, version: '1.1' as const }, meta: data.meta, body: data.body };
+        const shwvData = { define: { name: 'SHWV_DATA' as const, version: '1.2' as const }, meta: data.meta, body: data.body };
         return manager.chunkJsonl(shwvData, maxCharsPerLine);
     }
 
     static updateFromJsonl(data: any, jsonlPath: string): void {
         if (!fs.existsSync(jsonlPath)) return;
         const content = fs.readFileSync(jsonlPath, 'utf-8');
-        const shwvData = { define: { name: 'SHWV_DATA' as const, version: '1.1' as const }, meta: data.meta, body: data.body };
+        const shwvData = { define: { name: 'SHWV_DATA' as const, version: '1.2' as const }, meta: data.meta, body: data.body };
         const updatedUnits = manager.updateFromJsonl(shwvData, content);
         // Apply back to the original data
         data.body.units = updatedUnits;

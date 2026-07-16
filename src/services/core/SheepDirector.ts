@@ -5,11 +5,19 @@ import * as fs from 'fs';
 
 import { ShuttleSearch } from './ShuttleSearch';
 
+// Helper to read text files with encoding detection (UTF-8 / UTF-16LE)
+function readTextFile(p: string): string {
+    const buf = fs.readFileSync(p);
+    if (buf.length >= 2 && buf[0] === 0xFF && buf[1] === 0xFE) {
+        return buf.toString('utf16le');
+    }
+    return buf.toString('utf8');
+}
+
 export class SheepDirector {
     public state: ShWvData;
     public lastLine: number = -1;
     public confirmedLines: Set<number> = new Set();
-    public proofedLines: Set<number> = new Set();
     public phrases: { input: string, phrase: string }[] = [];
 
     public concordance: ShuttleSearch;
@@ -26,12 +34,10 @@ export class SheepDirector {
      */
     public initializeFromState() {
         this.confirmedLines.clear();
-        this.proofedLines.clear();
+        const currentWorkflowIndex = this.state.meta.workflow?.index ?? 1;
         for (const unit of this.state.body.units) {
-            if (unit.status === 1) {
+            if (unit.status !== undefined && unit.status >= currentWorkflowIndex) {
                 this.confirmedLines.add(unit.idx);
-            } else if (unit.status === 2) {
-                this.proofedLines.add(unit.idx);
             }
         }
 
@@ -64,7 +70,10 @@ export class SheepDirector {
 
         if (!unit) return;
 
-        unit.status = 1;
+        const currentWorkflowIndex = this.state.meta.workflow?.index ?? 1;
+        if ((unit.status || 0) < currentWorkflowIndex) {
+            unit.status = currentWorkflowIndex;
+        }
         this.confirmedLines.add(lineIdx);
 
         // This method intrinsically updates the unit and propagates to ref.quoted
@@ -82,7 +91,10 @@ export class SheepDirector {
 
         if (!unit) return;
 
-        unit.status = 0;
+        const currentWorkflowIndex = this.state.meta.workflow?.index ?? 1;
+        if ((unit.status || 0) >= currentWorkflowIndex) {
+            unit.status = currentWorkflowIndex - 1;
+        }
         this.confirmedLines.delete(lineIdx);
         // Note: We do NOT rollback `tgt` or update ref.quoted here,
         // it just loses its confirmed status.
@@ -114,6 +126,10 @@ export class SheepDirector {
         return affectedIdxs;
     }
 
+    /**
+     * コンコーダンス検索（FlexSearch）用に参考ファイルを再度読み込む処理。
+     * ShWvData 側での事前解析（マッチ率計算）とは独立して、UI側のインデックス構築のために実行されます。
+     */
     public async loadRefData(rootPath: string) {
         this.tmData = [];
         this.tbData = [];
@@ -123,7 +139,7 @@ export class SheepDirector {
         if (!(globalThis as any).DOMParser) {
             (globalThis as any).DOMParser = require('@xmldom/xmldom').DOMParser;
         }
-        const { SheepShuttle } = require('../../../modules/SheepComb/logic/shuttle/sheepShuttle');
+        const { SheepShuttle } = require('../../../modules/SheepComb/packages/core/src/shuttle/sheepShuttle');
 
         const tmDir = path.join(rootPath, 'Working', '01_REF', 'TM');
         if (fs.existsSync(tmDir)) {
@@ -134,7 +150,7 @@ export class SheepDirector {
                     const p = path.join(tmDir, f);
                     const ext = p.split('.').pop()?.toLowerCase() || '';
                     const isBinary = ['xlsx', 'docx'].includes(ext);
-                    return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : fs.readFileSync(p, 'utf-8') };
+                    return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : readTextFile(p) };
                 });
                 await shuttleTm.parse(tmFilesInfo);
                 shuttleTm.process();
@@ -161,7 +177,7 @@ export class SheepDirector {
                     const p = path.join(tbDir, f);
                     const ext = p.split('.').pop()?.toLowerCase() || '';
                     const isBinary = ['xlsx', 'docx'].includes(ext);
-                    return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : fs.readFileSync(p, 'utf-8') };
+                    return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : readTextFile(p) };
                 });
                 await shuttleTb.parse(tbFilesInfo);
                 shuttleTb.process();

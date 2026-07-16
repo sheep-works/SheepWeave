@@ -20,7 +20,7 @@ export class ProjectManager {
                 const parsed = JSON.parse(content);
                 // Check if it is a unified ShWvData structure
                 if (parsed && parsed.define && parsed.define.name === 'SHWV_DATA') {
-                    if (parsed.define.version === '1.1' || parsed.projectInfo) {
+                    if (parsed.define.version === '1.3' || parsed.define.version === '1.2' || parsed.define.version === '1.1' || parsed.projectInfo) {
                         return parsed.projectInfo || this.getDefaults();
                     }
                 }
@@ -93,7 +93,7 @@ export class ProjectManager {
         let shwv: any = {
             define: {
                 name: 'SHWV_DATA',
-                version: '1.1'
+                version: '1.3'
             },
             meta: {
                 bilingualPath: '',

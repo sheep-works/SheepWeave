@@ -5,7 +5,7 @@ import { IconInfoCircle } from '@arco-design/web-vue/es/icon';
 
 const shwvStore = useShWvStore();
 const extensionVersion = (window as any).SHEEP_WEAVE_VERSION || '0.0.0';
-const testVer = ref("T0")
+const testVer = ref("T2")
 </script>
 
 <template>

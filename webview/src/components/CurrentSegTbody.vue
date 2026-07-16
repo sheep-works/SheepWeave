@@ -1,22 +1,32 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useShWvStore } from '../store/shwv';
+import { IconPushpin } from '@arco-design/web-vue/es/icon';
 
 const shwvStore = useShWvStore();
 
 const handlePropagate = () => {
     const unit = shwvStore.crtUnit;
     if (unit && unit.ref.quoted100?.length > 0) {
-        // Emit to parent or postMessage directly if handled globally
-        // Since handleCommand is in App.vue, we can postMessage here if we had access, 
-        // but it's cleaner to let App.vue handle events.
-        // For simplicity in this structure, we'll use window.postMessage directly
-        // or just let a global handler catch it.
         const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
         if (vscode) {
             vscode.postMessage({
                 type: 'propagate-quoted',
                 payload: { idx: unit.idx, tgt: unit.tgt }
+            });
+        }
+    }
+};
+
+const togglePeRef = () => {
+    const unit = shwvStore.crtUnit;
+    if (unit) {
+        unit.isPeRef = !unit.isPeRef;
+        const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
+        if (vscode) {
+            vscode.postMessage({
+                type: 'toggle-pe-ref',
+                payload: { idx: unit.idx, isPeRef: unit.isPeRef }
             });
         }
     }
@@ -35,6 +45,11 @@ const rowspan = computed(() => {
                 <td v-if="tbx === 0" :rowspan="rowspan">
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
                         <span>{{ shwvStore.crtUnit.idx + 1 }}</span>
+                        <a-button type="text" size="mini" @click="togglePeRef" :title="shwvStore.crtUnit.isPeRef ? 'Unpin PE Reference' : 'Pin as PE Reference'" style="padding: 0; height: auto;">
+                            <template #icon>
+                                <icon-pushpin :style="{ color: shwvStore.crtUnit.isPeRef ? '#f59e0b' : 'gray', fontSize: '14px' }" />
+                            </template>
+                        </a-button>
                         <a-tag v-if="shwvStore.crtUnit.ref.quoted100?.length > 0" color="green" size="small">
                             Q {{ shwvStore.crtUnit.ref.quoted100.length }}
                         </a-tag>
@@ -56,6 +71,11 @@ const rowspan = computed(() => {
             <td>
                 <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
                     <span>{{ shwvStore.crtUnit.idx + 1 }}</span>
+                    <a-button type="text" size="mini" @click="togglePeRef" :title="shwvStore.crtUnit.isPeRef ? 'Unpin PE Reference' : 'Pin as PE Reference'" style="padding: 0; height: auto;">
+                        <template #icon>
+                            <icon-pushpin :style="{ color: shwvStore.crtUnit.isPeRef ? '#f59e0b' : 'gray', fontSize: '14px' }" />
+                        </template>
+                    </a-button>
                     <a-tag v-if="shwvStore.crtUnit.ref.quoted100?.length > 0" color="green" size="small">
                         Q {{ shwvStore.crtUnit.ref.quoted100.length }}
                     </a-tag>
