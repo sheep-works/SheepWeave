@@ -155,14 +155,18 @@ function runRequest() {
 
 <style scoped>
 #llm-tab {
-  padding: 16px 24px;
-  height: calc(100vh - 110px);
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
 }
 
 .header {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .llm-layout {

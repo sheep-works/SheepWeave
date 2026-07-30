@@ -87,10 +87,8 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFo
 
                 // 2. 以前の行のステータスを確認
                 let status = 0;
-                if (globalDirector.confirmedLines.has(lastLineNumber)) {
-                    status = 1;
-                } else if (globalDirector.proofedLines.has(lastLineNumber)) {
-                    status = 2;
+                if (globalDirector.state.body.units[lastLineNumber]) {
+                    status = globalDirector.state.body.units[lastLineNumber].status || 0;
                 }
 
                 // 3. Webview側（表示用Pinia Store）に変更を通知

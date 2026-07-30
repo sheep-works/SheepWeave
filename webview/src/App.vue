@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { getVsCodeApi } from './vscode';
 import { useShWvStore } from './store/shwv';
 import { useI18nStore } from './store/i18n';
 import FlowTab from './tabs/FlowTab.vue';
 import TranslateTab from './tabs/TranslateTab.vue';
 import DebugTab from './tabs/DebugTab.vue';
-import ManagementTab from './tabs/ManagementTab.vue';
-import InfoTab from './tabs/InfoTab.vue';
 import SettingsTab from './tabs/SettingsTab.vue';
-import FilterTab from './tabs/FilterTab.vue';
-import ConcordanceTab from './tabs/ConcordanceTab.vue';
+import SearchTab from './tabs/SearchTab.vue';
+import InfoTab from './tabs/InfoTab.vue';
 import LlmTab from './tabs/LlmTab.vue';
 import { storeToRefs } from 'pinia';
 
@@ -20,8 +19,10 @@ const activeTab = ref('flow');
 const shwvStore = useShWvStore();
 const loading = ref(false);
 
-// Acquire the VS Code API
-const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
+// VS CodeのAPI (バックエンドとの通信用オブジェクト) は vscode.ts にて一元管理しています。
+// 各コンポーネントから直接 acquireVsCodeApi() を呼ぶとエラー（複数回呼び出し不可）になるため、
+// 常に getVsCodeApi() を利用してください。
+const vscode = getVsCodeApi();
 
 // function setTab(tab: string) {
 //     activeTab.value = tab;
@@ -72,12 +73,21 @@ onMounted(() => {
             switch(e.key) {
                 case '1': activeTab.value = 'flow'; break;
                 case '2': activeTab.value = 'translate'; break;
-                case '3': activeTab.value = 'filter'; break;
-                case '4': activeTab.value = 'management'; break;
-                case '5': activeTab.value = 'concordance'; break;
-                case '6': activeTab.value = 'llm'; break;
-                case '7': activeTab.value = 'information'; break;
-                case '8': activeTab.value = 'settings'; break;
+                case '3': activeTab.value = 'search'; break;
+                case '4': activeTab.value = 'llm'; break;
+                case '5': activeTab.value = 'information'; break;
+                case '6': activeTab.value = 'settings'; break;
+            }
+        }
+
+        // Webview上でのコンコーダンス検索ショートカット (Ctrl+K / Cmd+K)
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+            const selectedText = window.getSelection()?.toString().trim();
+            if (selectedText) {
+                e.preventDefault();
+                // Ctrl+Shift+K を Target 検索とする
+                const mode = e.shiftKey ? 'target' : 'source';
+                handleCommand('manual-concordance', { query: selectedText, mode });
             }
         }
     });
@@ -125,7 +135,7 @@ onMounted(() => {
                 break;
             case 'CONCORDANCE_SEARCH_RES':
                 shwvStore.setConcordanceData(message.data);
-                activeTab.value = 'concordance';
+                activeTab.value = 'search';
                 break;
             case 'LOAD_LLM_CHUNK':
                 if (message.data) {
@@ -180,15 +190,6 @@ onMounted(() => {
 <template>
     <a-spin :loading="loading" tip="Processing..." style="display: block; width: 100%; min-height: 100vh;">
         <a-layout>
-            <a-layout-header>
-                <a-space>
-                    <a-typography-title> SheepWeave </a-typography-title>
-                    <a-select v-model="locale">
-                        <a-option :value="'en'">English</a-option>
-                        <a-option :value="'ja'">日本語</a-option>
-                    </a-select>
-                </a-space>
-            </a-layout-header>
             <a-tabs :active-key="activeTab" @change="(k: any) => activeTab = k as string">
                 <a-tab-pane key="flow" title="Flow">
                     <FlowTab @FlowCommand="handleCommand" :config="config" />
@@ -196,20 +197,14 @@ onMounted(() => {
                 <a-tab-pane key="translate" title="Translate">
                     <TranslateTab :fontSize="config.fontSize" />
                 </a-tab-pane>
-                <a-tab-pane key="filter" title="Filter">
-                    <FilterTab @FilterCommand="handleCommand" />
-                </a-tab-pane>
-                <a-tab-pane key="management" title="Management">
-                    <ManagementTab @ManageCommand="handleCommand" />
-                </a-tab-pane>
-                <a-tab-pane key="concordance" title="Concordance">
-                    <ConcordanceTab @ConcordanceCommand="handleCommand" />
+                <a-tab-pane key="search" title="Search">
+                    <SearchTab @SearchCommand="handleCommand" />
                 </a-tab-pane>
                 <a-tab-pane key="llm" title="LLM">
                     <LlmTab @LlmCommand="handleCommand" :config="config" @updateConfig="updateConfig" />
                 </a-tab-pane>
-                <a-tab-pane key="information" title="Information">
-                    <InfoTab />
+                <a-tab-pane key="information" title="Info">
+                    <InfoTab @InfoCommand="handleCommand" />
                 </a-tab-pane>
                 <a-tab-pane key="settings" title="Settings">
                     <SettingsTab :config="config" @updateConfig="updateConfig" @SettingsCommand="handleCommand" />

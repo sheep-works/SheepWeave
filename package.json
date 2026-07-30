@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "publisher": "sheepweave",
   "license": "MIT",
   "repository": {
@@ -25,7 +25,8 @@
     "commands": [
       {
         "command": "sheepWeave.openPanel",
-        "title": "SheepWeave: Open Panel"
+        "title": "SheepWeave: Open Panel",
+        "icon": "$(open-preview)"
       },
       {
         "command": "sheepWeave.prepare",
@@ -100,6 +101,15 @@
         "title": "SheepWeave: Load Selection for LLM"
       }
     ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "sheepWeave.openPanel",
+          "group": "navigation",
+          "when": "editorLangId == shwvt || editorLangId == shwvs || editorLangId == shwv"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "shwvt",
@@ -360,7 +370,7 @@
     "package": "yarn build:webview && webpack --mode production --devtool hidden-source-map",
     "lint": "eslint src --ext ts",
     "build:webview": "cd webview && yarn build",
-    "vsix": "node -e \"if (!require('fs').existsSync('packages')) require('fs').mkdirSync('packages')\" && vsce package --out packages/"
+    "vsix": "node -e \"if (!require('fs').existsSync('packages')) require('fs').mkdirSync('packages')\" && vsce package --allow-package-all-secrets --out packages/"
   },
   "devDependencies": {
     "@types/flexsearch": "^0.7.6",

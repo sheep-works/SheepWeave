@@ -34,6 +34,26 @@ export class ShuttleAnalyzer {
         const textList = units.map(u => u.src);
         const tbList = termbase.map(t => t.src);
 
+        // Pre-build exact match map for memories to fallback on WASM misses (e.g. short/symbol-only strings)
+        const exactMemoriesMap = new Map<string, number[]>();
+        for (let i = 0; i < memories.length; i++) {
+            const m = memories[i];
+            if (!exactMemoriesMap.has(m.src)) {
+                exactMemoriesMap.set(m.src, []);
+            }
+            exactMemoriesMap.get(m.src)!.push(i);
+        }
+
+        // Pre-build exact match map for units (internal matches)
+        const exactInternalMap = new Map<string, number[]>();
+        for (let i = 0; i < units.length; i++) {
+            const u = units[i];
+            if (!exactInternalMap.has(u.src)) {
+                exactInternalMap.set(u.src, []);
+            }
+            exactInternalMap.get(u.src)!.push(i);
+        }
+
         // Call WASM analytical functions
         const results = wasmAnalyzeAll(tmList, textList, tbList, 0.6, 5);
 
@@ -58,6 +78,12 @@ export class ShuttleAnalyzer {
                 .map((idx: number) => memories[idx])
                 .filter((s: any) => s !== undefined);
 
+            // Add exact matches that WASM might have ignored (e.g., punctuation only)
+            const exactIndices = exactMemoriesMap.get(currentUnit.src) || [];
+            for (const idx of exactIndices) {
+                tmSources.push(memories[idx]);
+            }
+
             const internalSources = currentResult.i
                 .map((idx: number) => {
                     const u = units[idx];
@@ -70,6 +96,19 @@ export class ShuttleAnalyzer {
                     };
                 })
                 .filter((s: any) => s !== undefined);
+
+            const exactInternalIndices = exactInternalMap.get(currentUnit.src) || [];
+            for (const idx of exactInternalIndices) {
+                if (idx !== i) {
+                    const u = units[idx];
+                    internalSources.push({
+                        idx: u.idx,
+                        src: u.src,
+                        tgt: u.tgt || u.pre || '',
+                        file: 'Internal'
+                    });
+                }
+            }
 
             const allSources = [...tmSources, ...internalSources];
 

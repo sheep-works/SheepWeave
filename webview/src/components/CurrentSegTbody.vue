@@ -2,13 +2,14 @@
 import { computed } from 'vue';
 import { useShWvStore } from '../store/shwv';
 import { IconPushpin } from '@arco-design/web-vue/es/icon';
+import { getVsCodeApi } from '../vscode';
 
 const shwvStore = useShWvStore();
 
 const handlePropagate = () => {
     const unit = shwvStore.crtUnit;
     if (unit && unit.ref.quoted100?.length > 0) {
-        const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
+        const vscode = getVsCodeApi();
         if (vscode) {
             vscode.postMessage({
                 type: 'propagate-quoted',
@@ -22,7 +23,7 @@ const togglePeRef = () => {
     const unit = shwvStore.crtUnit;
     if (unit) {
         unit.isPeRef = !unit.isPeRef;
-        const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
+        const vscode = getVsCodeApi();
         if (vscode) {
             vscode.postMessage({
                 type: 'toggle-pe-ref',

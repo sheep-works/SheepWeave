@@ -122,6 +122,14 @@ export function activate(context: vscode.ExtensionContext) {
             new PhraseCompletionProvider()
         )
     );
+
+    // ステータスバーにボタンを追加
+    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    statusBarItem.command = 'sheepWeave.openPanel';
+    statusBarItem.text = '$(symbol-misc) SheepWeave';
+    statusBarItem.tooltip = 'Open SheepWeave Panel';
+    statusBarItem.show();
+    context.subscriptions.push(statusBarItem);
 }
 
 export function deactivate() { }

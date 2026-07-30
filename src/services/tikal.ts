@@ -20,6 +20,7 @@ export const supportedExtensions: string[] = [
   '.json', '.yaml', '.yml',
   '.properties', '.po',
   '.csv', '.tsv',
+  '.txt', '.md',
   '.xlf', '.xliff', '.mqxliff', '.mxliff', '.sdlxliff'
 ];
 
@@ -99,7 +100,8 @@ export function runTikal(
   file: string, // Files配列から単一のFileパスに変更されました
   mode: 'extract' | 'merge',
   sourceLang?: string,
-  targetLang?: string
+  targetLang?: string,
+  segmentationOption?: string
 ): Promise<void> {
   return new Promise((resolve, reject) => {
 
@@ -119,6 +121,9 @@ export function runTikal(
 
     if (mode === 'extract') {
       args.push('-x'); // 抽出モード
+      if (segmentationOption === 'seg') {
+        args.push('-seg'); // センテンスセグメンテーション
+      }
     } else {
       args.push('-m'); // マージモード
     }

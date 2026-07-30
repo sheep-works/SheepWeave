@@ -111,9 +111,46 @@ function createWorking(root: string) {
         '06_PACKAGE'
     ];
     dirs.forEach(d => ensureDir(path.join(working, d)));
+
+    const phrasePath = path.join(working, '01_REF', 'phrase.json');
+    if (!exists(phrasePath)) {
+        fs.writeFileSync(phrasePath, '[\n  {\n    "input": "@",\n    "phrase": "{@x}"\n  }\n]', 'utf-8');
+    }
 }
 
 export async function copyDataToWorking(root: string) {
+    // 0. Pre-process Data/Ref legacy JSONs to Data/Ref/TM and Data/Ref/TB
+    const dataRef = path.join(root, 'Data', 'Ref');
+    if (exists(dataRef)) {
+        const jsonFiles = fs.readdirSync(dataRef).filter(f => f.toLowerCase().endsWith('.json'));
+        for (const file of jsonFiles) {
+            const jsonPath = path.join(dataRef, file);
+            try {
+                const content = fs.readFileSync(jsonPath, 'utf-8');
+                const data = JSON.parse(content);
+                // Basic structure check for ShWvData
+                if (data && data.meta && data.body && Array.isArray(data.body.units)) {
+                    const dataRefTm = path.join(dataRef, 'TM');
+                    const dataRefTb = path.join(dataRef, 'TB');
+                    ensureDir(dataRefTm);
+                    ensureDir(dataRefTb);
+                    
+                    const basename = path.basename(file, '.json');
+                    const tbPath = path.join(dataRefTb, `${basename}-tb.json`);
+                    
+                    SheepShuttle.exportAsTb(data, tbPath);
+                    SheepShuttle.exportAsTmSplit(data, dataRefTm, basename);
+                    vscode.window.showInformationMessage(`Extracted TM/TB from legacy reference: ${file}`);
+                    
+                    // Remove the original JSON file to prevent overhead
+                    fs.unlinkSync(jsonPath);
+                }
+            } catch (e) {
+                // Not a valid JSON or not ShWvData, just skip
+            }
+        }
+    }
+
     // 1. Copy Data/Ref/TM -> Working/01_REF/TM
     const dataRefTm = path.join(root, 'Data', 'Ref', 'TM');
     const workingRefTm = path.join(root, 'Working', '01_REF', 'TM');
@@ -147,30 +184,6 @@ export async function copyDataToWorking(root: string) {
                 copyRecursive(srcPath, destPath);
             } else {
                 fs.copyFileSync(srcPath, destPath);
-            }
-        }
-    }
-
-    // 4. Special Handle: Check Data/Ref for legacy project JSONs and split them
-    const dataRef = path.join(root, 'Data', 'Ref');
-    if (exists(dataRef)) {
-        const jsonFiles = fs.readdirSync(dataRef).filter(f => f.toLowerCase().endsWith('.json'));
-        for (const file of jsonFiles) {
-            const jsonPath = path.join(dataRef, file);
-            try {
-                const content = fs.readFileSync(jsonPath, 'utf-8');
-                const data = JSON.parse(content);
-                // Basic structure check for ShWvData
-                if (data && data.meta && data.body && Array.isArray(data.body.units)) {
-                    const basename = path.basename(file, '.json');
-                    const tmPath = path.join(root, 'Working', '01_REF', 'TM', `${basename}-tm.json`);
-                    const tbPath = path.join(root, 'Working', '01_REF', 'TB', `${basename}-tb.json`);
-                    
-                    SheepShuttle.exportAsTmTb(data, tmPath, tbPath);
-                    vscode.window.showInformationMessage(`Extracted TM/TB from legacy reference: ${file}`);
-                }
-            } catch (e) {
-                // Not a valid JSON or not ShWvData, just skip
             }
         }
     }
@@ -237,6 +250,22 @@ async function setXlf(root: string): Promise<string[]> {
     return projectManager.getExtractedXliffs();
 }
 
+function getSegmentationOption(root: string): string {
+    const workflowPath = path.join(root, 'workflow.ini');
+    if (fs.existsSync(workflowPath)) {
+        try {
+            const iniContent = fs.readFileSync(workflowPath, 'utf-8');
+            for (const line of iniContent.split('\n')) {
+                const match = line.match(/^\s*segmentation\s*=\s*(.*)\s*$/);
+                if (match) return match[1].trim().toLowerCase();
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+    return 'line';
+}
+
 export async function runTikalExtraction(root: string, sourceLang: string, targetLang: string) {
     const sourceDir = path.join(root, 'Working', '02_SOURCE');
     const xlfDir = path.join(root, 'Working', '03_XLF_JSON');
@@ -275,7 +304,8 @@ export async function runTikalExtraction(root: string, sourceLang: string, targe
                     if (!tikalPath) {
                         tikalPath = resolveTikalPath();
                     }
-                    await runTikal(tikalPath, filter, file, 'extract', sourceLang, targetLang);
+                    const segOption = getSegmentationOption(root);
+                    await runTikal(tikalPath, filter, file, 'extract', sourceLang, targetLang, segOption);
 
                     // Tikal outputs file.ext.xlf in the same directory (02_SOURCE)
                     const generatedXlf = file + '.xlf';
@@ -458,4 +488,141 @@ export async function runPackage(root: string) {
         }
     }
     projectManager.save();
+}
+
+export async function saveAndCloseShwvEditors(root: string): Promise<void> {
+    const shwvsPath = DirHelper.getShwvsPath(root);
+    const shwvtPath = DirHelper.getShwvtPath(root);
+
+    // Save dirty files
+    for (const doc of vscode.workspace.textDocuments) {
+        if (doc.isDirty && (doc.uri.fsPath === shwvsPath || doc.uri.fsPath === shwvtPath)) {
+            await doc.save();
+        }
+    }
+
+    // Close corresponding editors
+    for (const group of vscode.window.tabGroups.all) {
+        for (const tab of group.tabs) {
+            if (tab.input instanceof vscode.TabInputText) {
+                const filePath = tab.input.uri.fsPath;
+                if (filePath === shwvsPath || filePath === shwvtPath) {
+                    await vscode.window.tabGroups.close(tab);
+                }
+            }
+        }
+    }
+}
+
+export async function incrementalAddSource(root: string): Promise<ShWvData | undefined> {
+    const data = globalShWvData;
+    // Ensure existing data is loaded
+    if (!data.meta || !data.body || data.body.units.length === 0) {
+        data.load(root);
+    }
+
+    const sourceDir = path.join(root, 'Working', '02_SOURCE');
+    const xlfDir = path.join(root, 'Working', '03_XLF_JSON');
+    ensureDir(xlfDir);
+
+    const projectManager = new ProjectManager(root);
+
+    // Get all files currently in Working/02_SOURCE
+    const groups = groupFilesByFilter(sourceDir);
+
+    // Identify registered files
+    const registeredFiles = new Set<string>();
+    for (const group of projectManager.data.okapi) {
+        for (const f of group.files) {
+            registeredFiles.add(f.source);
+        }
+    }
+
+    // Filter to find new files
+    const newFilesGroups: Record<string, string[]> = {};
+    let hasNewFiles = false;
+    for (const [filter, files] of Object.entries(groups)) {
+        const newFiles = files.filter(f => !registeredFiles.has(f));
+        if (newFiles.length > 0) {
+            newFilesGroups[filter] = newFiles;
+            hasNewFiles = true;
+        }
+    }
+
+    if (!hasNewFiles) {
+        vscode.window.showInformationMessage('No new source files found in Working/02_SOURCE.');
+        return undefined;
+    }
+
+    let tikalPath: string | undefined;
+    const newXlfFiles: string[] = [];
+
+    for (const [filter, files] of Object.entries(newFilesGroups)) {
+        const fileStatuses = files.map(f => ({ source: f, xliff: null as string | null, status: 'error' as ProjectFileStatus['status'] }));
+        projectManager.addGroup(filter, fileStatuses);
+
+        for (const file of files) {
+            try {
+                const ext = path.extname(file).toLowerCase();
+                const isXliff = ['.xlf', '.xliff', '.mxliff', '.mqxliff', '.sdlxliff'].includes(ext);
+
+                if (isXliff) {
+                    const xlfBasename = path.basename(file);
+                    const destXlf = path.join(xlfDir, xlfBasename);
+                    if (exists(destXlf)) fs.unlinkSync(destXlf);
+                    fs.copyFileSync(file, destXlf);
+
+                    const fileStatus = projectManager.data.okapi.find(g => g.filter === filter)?.files.find(f => f.source === file);
+                    if (fileStatus) {
+                        fileStatus.status = 'extracted';
+                        fileStatus.xliff = destXlf;
+                    }
+                    newXlfFiles.push(destXlf);
+                } else {
+                    if (!tikalPath) {
+                        tikalPath = resolveTikalPath();
+                    }
+                    // @ts-ignore
+                    await runTikal(tikalPath, filter, file, 'extract', projectManager.data.sourceLanguage, projectManager.data.targetLanguage);
+                    
+                    const generatedXlf = file + '.xlf';
+                    if (exists(generatedXlf)) {
+                        const destXlf = path.join(xlfDir, path.basename(generatedXlf));
+                        if (exists(destXlf)) fs.unlinkSync(destXlf);
+                        fs.renameSync(generatedXlf, destXlf);
+                        
+                        const fileStatus = projectManager.data.okapi.find(g => g.filter === filter)?.files.find(f => f.source === file);
+                        if (fileStatus) {
+                            fileStatus.status = 'extracted';
+                            fileStatus.xliff = destXlf;
+                        }
+                        newXlfFiles.push(destXlf);
+                    }
+                }
+            } catch (err: any) {
+                vscode.window.showErrorMessage(`Extraction failed for ${path.basename(file)}: ${err.message}`);
+            }
+        }
+    }
+
+    projectManager.save();
+
+    if (newXlfFiles.length > 0) {
+        // Update ShWvData projectInfo if present
+        data.projectInfo = projectManager.data;
+        
+        // Append new units/metadata
+        await data.parse(newXlfFiles);
+        // Analyze project with TM/TB (matches for new units will be populated, old units preserved)
+        await data.analyze(root);
+        // Save project json
+        data.save(root);
+        // Write .shwvs and .shwvt
+        await data.writeShwv(root);
+
+        vscode.window.showInformationMessage(`Successfully added ${newXlfFiles.length} file(s) to project.`);
+        return data;
+    }
+
+    return undefined;
 }

@@ -78,9 +78,9 @@ export function initDecorators(context: vscode.ExtensionContext) {
             placeholders.push(decoration);
         }
 
-        // 3. HTMLタグの検索: <tag>, </tag>, <tag /> など
+        // 3. HTMLタグの検索: <tag>, </tag>, <tag /> など (複数行を跨がない)
         const tags: vscode.DecorationOptions[] = [];
-        const tagRegex = /<[^>]+>/g;
+        const tagRegex = /<[^>\r\n]+>/g;
         while ((match = tagRegex.exec(text))) {
             const startPos = activeEditor.document.positionAt(match.index);
             const endPos = activeEditor.document.positionAt(match.index + match[0].length);

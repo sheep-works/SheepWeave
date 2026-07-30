@@ -38,6 +38,31 @@ export class SheepShuttle {
         fs.writeFileSync(tbPath, JSON.stringify(tb, null, 2), 'utf-8');
     }
 
+    static exportAsTmSplit(data: any, outDir: string, prefix: string): void {
+        if (!fs.existsSync(outDir)) {
+            fs.mkdirSync(outDir, { recursive: true });
+        }
+        if (!data.meta || !data.meta.files || data.meta.files.length === 0) {
+            const tmPath = path.join(outDir, `${prefix}-tm.json`);
+            SheepShuttle.exportAsTm(data, tmPath);
+            return;
+        }
+
+        const shwvData = { define: { name: 'SHWV_DATA' as const, version: '1.2' as const }, meta: data.meta, body: data.body };
+        const result = manager.splitByFile(shwvData);
+        for (const [name, pairs] of result) {
+            const safeName = name.replace('.json', '');
+            const outPath = path.join(outDir, `${prefix}_${safeName}-tm.json`);
+            // Only output src and tgt (and note) like exportAsTm to keep it clean for TM
+            const tm = pairs.map((p: any) => ({
+                src: p.src,
+                tgt: p.tgt || p.pre || "",
+                note: p.note || ""
+            }));
+            fs.writeFileSync(outPath, JSON.stringify(tm, null, 2), 'utf-8');
+        }
+    }
+
     static splitByFile(data: any, outDir: string): void {
         if (!fs.existsSync(outDir)) {
             fs.mkdirSync(outDir, { recursive: true });

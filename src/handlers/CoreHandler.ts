@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { ShWvData } from '../services/core/ShWvData';
 import { ProjectManager } from '../services/core/ProjectManager';
 import { DirHelper } from '../services/core/DirHelper';
-import { initDirs, prepareWorking, syncRefDir, preprocessor, postprocessor, runTikalExtraction, runPackage } from '../services/fileOps';
+import { initDirs, prepareWorking, syncRefDir, preprocessor, postprocessor, runTikalExtraction, runPackage, saveAndCloseShwvEditors, incrementalAddSource } from '../services/fileOps';
 import { globalDirector } from '../store';
 import { renderConfirmedDecorations } from '../features/decorators';
 
@@ -12,8 +12,19 @@ export class CoreHandler {
     public static async handle(message: any, globalShWvData: ShWvData, rootPath: string, panel: vscode.WebviewPanel) {
         switch (message.type) {
             case 'open-current':
-                vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(rootPath));
+                vscode.env.openExternal(vscode.Uri.file(rootPath));
                 break;
+            case 'open-workflow-ini': {
+                const workflowPath = path.join(rootPath, 'workflow.ini');
+                if (!fs.existsSync(workflowPath)) {
+                    const defaultIniContent = "index=1\nrole=Translation\nname=Sheep\nsegmentation=line\n";
+                    fs.writeFileSync(workflowPath, defaultIniContent, 'utf-8');
+                }
+                vscode.workspace.openTextDocument(workflowPath).then(doc => {
+                    vscode.window.showTextDocument(doc);
+                });
+                break;
+            }
             case 'archive-previous':
                 await initDirs(rootPath);
                 vscode.window.showInformationMessage('Project Initialized (Current Working Archived)');
@@ -64,13 +75,46 @@ export class CoreHandler {
                 }
                 break;
             case 'load':
-                globalShWvData.load(rootPath);
-                globalDirector.initializeFromState();
-                globalDirector.loadPhrasesFromRoot(rootPath);
-                await globalDirector.loadRefData(rootPath);
-                if (globalShWvData.meta && globalShWvData.body?.units?.length > 0) {
-                    panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalDirector.phrases } });
-                    vscode.window.showInformationMessage('Data Loaded and Synchronized');
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    await saveAndCloseShwvEditors(rootPath);
+                    globalShWvData.load(rootPath);
+                    await globalShWvData.writeShwv(rootPath);
+                    globalDirector.initializeFromState();
+                    globalDirector.loadPhrasesFromRoot(rootPath);
+                    await globalDirector.loadRefData(rootPath);
+                    if (globalShWvData.meta && globalShWvData.body?.units?.length > 0) {
+                        panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalDirector.phrases } });
+                        vscode.window.showInformationMessage('Data Loaded and Synchronized');
+                    }
+                } catch (e: any) {
+                    vscode.window.showErrorMessage(`Failed to load data: ${e.message || e}`);
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
+            case 'add-files':
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    await saveAndCloseShwvEditors(rootPath);
+                    const updatedData = await incrementalAddSource(rootPath);
+                    if (updatedData) {
+                        globalDirector.initializeFromState();
+                        globalDirector.loadPhrasesFromRoot(rootPath);
+                        await globalDirector.loadRefData(rootPath);
+                        panel.webview.postMessage({ 
+                            type: 'SHWV_DATA_LOADED', 
+                            data: { 
+                                meta: updatedData.meta, 
+                                units: updatedData.body.units, 
+                                phrases: globalDirector.phrases 
+                            } 
+                        });
+                    }
+                } catch (e: any) {
+                    vscode.window.showErrorMessage(`Failed to add files: ${e.message || e}`);
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
                 break;
             case 'reanalyze':

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useShWvStore } from '../store/shwv';
 
 const store = useShWvStore();
@@ -15,12 +15,15 @@ const handleManualSearch = () => {
     emit('ConcordanceCommand', 'manual-concordance', { query: manualQuery.value, mode: manualMode.value });
 };
 
-// Basic highlighting capability
+watch(data, (newVal) => {
+    if (newVal && newVal.query) {
+        manualQuery.value = newVal.query;
+        manualMode.value = newVal.mode || 'source';
+    }
+}, { deep: true, immediate: true });
+
 function highlight(text: string, query: string): string {
     if (!text || !query) return text;
-    // Simple global case-insensitive replace keeping original case
-    // For safer approach without v-html, we'd need a component. To keep it simple, we use v-html but escape first.
-    // Escaping helper
     const escapeHTML = (str: string) => str.replace(/[&<>'"]/g,
         tag => ({
             '&': '&amp;',
@@ -40,7 +43,7 @@ function highlight(text: string, query: string): string {
 </script>
 
 <template>
-    <div class="concordance-tab">
+    <div class="concordance-view">
         <div class="manual-search-container">
             <a-space>
                 <a-input-search v-model="manualQuery" placeholder="Enter text to search..." style="width: 300px"
@@ -133,12 +136,13 @@ function highlight(text: string, query: string): string {
 </template>
 
 <style scoped>
-.concordance-tab {
-    padding: 1rem;
+.concordance-view {
     height: 100%;
     overflow-y: auto;
     font-family: var(--vscode-font-family);
     color: var(--vscode-editor-foreground);
+    display: flex;
+    flex-direction: column;
 }
 
 .manual-search-container {

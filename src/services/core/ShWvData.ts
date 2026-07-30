@@ -92,16 +92,26 @@ export class ShWvData {
         });
 
         try {
-            await shuttle.parse(files);
+            const segmentation = this.meta.workflow?.segmentation || 'line';
+            const splitByNewline = segmentation !== 'raw';
+            await shuttle.parse(files, undefined, splitByNewline);
             shuttle.process();
             shuttle.convert();
 
             const parsedData = shuttle.data;
             if (parsedData) {
+                const startOffset = this.body.units.length;
                 if (parsedData.meta.files && parsedData.meta.files.length > 0) {
+                    parsedData.meta.files.forEach((f: any) => {
+                        f.start += startOffset;
+                        f.end += startOffset;
+                    });
                     this.meta.files.push(...parsedData.meta.files);
                 }
                 if (parsedData.body.units && parsedData.body.units.length > 0) {
+                    parsedData.body.units.forEach((u: any, idx: number) => {
+                        u.idx = startOffset + idx;
+                    });
                     this.body.units.push(...parsedData.body.units);
                 } else {
                     console.error('[SheepWeave] shuttle.data.body.units is empty after parsing!');
@@ -241,10 +251,17 @@ export class ShWvData {
                     }
                 });
                 if (workflow.index !== undefined) {
+                    // Normalize segmentation fallback logic
+                    let segOption = workflow.segmentation?.toLowerCase() || 'line';
+                    if (!['seg', 'line', 'raw'].includes(segOption)) {
+                        segOption = 'line';
+                    }
+
                     this.meta.workflow = {
                         index: workflow.index,
                         role: workflow.role || '',
-                        name: workflow.name || ''
+                        name: workflow.name || '',
+                        segmentation: segOption
                     };
                 }
             } catch (e) {
@@ -252,12 +269,13 @@ export class ShWvData {
             }
         } else {
             try {
-                const defaultIniContent = "index=1\nrole=Translation\nname=Sheep\n";
+                const defaultIniContent = "index=1\nrole=Translation\nname=Sheep\nsegmentation=line\n";
                 fs.writeFileSync(workflowPath, defaultIniContent, 'utf-8');
                 this.meta.workflow = {
                     index: 1,
                     role: 'Translation',
-                    name: 'Sheep'
+                    name: 'Sheep',
+                    segmentation: 'line'
                 };
             } catch (e) {
                 console.error("Failed to create default workflow.ini", e);
@@ -311,6 +329,11 @@ export class ShWvData {
                             if (!fs.existsSync(p)) {
                                 fs.mkdirSync(p, { recursive: true });
                             }
+                        }
+
+                        const phrasePath = path.join(root, 'Working', '01_REF', 'phrase.json');
+                        if (!fs.existsSync(phrasePath)) {
+                            fs.writeFileSync(phrasePath, '[\n  {\n    "input": "@",\n    "phrase": "{@x}"\n  }\n]', 'utf-8');
                         }
 
                         // 2. Extract and write Source.shwvs and Target.shwvt files
@@ -426,6 +449,39 @@ export class ShWvData {
         // Include internal terms
         if (this.body.terms && this.body.terms.length > 0) {
             termbase.push(...this.body.terms.map(t => ({ ...t, file: "Internal" })));
+        }
+
+        // Load ShWvData projects from Ref root
+        const refDir = path.join(root, 'Working', '01_REF');
+        if (fs.existsSync(refDir)) {
+            const refFiles = fs.readdirSync(refDir).filter(f => f.endsWith('.json') && fs.statSync(path.join(refDir, f)).isFile());
+            for (const file of refFiles) {
+                if (file.toLowerCase() === 'phrase.json') continue;
+
+                try {
+                    const p = path.join(refDir, file);
+                    const content = fs.readFileSync(p, 'utf-8');
+                    const parsed = JSON.parse(content);
+                    if (parsed?.define?.name === 'SHWV_DATA') {
+                        if (parsed.body?.units) {
+                            parsed.body.units.forEach((u: any) => {
+                                if (u.tgt) {
+                                    memories.push({ idx: -1, src: u.src, tgt: u.tgt, freeze: true, file: file });
+                                }
+                            });
+                        }
+                        if (parsed.body?.terms) {
+                            parsed.body.terms.forEach((t: any) => {
+                                if (t.src && t.tgt) {
+                                    termbase.push({ ...t, file: file });
+                                }
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to parse ref project:", file, e);
+                }
+            }
         }
 
         // Delegate search and analysis to SheepComb's ShuttleAnalyzer

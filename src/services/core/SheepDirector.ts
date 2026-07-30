@@ -111,6 +111,8 @@ export class SheepDirector {
 
         if (!unit || !unit.ref.quoted100 || unit.ref.quoted100.length === 0) return [];
 
+        const currentWorkflowIndex = this.state.meta.workflow?.index ?? 1;
+
         const affectedIdxs: number[] = [];
         for (const targetIdx of unit.ref.quoted100) {
             const targetUnit = (this.state.body.units[targetIdx] && this.state.body.units[targetIdx].idx === targetIdx)
@@ -119,7 +121,7 @@ export class SheepDirector {
 
             if (targetUnit) {
                 targetUnit.tgt = text;
-                targetUnit.status = 1; // Auto confirm identical segments
+                targetUnit.status = currentWorkflowIndex; // Auto confirm identical segments with current role
                 affectedIdxs.push(targetIdx);
             }
         }
@@ -189,6 +191,40 @@ export class SheepDirector {
                         const info = parsedTb.meta.files.find((f: any) => i >= f.start && i <= f.end);
                         this.tbData.push({ src: u.src, tgt: u.tgt || "", file: info?.name || 'TB' });
                     });
+                }
+            }
+        }
+
+        // Load ShWvData projects from Ref root
+        const refDir = path.join(rootPath, 'Working', '01_REF');
+        if (fs.existsSync(refDir)) {
+            const refFiles = fs.readdirSync(refDir).filter(f => f.endsWith('.json') && fs.statSync(path.join(refDir, f)).isFile());
+            for (const file of refFiles) {
+                if (file.toLowerCase() === 'phrase.json') continue;
+
+                try {
+                    const p = path.join(refDir, file);
+                    const content = fs.readFileSync(p, 'utf-8');
+                    const parsed = JSON.parse(content);
+                    if (parsed?.define?.name === 'SHWV_DATA') {
+                        if (parsed.body?.units) {
+                            this.concordance.indexUnits(parsed.body.units);
+                            parsed.body.units.forEach((u: any, i: number) => {
+                                if (u.tgt) {
+                                    this.tmData.push({ id: i, src: u.src, tgt: u.tgt, file: file });
+                                }
+                            });
+                        }
+                        if (parsed.body?.terms) {
+                            parsed.body.terms.forEach((t: any) => {
+                                if (t.src && t.tgt) {
+                                    this.tbData.push({ src: t.src, tgt: t.tgt, file: file });
+                                }
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to parse ref project:", file, e);
                 }
             }
         }

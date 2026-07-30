@@ -34,3 +34,4 @@ memo_events.md
 test_parse.ts
 *.vsix
 yarn.lock
+**/.env

@@ -25,7 +25,7 @@ defineProps({
             </a-space>
         </div>
 
-        <a-divider />
+        <a-divider style="margin: 16px 0;" />
 
         <div v-if="shwvStore.hasData">
             <a-typography-text>Current: {{ shwvStore.crtPos }} / {{ shwvStore.maxPos }}</a-typography-text>
@@ -60,7 +60,7 @@ defineProps({
                 </tbody>
             </table>
         </div>
-        <div v-else>
+        <div v-else class="empty-state">
             <Nodata />
         </div>
     </div>
@@ -70,7 +70,16 @@ defineProps({
 #translate-tab {
     width: 100%;
     height: 100%;
-    padding: 3px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
 }
 
 table {
