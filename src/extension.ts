@@ -8,7 +8,9 @@ import { prepareProjectCommand } from './commands/prepareProject';
 import { renameLikeReplaceCommand } from './commands/renameLikeReplace';
 import { startAddTermSide, confirmAddTermSide, cancelAddTermSide } from './commands/addTermSide';
 import { confirmLineCommand } from './commands/confirmLine';
+import { gotoNextUnconfirmedCommand } from './commands/gotoNextUnconfirmed';
 import { concordanceSearchCommand } from './commands/concordanceSearch';
+import { diffTargetWithTmCommand } from './commands/diffTargetWithTm';
 import { initEditorGuard } from './features/editorGuard';
 import { initDecorators, renderConfirmedDecorations } from './features/decorators';
 import { initShortcuts } from './features/shortcuts';
@@ -66,6 +68,9 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('sheepWeave.confirmLine', () => {
             confirmLineCommand();
+        }),
+        vscode.commands.registerCommand('sheepWeave.gotoNextUnconfirmed', () => {
+            gotoNextUnconfirmedCommand();
         })
     );
 
@@ -81,6 +86,9 @@ export function activate(context: vscode.ExtensionContext) {
         }),
         vscode.commands.registerCommand('sheepWeave.concordanceSearchTarget', () => {
             concordanceSearchCommand('target');
+        }),
+        vscode.commands.registerCommand('sheepWeave.diffTargetWithTm', () => {
+            diffTargetWithTmCommand(context);
         })
     );
 
@@ -111,15 +119,17 @@ export function activate(context: vscode.ExtensionContext) {
     initDecorators(context);
     initShortcuts(context);
 
-    // 用語集（TB）の入力補完を登録
+    // 用語集（TB）およびフレーズの入力補完を登録（トリガー文字 '@', '/' にも対応）
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
             { language: 'shwvt', scheme: 'file' },
-            new TbCompletionProvider()
+            new TbCompletionProvider(),
+            '@', '/'
         ),
         vscode.languages.registerCompletionItemProvider(
             { language: 'shwvt', scheme: 'file' },
-            new PhraseCompletionProvider()
+            new PhraseCompletionProvider(),
+            '@', '/'
         )
     );
 

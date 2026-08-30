@@ -1,30 +1,27 @@
 import { defineStore } from 'pinia';
 import type { ShWvMeta, ShWvUnit, ProjectInfo } from '../../../src/types/datatype';
 
-const DEFAULT_LLM_PROMPT = `あなたはプロの翻訳チェッカーです。
-ユーザーからJSONL形式のリスト（各要素に idx, src, tgt, notes, history を含む配列）が渡されます。
-idx は行番号に対応しています。
-以下の基準で厳密にチェックし、問題がある行のみ指摘してください。
+const DEFAULT_LLM_PROMPT = `あなたはプロの翻訳者および翻訳チェッカーです。
+ユーザーからJSONL形式のリスト（各要素に idx, src, tgt, notes, history 等を含む配列）が渡されます。
+idx は各行のインデックス（行番号）に対応しています。
 
 # 入力データのスキーマ
 - idx: 行番号
 - src: 原文({source_lang})
-- tgt: 訳文({target_lang})
-- notes: 備考
-- history: 参考訳（類似文。ある場合のみ）
+- tgt: 現在の訳文または下訳({target_lang})
+- note: 備考
 
-# チェック基準
-1. 誤訳（原文の意味を正確に伝えていない）
-2. 訳抜け（原文の要素が抜けている）
-3. {target_lang}として不自然、または誤字脱字
-4. notes（備考）に指定がある場合は、それを考慮する
+# タスク
+各行の原文(src)および文脈を考慮し、自然で正確な訳文({target_lang})を作成または修正してください。
 
 # 出力形式
-問題がある行についてのみ、以下の形式で出力してください。**指摘内容は簡潔にして、問題がない場合は何も出力しないでください。**
+必ず以下の形式で1行につき1セグメントずつ、全対象行の出力を行ってください。余計な解説やコードブロック記号は含めないでください。
 
-Line [idx]: [エラー種別]
-指摘: [具体的な指摘]
----`;
+行番号: 訳文
+
+(例)
+0: 訳文のテキスト
+1: 訳文のテキスト`;
 
 export const useShWvStore = defineStore('shwv', {
     state: () => ({
@@ -47,6 +44,8 @@ export const useShWvStore = defineStore('shwv', {
         llmPrompt: DEFAULT_LLM_PROMPT,
         llmRequesting: false,
         llmMode: 'normal' as 'normal' | 'advanced',
+        llmBatchRunning: false,
+        llmBatchProgress: { current: 0, total: 0, status: '' },
     }),
     actions: {
         setConcordanceData(data: { query: string, mode: string, tbMatches: any[], tmMatches: any[], currentDocumentMatches: any[] }) {
@@ -112,13 +111,27 @@ export const useShWvStore = defineStore('shwv', {
         },
         setLlmMode(mode: 'normal' | 'advanced') {
             this.llmMode = mode;
+        },
+        setLlmBatchRunning(running: boolean) {
+            this.llmBatchRunning = running;
+        },
+        setLlmBatchProgress(progress: { current: number, total: number, status?: string }) {
+            this.llmBatchProgress = {
+                current: progress.current,
+                total: progress.total,
+                status: progress.status || ''
+            };
+        },
+        setLlmPrompt(prompt: string) {
+            this.llmPrompt = prompt;
         }
     },
     getters: {
         hasData: (state) => !!state.meta,
         totalSegments: (state) => state.units.length,
-        sourceLang: (state) => state.meta?.sourceLang || '',
-        targetLang: (state) => state.meta?.targetLang || '',
+        sourceLang: (state) => state.meta?.sourceLang || state.projectInfo?.sourceLanguage || '',
+        targetLang: (state) => state.meta?.targetLang || state.projectInfo?.targetLanguage || '',
+        projectName: (state) => state.meta?.projectName || state.projectInfo?.projectName || '',
         crtUnit: (state) => state.units[state.crtPos] || {
             src: '-- N/A --',
             tgt: '-- N/A --',

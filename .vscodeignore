@@ -17,6 +17,8 @@ instructions/**
 demo/**
 dialies/**
 sample/**
+samples/**
+manual/**
 okapi/**
 tsconfig.json
 webpack.config.js

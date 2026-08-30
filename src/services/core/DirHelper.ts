@@ -4,6 +4,7 @@ export class DirHelper {
     static readonly rootToShwvs = 'Working/04_SHWV/Source.shwvs';
     static readonly rootToShwvt = 'Working/04_SHWV/Target.shwvt';
     static readonly rootToPhrases = 'Working/01_REF/phrase.json';
+    static readonly rootToPhrasesJsonl = 'Working/01_REF/phrase.jsonl';
     static readonly rootToManage = 'Working/99_MANAGE';
 
     static getShwvsPath(root: string): string {

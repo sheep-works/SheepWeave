@@ -111,6 +111,14 @@ export class ShWvData {
                 if (parsedData.body.units && parsedData.body.units.length > 0) {
                     parsedData.body.units.forEach((u: any, idx: number) => {
                         u.idx = startOffset + idx;
+                        // If pre-translated (src !== tgt), keep tgt intact.
+                        // If exact source copy (src === tgt), move to pre (draft/ref) and leave tgt empty for human translation.
+                        if (u.tgt && u.src !== u.tgt) {
+                            // Keep existing translation in tgt
+                        } else if (u.tgt && u.src === u.tgt) {
+                            if (!u.pre) u.pre = u.tgt;
+                            u.tgt = '';
+                        }
                     });
                     this.body.units.push(...parsedData.body.units);
                 } else {
@@ -204,35 +212,89 @@ export class ShWvData {
     }
 
     /**
+     * Propagates a single unit's target translation to all units referencing it as TM (quoted / quoted100).
+     * Returns an array of affected unit indices.
+     */
+    public propagateSingleUnit(targetIdx: number): number[] {
+        const unit = (this.body.units[targetIdx] && this.body.units[targetIdx].idx === targetIdx)
+            ? this.body.units[targetIdx]
+            : this.body.units.find(u => u.idx === targetIdx);
+
+        if (!unit || !unit.tgt) return [];
+
+        const affectedIdxs: number[] = [];
+
+        // Collect all referencing unit indices from quoted (fuzzy) and quoted100 (100%)
+        const referencingIndices: number[] = [];
+        if (unit.ref?.quoted) {
+            for (const [quotedIdx] of unit.ref.quoted) {
+                referencingIndices.push(quotedIdx);
+            }
+        }
+        if (unit.ref?.quoted100) {
+            for (const quotedIdx of unit.ref.quoted100) {
+                referencingIndices.push(quotedIdx);
+            }
+        }
+
+        for (const refIdx of referencingIndices) {
+            const referencingUnit = (this.body.units[refIdx] && this.body.units[refIdx].idx === refIdx)
+                ? this.body.units[refIdx]
+                : this.body.units.find(u => u.idx === refIdx);
+
+            if (!referencingUnit || !referencingUnit.ref?.tms) continue;
+
+            const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === targetIdx);
+            if (tmRef && tmRef.tgt !== unit.tgt) {
+                tmRef.tgt = unit.tgt;
+                affectedIdxs.push(refIdx);
+            }
+        }
+
+        return affectedIdxs;
+    }
+
+    /**
      * Propagates a translation to all units that have quoted this unit as a TM match.
      * Handles both fuzzy matches (quoted) and 100% matches (quoted100).
      */
     public propagateAllTranslations(): void {
         for (const unit of this.body.units) {
-            if (!unit.tgt) continue;
-
-            // Synchronize tgt to all the units that quoted this sentence as TM (Fuzzy)
-            for (const [quotedIdx, ratio] of unit.ref.quoted) {
-                const referencingUnit = this.body.units[quotedIdx];
-                if (!referencingUnit || referencingUnit.idx !== quotedIdx) continue;
-
-                const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === unit.idx);
-                if (tmRef) {
-                    tmRef.tgt = unit.tgt;
-                }
-            }
-
-            // Synchronize tgt to all the units that quoted this sentence as TM (100%)
-            for (const quotedIdx of unit.ref.quoted100) {
-                const referencingUnit = this.body.units[quotedIdx];
-                if (!referencingUnit || referencingUnit.idx !== quotedIdx) continue;
-
-                const tmRef = referencingUnit.ref.tms.find(tm => tm.idx === unit.idx);
-                if (tmRef) {
-                    tmRef.tgt = unit.tgt;
-                }
+            if (unit && unit.tgt) {
+                this.propagateSingleUnit(unit.idx);
             }
         }
+    }
+
+    /**
+     * Advances the workflow step:
+     * 1. Preserves current target (tgt) into pre (if tgt exists).
+     * 2. Clears tgt and resets status to 0 for all units.
+     * 3. Increments workflow.index by 1.
+     * @returns previous workflow index
+     */
+    public advanceWorkflowStep(): number {
+        const currentIdx = this.meta.workflow?.index ?? 1;
+
+        for (const unit of this.body.units) {
+            if (unit.tgt && unit.tgt.trim() !== '') {
+                unit.pre = unit.tgt;
+            }
+            unit.tgt = '';
+            unit.status = 0;
+        }
+
+        if (!this.meta.workflow) {
+            this.meta.workflow = {
+                index: 1,
+                role: 'Translation',
+                name: 'Sheep',
+                segmentation: 'line'
+            };
+        }
+        this.meta.workflow.index = currentIdx + 1;
+
+        return currentIdx;
     }
 
     public loadWorkflowIni(root: string): void {
@@ -289,26 +351,27 @@ export class ShWvData {
             try {
                 const content = fs.readFileSync(storagePathFull, 'utf-8');
                 const parsed = JSON.parse(content);
+                if (parsed.projectInfo) {
+                    this.projectInfo = parsed.projectInfo;
+                }
                 this.meta = {
                     bilingualPath: parsed.meta?.bilingualPath || '',
                     files: parsed.meta?.files || [],
-                    sourceLang: parsed.meta?.sourceLang || '',
-                    targetLang: parsed.meta?.targetLang || '',
+                    sourceLang: parsed.meta?.sourceLang || parsed.projectInfo?.sourceLanguage || '',
+                    targetLang: parsed.meta?.targetLang || parsed.projectInfo?.targetLanguage || '',
+                    projectName: parsed.meta?.projectName || parsed.projectInfo?.projectName || '',
                     tmFiles: parsed.meta?.tmFiles || [],
                     tbFiles: parsed.meta?.tbFiles || [],
-                };
+                } as any;
                 this.body = {
                     units: parsed.body?.units || [],
                     terms: parsed.body?.terms || [],
                 };
-                if (parsed.projectInfo || parsed.define?.version === '1.1') {
-                    this.projectInfo = parsed.projectInfo;
-                }
 
                 this.loadWorkflowIni(root);
 
-                // If unified project.json (Ver 1.1) is loaded, and Working folders/files are missing, automatically restore them.
-                if (parsed.define?.version === '1.1' && this.body.units.length > 0) {
+                // If unified project.json is loaded, and Working folders/files are missing, automatically restore them.
+                if (['1.1', '1.2', '1.3'].includes(parsed.define?.version) && this.body.units.length > 0) {
                     const shwvsPath = DirHelper.getShwvsPath(root);
                     const shwvtPath = DirHelper.getShwvtPath(root);
                     if (!fs.existsSync(shwvsPath) || !fs.existsSync(shwvtPath)) {
@@ -331,9 +394,9 @@ export class ShWvData {
                             }
                         }
 
-                        const phrasePath = path.join(root, 'Working', '01_REF', 'phrase.json');
+                        const phrasePath = path.join(root, 'Working', '01_REF', 'phrase.jsonl');
                         if (!fs.existsSync(phrasePath)) {
-                            fs.writeFileSync(phrasePath, '[\n  {\n    "input": "@",\n    "phrase": "{@x}"\n  }\n]', 'utf-8');
+                            fs.writeFileSync(phrasePath, '{"input": "@", "phrase": "{@x}"}\n', 'utf-8');
                         }
 
                         // 2. Extract and write Source.shwvs and Target.shwvt files
@@ -365,6 +428,22 @@ export class ShWvData {
             } catch (e) {
                 // ignore
             }
+        }
+
+        // Synchronize meta and projectInfo
+        if (this.projectInfo) {
+            if (!this.meta.projectName && this.projectInfo.projectName) this.meta.projectName = this.projectInfo.projectName;
+            if (!this.meta.sourceLang && this.projectInfo.sourceLanguage) this.meta.sourceLang = this.projectInfo.sourceLanguage;
+            if (!this.meta.targetLang && this.projectInfo.targetLanguage) this.meta.targetLang = this.projectInfo.targetLanguage;
+        } else if (this.meta.projectName || this.meta.sourceLang || this.meta.targetLang) {
+            this.projectInfo = {
+                version: 2,
+                projectName: this.meta.projectName || 'SheepWeaveProject',
+                sourceLanguage: this.meta.sourceLang || 'en-US',
+                targetLanguage: this.meta.targetLang || 'ja-JP',
+                sourceFiles: [],
+                okapi: []
+            };
         }
 
         writeFileSync(storagePathFull, JSON.stringify({
@@ -428,22 +507,77 @@ export class ShWvData {
         }
 
         if (tbFileList.length > 0) {
-            const tbFilesFull = tbFileList.map(f => path.join(tbDir, f));
-            const shuttleTb = new SheepShuttle();
-            const tbFiles = tbFilesFull.map(p => {
-                const ext = p.split('.').pop()?.toLowerCase() || '';
-                const isBinary = ['xlsx', 'docx'].includes(ext);
-                return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : readTextFile(p) };
-            });
-            await shuttleTb.parse(tbFiles);
-            shuttleTb.process();
-            shuttleTb.convert();
-            const parsedTb = shuttleTb.data;
+            // 1. Direct JSONL parsing (.jsonl files)
+            const jsonlFiles = tbFileList.filter(f => f.toLowerCase().endsWith('.jsonl'));
+            for (const f of jsonlFiles) {
+                try {
+                    const p = path.join(tbDir, f);
+                    const lines = fs.readFileSync(p, 'utf-8').split('\n');
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const item = JSON.parse(line);
+                            const src = item.src || item.input;
+                            const tgt = item.tgt || item.phrase;
+                            if (src && tgt) {
+                                termbase.push({
+                                    idx: -1,
+                                    src: src,
+                                    tgts: Array.isArray(tgt) ? tgt : [tgt],
+                                    file: f
+                                });
+                            }
+                        } catch (e) {}
+                    }
+                } catch (e) {
+                    console.error("Failed to parse JSONL TB file:", f, e);
+                }
+            }
 
-            termbase = parsedTb.body.units.map((u: any, i: number) => {
-                const info = parsedTb.meta.files.find((f: any) => i >= f.start && i <= f.end);
-                return { ...u, file: info?.name };
-            });
+            // 2. Parse non-JSONL files via SheepShuttle
+            const otherTbFiles = tbFileList.filter(f => !f.toLowerCase().endsWith('.jsonl'));
+            if (otherTbFiles.length > 0) {
+                const tbFilesFull = otherTbFiles.map(f => path.join(tbDir, f));
+                const shuttleTb = new SheepShuttle();
+                const tbFiles = tbFilesFull.map(p => {
+                    const ext = p.split('.').pop()?.toLowerCase() || '';
+                    const isBinary = ['xlsx', 'docx'].includes(ext);
+                    return { name: path.basename(p), content: isBinary ? fs.readFileSync(p) : readTextFile(p) };
+                });
+                await shuttleTb.parse(tbFiles);
+                shuttleTb.process();
+                shuttleTb.convert();
+                const parsedTb = shuttleTb.data;
+
+                termbase.push(...parsedTb.body.units.map((u: any, i: number) => {
+                    const info = parsedTb.meta.files.find((f: any) => i >= f.start && i <= f.end);
+                    return { ...u, file: info?.name };
+                }));
+            }
+        }
+
+        // Direct support: Auto-load active auto_replace_log.jsonl from Working/01_REF if present
+        const defaultLogPath = path.join(root, 'Working', '01_REF', 'auto_replace_log.jsonl');
+        if (fs.existsSync(defaultLogPath)) {
+            try {
+                const lines = fs.readFileSync(defaultLogPath, 'utf-8').split('\n');
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    try {
+                        const item = JSON.parse(line);
+                        const src = item.src || item.input;
+                        const tgt = item.tgt || item.phrase;
+                        if (src && tgt) {
+                            termbase.push({
+                                idx: -1,
+                                src: src,
+                                tgts: Array.isArray(tgt) ? tgt : [tgt],
+                                file: 'auto_replace_log.jsonl'
+                            });
+                        }
+                    } catch (e) {}
+                }
+            } catch (e) {}
         }
 
         // Include internal terms
@@ -456,7 +590,7 @@ export class ShWvData {
         if (fs.existsSync(refDir)) {
             const refFiles = fs.readdirSync(refDir).filter(f => f.endsWith('.json') && fs.statSync(path.join(refDir, f)).isFile());
             for (const file of refFiles) {
-                if (file.toLowerCase() === 'phrase.json') continue;
+                if (file.toLowerCase().startsWith('phrase.')) continue;
 
                 try {
                     const p = path.join(refDir, file);

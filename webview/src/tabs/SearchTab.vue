@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { IconSearch } from '@arco-design/web-vue/es/icon';
+import { useI18nStore } from '../store/i18n.ts';
 import ConcordanceView from '../components/ConcordanceView.vue';
 import FilterView from '../components/FilterView.vue';
 
@@ -11,23 +12,25 @@ const handleCommand = (cmd: string, payload?: any) => {
     emit('SearchCommand', cmd, payload);
 };
 
+const i18nStore = useI18nStore();
+
 </script>
 
 <template>
     <div id="search-tab">
         <div class="header">
-            <a-space>
+            <a-space align="center">
                 <icon-search :style="{ fontSize: '24px', marginRight: '8px' }" />
-                <a-typography-title :heading="4" style="margin: 0">Search</a-typography-title>
+                <a-typography-title :heading="4" style="margin: 0">{{ i18nStore.getText('searchTab', 'typography') }}</a-typography-title>
                 
                 <a-radio-group v-model="mode" type="button" style="margin-left: 16px;">
-                    <a-radio value="concordance">Search (Concordance)</a-radio>
-                    <a-radio value="filter">Filter & Edit</a-radio>
+                    <a-radio value="concordance">{{ i18nStore.getText('searchTab', 'modeConcordance') }}</a-radio>
+                    <a-radio value="filter">{{ i18nStore.getText('searchTab', 'modeFilter') }}</a-radio>
                 </a-radio-group>
             </a-space>
         </div>
 
-        <a-divider />
+        <a-divider style="margin: 16px 0;" />
 
         <div class="content-area">
             <ConcordanceView v-if="mode === 'concordance'" @ConcordanceCommand="handleCommand" />
@@ -43,6 +46,7 @@ const handleCommand = (cmd: string, payload?: any) => {
     padding: 16px;
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
 }
 
 .header {

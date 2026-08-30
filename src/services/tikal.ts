@@ -62,7 +62,7 @@ export function resolveTikalPath(): string {
  * @param dir スキャン対象のディレクトリ
  * @returns フィルタID（現状は 'auto' のみ）をキーとした、絶対パスの配列
  */
-export function groupFilesByFilter(dir: string): Record<string, string[]> {
+export function groupFilesByFilter(dir: string, customFilter?: string): Record<string, string[]> {
   const groups: Record<string, string[]> = {};
 
   if (!fs.existsSync(dir)) return groups;
@@ -76,7 +76,7 @@ export function groupFilesByFilter(dir: string): Record<string, string[]> {
     // サポート対象外のファイルは、フィルタをかけず、抽出対象からも外します（無視）
     if (!supportedExtensions.includes(ext)) continue;
 
-    const fc = 'auto'; // デフォルトではTikalの自動判定（Filter Configuration = auto）を使用
+    const fc = customFilter || 'auto'; // カスタムフィルタ指定時はそれを、無ければTikalの自動判定を使用
     groups[fc] ??= [];
     groups[fc].push(path.join(dir, entry.name));
   }
@@ -101,7 +101,8 @@ export function runTikal(
   mode: 'extract' | 'merge',
   sourceLang?: string,
   targetLang?: string,
-  segmentationOption?: string
+  segmentationOption?: string,
+  rootDir?: string
 ): Promise<void> {
   return new Promise((resolve, reject) => {
 
@@ -109,7 +110,14 @@ export function runTikal(
 
     // 特定のフィルタが指定されている場合は -fc オプションを追加
     if (filter && filter !== 'auto') {
-      args.push('-fc', filter);
+      let filterPath = filter;
+      if (rootDir && !path.isAbsolute(filterPath)) {
+        const resolved = path.resolve(rootDir, filterPath);
+        if (fs.existsSync(resolved)) {
+          filterPath = resolved;
+        }
+      }
+      args.push('-fc', `"${filterPath}"`);
     }
 
     if (sourceLang) {
@@ -136,8 +144,13 @@ export function runTikal(
     let stdout = '';
     let stderr = '';
 
+    const spawnOptions: { shell: boolean; cwd?: string } = { shell: true };
+    if (rootDir && fs.existsSync(rootDir)) {
+      spawnOptions.cwd = rootDir;
+    }
+
     // Windows環境での実行を考慮し、shell: true で spawn を実行
-    const p = spawn(tikalPath, args, { shell: true });
+    const p = spawn(tikalPath, args, spawnOptions);
 
     p.stdout.on('data', d => {
       const content = d.toString();

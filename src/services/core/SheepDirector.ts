@@ -76,8 +76,9 @@ export class SheepDirector {
         }
         this.confirmedLines.add(lineIdx);
 
-        // This method intrinsically updates the unit and propagates to ref.quoted
+        // This method intrinsically updates the unit and propagates to ref.quoted / ref.tms
         this.state.updateUnitTarget(lineIdx, text);
+        this.state.propagateSingleUnit(lineIdx);
     }
 
     /**
@@ -261,17 +262,41 @@ export class SheepDirector {
 
     /**
      * Load phrases from a specific root path.
+     * Supports phrase.jsonl (primary) and legacy phrase.json (fallback).
      */
     public loadPhrasesFromRoot(root: string): void {
-        const phrasePathFull = path.join(root, DirHelper.rootToPhrases);
-        if (fs.existsSync(phrasePathFull)) {
+        const jsonlPath = path.join(root, DirHelper.rootToPhrasesJsonl);
+        const jsonPath = path.join(root, DirHelper.rootToPhrases);
+
+        if (fs.existsSync(jsonlPath)) {
             try {
-                const content = fs.readFileSync(phrasePathFull, 'utf-8');
-                this.phrases = JSON.parse(content);
+                const content = fs.readFileSync(jsonlPath, 'utf-8');
+                const lines = content.split('\n');
+                const phrases: any[] = [];
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    try {
+                        const item = JSON.parse(line);
+                        if (item && item.input && item.phrase) {
+                            phrases.push(item);
+                        }
+                    } catch (e) {}
+                }
+                this.phrases = phrases;
             } catch (e) {
-                console.error('Failed to load phrases:', e);
+                console.error('Failed to load phrase.jsonl:', e);
                 this.phrases = [];
             }
+        } else if (fs.existsSync(jsonPath)) {
+            try {
+                const content = fs.readFileSync(jsonPath, 'utf-8');
+                this.phrases = JSON.parse(content);
+            } catch (e) {
+                console.error('Failed to load phrase.json:', e);
+                this.phrases = [];
+            }
+        } else {
+            this.phrases = [];
         }
     }
 }

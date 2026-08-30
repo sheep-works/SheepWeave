@@ -1,90 +1,71 @@
-## SheepWeave（仮称）とは
+# SheepWeave
 
-機械翻訳＋ポストエディットを AI で支援する VS Code 拡張機能。  
+[English](README.md) | [日本語](README.ja.md) | [简体中文](README.zh-cn.md)
 
-## 技術スタック
+<p align="center">
+  <b>AI Translation & Post-editing Assistant for VS Code</b><br>
+  An extension designed to integrate and accelerate Machine Translation and Post-editing (MTPE) workflows.
+</p>
 
-翻訳ファイル、参考資料、用語集と完成品の **準備／整理／管理** を統合
-**エディタ制御** で打鍵数を削減
-**WebView (Vue SPA)** で翻訳支援に必要な表示
+---
 
-*   **プラットフォーム**: VSCode Extension (TypeScript)
-*   **UI**: WebView + **Vue** (SPA)
-*   **スキャフォールド**: **Yeoman generator**（`yo code`）
-*   **XML 解析**: **xml2js**
-*   **パッケージ管理**: yarn
-*   **ビルド**: Vite（WebView用）
+## 📖 Overview
 
-## 詳細
+**SheepWeave** is an advanced Computer-Assisted Translation (CAT) assistant designed for seamless translation and post-editing (MTPE) in VS Code.  
+Unlike traditional CAT tools, it adopts text editors for target editing, keeping operations lightweight and flexible. It integrates Translation Memory (TM), Termbases (TB), AI (LLM) suggestions, and robust project management into a single editor, significantly reducing keystrokes and friction for translators.
 
-### WebView（Vue SPA）
+---
 
-複数タブを持つ**ユーザー向けGUI**:
+## ✨ Key Features
 
-*   **フロー**タブ
-    *   `準備`ボタン: プロジェクトの初期化・整頓
-    *   `完了`ボタン: 終了／成果物まとめ（将来拡張）
-    *   **統計**: セグメント数、未翻訳数、QA警告数、用語一致率など
-*   **翻訳**タブ
-    *   原文・訳文の並列表示（セグメント単位）
-    *   用語（用語集マッチ）の表示
-    *   **QA機能**（数値・括弧・記号・プレースホルダー不一致など）
-    *   **フィルタ**（未翻訳、注意あり、タグ含む等）
-    *   **AI修正候補の表示**（候補適用ボタン）
+- 🧶 **Dedicated Translation UI (WebView)**
+  - Side-by-side segment display (Source & Target)
+  - Automatic match lookup and one-tap insertion for Translation Memory (TM) and Termbases (TB)
+  - Segment status tracking (Confirmed / Unconfirmed) and progress statistics
+- 🤖 **AI-Assisted Post-editing**
+  - AI-driven target text suggestions and inline application
+  - Concordance search (lookup similar phrases in source/target)
+- 🛡️ **Segment Structure Protection (`.shwvt` / `.shwvs`)**
+  - Protects segment lines to prevent accidental line breaks or format corruption
+- 📁 **Automated Project Setup**
+  - Automates management of input data, working files, and backups (archives)
 
-### エディタ制御
+---
 
-*   独自拡張子 **`.shwv`** を翻訳用のテキストとして扱う（**中身は通常の txt**）
-*   `.shwv` を開いているときは **改行数の変更を禁止**
-    *   行数変化を検知したら **Undo** で自動復帰
-*   数字・用語・プレースホルダー等の**ハイライト**
-*   **AIによる修正候補**（インラインまたは WebView 提案）
+## 🚀 Getting Started
 
-### バックグラウンド（準備処理）
+### 1. Prepare Project
+1. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`).
+2. Run `SheepWeave: Prepare Project`.
+3. The necessary folder structure and project configuration will be generated automatically.
 
-*   `準備`ボタン押下で以下を実行:
-    *   `project.json` の生成/更新
-    *   フォルダ構成調整
-        *   `working/` の中身を `archives/<datetime>/` へ移動
-        *   `data/` の内容を `working/` へコピー
-        *   その後、準備作業（索引・用語抽出・統計など）実施
+### 2. Open Translation Panel
+1. Open a translation file (e.g., `.shwvt`) or click the preview icon at the top right of the editor.
+2. Run `SheepWeave: Open Panel` to launch the dedicated translation panel (WebView).
 
-## WebView（Vue SPA）
+---
 
-### パネル生成（拡張⇄WebView IPC）
+## ⌨️ Key Commands & Shortcuts
 
-## バックグラウンド準備処理
+| Command | Description |
+| :--- | :--- |
+| `SheepWeave: Open Panel` | Open the main translation panel |
+| `SheepWeave: Prepare Project` | Initialize and organize the project environment |
+| `SheepWeave: Confirm Line` | Confirm the current segment and move to the next |
+| `SheepWeave: Go to Next Unconfirmed Segment` | Jump to the next unconfirmed segment |
+| `SheepWeave: Apply TM 1–5` | Apply Translation Memory (TM) match 1–5 |
+| `SheepWeave: Apply Term` | Apply matched Termbase (TB) entry |
+| `SheepWeave: Concordance Search` | Search concordance for selected text |
 
-### フォルダ構成（想定）
+---
 
-    projectRoot/
-    ├─ data/            # 入力データ（最新）
-    ├─ working/         # 作業用（上書き可能）
-    └─ archives/        # 退避（準備時に working を移動）
-        └─ 2026-02-10T10-12-34/
+## 🔗 Links
 
-### 処理フロー
+- **GitHub Repository**: [sheep-works/SheepWeave](https://github.com/sheep-works/SheepWeave)
+- **SheepStorage (Downloads & Docs)**: Distribution site for past `.vsix` releases and documentation
 
-1.  `working/` の内容を `archives/<datetime>/` へ移動
-2.  `data/` の内容を `working/` へ **コピー**
-3.  `project.json` を生成/更新（メタ情報・統計・インデックス）
-4.  用語抽出・索引・統計算出（必要に応じて XLIFF/XML 解析に **xml2js** を使用）
+---
 
-***
+## 📄 License
 
-## 今後の拡張
-
-*   XLIFF ⇄ shwv 相互変換（Okapi-Tikal導線）
-*   用語ベース学習、AI候補のリアルタイムバッチ
-*   TM/Glossary キャッシュと部分一致
-
-***
-
-## 開発メモ（実装 Tips）
-
-*   **Undo ループ防止**にフラグ（`undoing` セット）必須
-*   WebView のバンドルは `vscode.Uri.asWebviewUri` で参照
-*   速度対策：編集中のデコレーション更新は `debounce`
-*   大規模ファイルではセグメント読み込みをページング
-
-***
+[MIT License](LICENSE.txt)

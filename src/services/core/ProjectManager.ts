@@ -98,8 +98,8 @@ export class ProjectManager {
             meta: {
                 bilingualPath: '',
                 files: [],
-                sourceLang: this.data.sourceLanguage.split('-')[0].toLowerCase(),
-                targetLang: this.data.targetLanguage.split('-')[0].toLowerCase(),
+                sourceLang: this.data.sourceLanguage,
+                targetLang: this.data.targetLanguage,
                 tmFiles: [],
                 tbFiles: []
             },
@@ -120,6 +120,13 @@ export class ProjectManager {
                 // ignore
             }
         }
+
+        if (!shwv.meta) {
+            shwv.meta = {};
+        }
+        shwv.meta.sourceLang = this.data.sourceLanguage;
+        shwv.meta.targetLang = this.data.targetLanguage;
+        shwv.meta.projectName = this.data.projectName;
 
         shwv.projectInfo = this.data;
         fs.writeFileSync(this.projectPath, JSON.stringify(shwv, null, 2), 'utf-8');

@@ -10,6 +10,7 @@ import SettingsTab from './tabs/SettingsTab.vue';
 import SearchTab from './tabs/SearchTab.vue';
 import InfoTab from './tabs/InfoTab.vue';
 import LlmTab from './tabs/LlmTab.vue';
+import ToolsTab from './tabs/ToolsTab.vue';
 import { storeToRefs } from 'pinia';
 
 
@@ -38,7 +39,9 @@ const config = ref({
     sourceLang: 'en-US',
     targetLang: 'ja-JP',
     fontSize: 14,
-    bobbinApiKey: ''
+    bobbinApiKey: '',
+    autoReflectLlmToTm: true,
+    versionLogs: ''
 });
 
 function handleCommand(command: string, payload?: any) {
@@ -59,6 +62,9 @@ function updateConfig(newConfig: any) {
     if (newConfig.bobbinApiKey !== undefined) {
         config.value.bobbinApiKey = newConfig.bobbinApiKey;
     }
+    if (newConfig.autoReflectLlmToTm !== undefined) {
+        config.value.autoReflectLlmToTm = newConfig.autoReflectLlmToTm;
+    }
     if (vscode) {
         vscode.postMessage({ type: 'update-config', payload: newConfig });
     }
@@ -74,9 +80,10 @@ onMounted(() => {
                 case '1': activeTab.value = 'flow'; break;
                 case '2': activeTab.value = 'translate'; break;
                 case '3': activeTab.value = 'search'; break;
-                case '4': activeTab.value = 'llm'; break;
-                case '5': activeTab.value = 'information'; break;
-                case '6': activeTab.value = 'settings'; break;
+                case '4': activeTab.value = 'tools'; break;
+                case '5': activeTab.value = 'llm'; break;
+                case '6': activeTab.value = 'information'; break;
+                case '7': activeTab.value = 'settings'; break;
             }
         }
 
@@ -103,6 +110,8 @@ onMounted(() => {
                 if (message.data.targetLang) config.value.targetLang = message.data.targetLang;
                 if (message.data.fontSize) config.value.fontSize = message.data.fontSize;
                 if (message.data.bobbinApiKey !== undefined) config.value.bobbinApiKey = message.data.bobbinApiKey;
+                if (message.data.autoReflectLlmToTm !== undefined) config.value.autoReflectLlmToTm = message.data.autoReflectLlmToTm;
+                if (message.data.versionLogs !== undefined) config.value.versionLogs = message.data.versionLogs;
                 break;
             case 'SHWV_DATA_LOADED':
                 shwvStore.loadData(message.data);
@@ -116,6 +125,11 @@ onMounted(() => {
                     if (message.data.projectInfo.targetLanguage) {
                         config.value.targetLang = message.data.projectInfo.targetLanguage;
                     }
+                }
+                if (message.data.meta) {
+                    if (message.data.meta.projectName) config.value.projectName = message.data.meta.projectName;
+                    if (message.data.meta.sourceLang) config.value.sourceLang = message.data.meta.sourceLang;
+                    if (message.data.meta.targetLang) config.value.targetLang = message.data.meta.targetLang;
                 }
                 break;
             case 'UNITS_UPDATED':
@@ -142,28 +156,6 @@ onMounted(() => {
                     shwvStore.setLlmUnits(message.data.units);
                     shwvStore.setLlmResponse('');
                     activeTab.value = 'llm';
-                    
-                    nextTick(() => {
-                        if (shwvStore.llmChunk.length > 4000) {
-                            shwvStore.setLlmResponse('');
-                            shwvStore.setLlmRequesting(false);
-                            return;
-                        }
-                        if (vscode) {
-                            const promptToSend = shwvStore.llmPrompt
-                                .replace(/{source_lang}/g, shwvStore.sourceLang)
-                                .replace(/{target_lang}/g, shwvStore.targetLang);
-                            vscode.postMessage({
-                                type: 'run-llm-request',
-                                payload: {
-                                    chunk: shwvStore.llmChunk,
-                                    prompt: promptToSend,
-                                    mode: shwvStore.llmMode
-                                }
-                            });
-                            shwvStore.setLlmRequesting(true);
-                        }
-                    });
                 }
                 break;
             case 'LLM_RESPONSE':
@@ -178,6 +170,29 @@ onMounted(() => {
                     shwvStore.setLlmRequesting(false);
                 }
                 break;
+            case 'PROMPT_IMPORTED':
+                if (message.data?.prompt) {
+                    shwvStore.setLlmPrompt(message.data.prompt);
+                }
+                break;
+            case 'LLM_BATCH_PROGRESS':
+                if (message.data) {
+                    shwvStore.setLlmBatchRunning(true);
+                    shwvStore.setLlmBatchProgress(message.data);
+                }
+                break;
+            case 'LLM_BATCH_DONE':
+                shwvStore.setLlmBatchRunning(false);
+                if (message.data) {
+                    shwvStore.setLlmResponse(message.data.result);
+                }
+                break;
+            case 'LLM_BATCH_ERROR':
+                shwvStore.setLlmBatchRunning(false);
+                if (message.data) {
+                    shwvStore.setLlmResponse('Batch Error: ' + message.data.error);
+                }
+                break;
         }
     });
 
@@ -188,30 +203,65 @@ onMounted(() => {
 </script>
 
 <template>
-    <a-spin :loading="loading" tip="Processing..." style="display: block; width: 100%; min-height: 100vh;">
+    <a-spin :loading="loading" :tip="i18nStore.getText('common', 'loading')" style="display: block; width: 100%; min-height: 100vh;">
         <a-layout>
             <a-tabs :active-key="activeTab" @change="(k: any) => activeTab = k as string">
-                <a-tab-pane key="flow" title="Flow">
+                <a-tab-pane key="flow">
+                    <template #title>
+                        <a-tooltip content="Shortcut: Alt+1">
+                            <span>{{ i18nStore.getText('flowTab', 'title') || 'Flow' }}</span>
+                        </a-tooltip>
+                    </template>
                     <FlowTab @FlowCommand="handleCommand" :config="config" />
                 </a-tab-pane>
-                <a-tab-pane key="translate" title="Translate">
+                <a-tab-pane key="translate">
+                    <template #title>
+                        <a-tooltip content="Shortcut: Alt+2">
+                            <span>{{ i18nStore.getText('translateTab', 'title') || 'Translate' }}</span>
+                        </a-tooltip>
+                    </template>
                     <TranslateTab :fontSize="config.fontSize" />
                 </a-tab-pane>
-                <a-tab-pane key="search" title="Search">
+                <a-tab-pane key="search">
+                    <template #title>
+                        <a-tooltip content="Shortcut: Alt+3">
+                            <span>{{ i18nStore.getText('searchTab', 'title') || 'Search' }}</span>
+                        </a-tooltip>
+                    </template>
                     <SearchTab @SearchCommand="handleCommand" />
                 </a-tab-pane>
-                <a-tab-pane key="llm" title="LLM">
+                <a-tab-pane key="tools">
+                    <template #title>
+                        <a-tooltip content="Shortcut: Alt+4">
+                            <span>{{ i18nStore.getText('toolsTab', 'title') || 'Tools' }}</span>
+                        </a-tooltip>
+                    </template>
+                    <ToolsTab />
+                </a-tab-pane>
+                <a-tab-pane key="llm">
+                    <template #title>
+                        <a-tooltip content="Shortcut: Alt+5">
+                            <span>LLM</span>
+                        </a-tooltip>
+                    </template>
                     <LlmTab @LlmCommand="handleCommand" :config="config" @updateConfig="updateConfig" />
                 </a-tab-pane>
-                <a-tab-pane key="information" title="Info">
+                <a-tab-pane key="information">
+                    <template #title>
+                        <a-tooltip content="Shortcut: Alt+6">
+                            <span>{{ i18nStore.getText('infoTab', 'title') || 'Info' }}</span>
+                        </a-tooltip>
+                    </template>
                     <InfoTab @InfoCommand="handleCommand" />
                 </a-tab-pane>
-                <a-tab-pane key="settings" title="Settings">
+                <a-tab-pane key="settings">
+                    <template #title>
+                        <a-tooltip content="Shortcut: Alt+7">
+                            <span>{{ i18nStore.getText('settingsTab', 'title') || 'Settings' }}</span>
+                        </a-tooltip>
+                    </template>
                     <SettingsTab :config="config" @updateConfig="updateConfig" @SettingsCommand="handleCommand" />
                 </a-tab-pane>
-                <!-- <a-tab-pane key="debug" title="Debug">
-                    <DebugTab />
-                </a-tab-pane> -->
             </a-tabs>
         </a-layout>
     </a-spin>

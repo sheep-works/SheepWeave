@@ -39,6 +39,7 @@ export class TbCompletionProvider implements vscode.CompletionItemProvider {
 
                 const item = new vscode.CompletionItem(tgt, vscode.CompletionItemKind.Reference);
                 item.detail = `[TB] ${tb.src} → ${tgt}`;
+                item.filterText = `${tgt} ${tb.src}`;
                 
                 let docText = `**Source:** ${tb.src}\n\n**Target:** ${tgt}`;
                 if (tb.note) {

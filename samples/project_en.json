@@ -1,0 +1,427 @@
+{
+  "define": {
+    "name": "SHWV_DATA",
+    "version": "1.3"
+  },
+  "meta": {
+    "bilingualPath": "D:\\Code\\SheepFamily\\SheepWeave\\scratch\\sample_temp\\Working\\03_XLF_JSON\\project_en.docx.xlf",
+    "files": [
+      {
+        "name": "project_en.docx.xlf",
+        "start": 0,
+        "end": 19
+      }
+    ],
+    "sourceLang": "en-US",
+    "targetLang": "ja-JP",
+    "tmFiles": [],
+    "tbFiles": []
+  },
+  "body": {
+    "units": [
+      {
+        "idx": 0,
+        "src": "Welcome to Sheep Translation Studio.",
+        "pre": "Welcome to Sheep Translation Studio.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 1,
+        "src": "A sheep finds a word.",
+        "pre": "A sheep finds a word.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [],
+          "tb": [],
+          "quoted": [
+            [
+              4,
+              75
+            ],
+            [
+              2,
+              75
+            ]
+          ],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 2,
+        "src": "Another sheep finds a similar word.",
+        "pre": "Another sheep finds a similar word.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [
+            {
+              "idx": 1,
+              "src": "A sheep finds a word.",
+              "tgt": "A sheep finds a word.",
+              "ratio": 75,
+              "diff": "A<ins>nother</ins> sheep finds a <ins>similar </ins>word."
+            }
+          ],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 3,
+        "src": "The sheep compare the words and choose the best one.",
+        "pre": "The sheep compare the words and choose the best one.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 4,
+        "src": "A sheep spins wool.",
+        "pre": "A sheep spins wool.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [
+            {
+              "idx": 1,
+              "src": "A sheep finds a word.",
+              "tgt": "A sheep finds a word.",
+              "ratio": 75,
+              "diff": "A sheep <del>f</del><ins>sp</ins>in<del>d</del>s<del> a</del> wo<del>rd</del><ins>ol</ins>."
+            }
+          ],
+          "tb": [],
+          "quoted": [
+            [
+              5,
+              73
+            ]
+          ],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 5,
+        "src": "Another sheep sells wool.",
+        "pre": "Another sheep sells wool.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [
+            {
+              "idx": 4,
+              "src": "A sheep spins wool.",
+              "tgt": "A sheep spins wool.",
+              "ratio": 73,
+              "diff": "A<ins>nother</ins> sheep s<del>pin</del><ins>ell</ins>s wool."
+            }
+          ],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 6,
+        "src": "The sheep share their stories with the world.",
+        "pre": "The sheep share their stories with the world.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 7,
+        "src": "One sheep writes a story about wool.",
+        "pre": "One sheep writes a story about wool.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [],
+          "tb": [],
+          "quoted": [
+            [
+              11,
+              63
+            ],
+            [
+              8,
+              81
+            ]
+          ],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 8,
+        "src": "Another sheep writes a story about sheep.",
+        "pre": "Another sheep writes a story about sheep.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [
+            {
+              "idx": 7,
+              "src": "One sheep writes a story about wool.",
+              "tgt": "One sheep writes a story about wool.",
+              "ratio": 81,
+              "diff": "<del>O</del><ins>A</ins>n<ins>oth</ins>e<ins>r</ins> sheep writes a story about <del>wool</del><ins>sheep</ins>."
+            }
+          ],
+          "tb": [],
+          "quoted": [
+            [
+              10,
+              70
+            ]
+          ],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 9,
+        "src": "The stories are different, but some words are the same.",
+        "pre": "The stories are different, but some words are the same.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 10,
+        "src": "Last week, we translated a story about sheep.",
+        "pre": "Last week, we translated a story about sheep.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [
+            {
+              "idx": 8,
+              "src": "Another sheep writes a story about sheep.",
+              "tgt": "Another sheep writes a story about sheep.",
+              "ratio": 70,
+              "diff": "<del>Ano</del><ins>Las</ins>t<del>her</del> <del>sh</del><ins>w</ins>ee<del>p</del><ins>k,</ins> w<ins>e t</ins>r<del>i</del><ins>ansla</ins>te<del>s</del><ins>d</ins> a story about sheep."
+            }
+          ],
+          "tb": [],
+          "quoted": [
+            [
+              11,
+              83
+            ]
+          ],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 11,
+        "src": "This week, we translated a story about wool.",
+        "pre": "This week, we translated a story about wool.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [
+            {
+              "idx": 10,
+              "src": "Last week, we translated a story about sheep.",
+              "tgt": "Last week, we translated a story about sheep.",
+              "ratio": 83,
+              "diff": "<del>La</del><ins>Thi</ins>s<del>t</del> week, we translated a story about <del>sheep</del><ins>wool</ins>."
+            },
+            {
+              "idx": 7,
+              "src": "One sheep writes a story about wool.",
+              "tgt": "One sheep writes a story about wool.",
+              "ratio": 63,
+              "diff": "<del>On</del><ins>This week, w</ins>e <ins>tran</ins>s<del>heep wri</del><ins>la</ins>te<del>s</del><ins>d</ins> a story about wool."
+            }
+          ],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 12,
+        "src": "Next week, we will translate another story.",
+        "pre": "Next week, we will translate another story.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 13,
+        "src": "{@0}Translation memory{@1} remembers old translations.",
+        "pre": "{@0}Translation memory{@1} remembers old translations.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [],
+          "tb": [],
+          "quoted": [
+            [
+              14,
+              94
+            ]
+          ],
+          "quoted100": []
+        },
+        "placeholders": {
+          "0": "<run1>",
+          "1": "</run1>"
+        }
+      },
+      {
+        "idx": 14,
+        "src": "{@0}Translation memory{@1} remembers useful translations.",
+        "pre": "{@0}Translation memory{@1} remembers useful translations.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [
+            {
+              "idx": 13,
+              "src": "{@0}Translation memory{@1} remembers old translations.",
+              "tgt": "{@0}Translation memory{@1} remembers old translations.",
+              "ratio": 94,
+              "diff": "{@0}Translation memory{@1} remembers <del>o</del><ins>usefu</ins>l<del>d</del> translations."
+            }
+          ],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {
+          "0": "<run1>",
+          "1": "</run1>"
+        }
+      },
+      {
+        "idx": 15,
+        "src": "{@0}Terminology{@1} helps every sheep use the same words.",
+        "pre": "{@0}Terminology{@1} helps every sheep use the same words.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {
+          "0": "<run1>",
+          "1": "</run1>"
+        }
+      },
+      {
+        "idx": 16,
+        "src": "Together, the sheep work carefully.",
+        "pre": "Together, the sheep work carefully.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [],
+          "tb": [],
+          "quoted": [
+            [
+              17,
+              68
+            ]
+          ],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 17,
+        "src": "Together, the sheep learn new words.",
+        "pre": "Together, the sheep learn new words.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [
+            {
+              "idx": 16,
+              "src": "Together, the sheep work carefully.",
+              "tgt": "Together, the sheep work carefully.",
+              "ratio": 68,
+              "diff": "Together, the sheep <ins>learn new </ins>wor<del>k carefully</del><ins>ds</ins>."
+            }
+          ],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 18,
+        "src": "Together, they make translation easier.",
+        "pre": "Together, they make translation easier.",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {}
+      },
+      {
+        "idx": 19,
+        "src": "sheep",
+        "pre": "sheep",
+        "tgt": "",
+        "status": 0,
+        "ref": {
+          "tms": [],
+          "tb": [],
+          "quoted": [],
+          "quoted100": []
+        },
+        "placeholders": {}
+      }
+    ]
+  }
+}

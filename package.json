@@ -2,8 +2,8 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.0.18",
-  "publisher": "sheepweave",
+  "version": "0.1.4",
+  "publisher": "LambuageLLC",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -13,8 +13,11 @@
     "vscode": "^1.95.0"
   },
   "categories": [
+    "Machine Learning",
     "Other"
   ],
+  "icon": "media/icon.png",
+  "homepage": "https://github.com/sheep-works/SheepWeave",
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:shwvt",
@@ -99,6 +102,14 @@
       {
         "command": "sheepWeave.loadLlmSelection",
         "title": "SheepWeave: Load Selection for LLM"
+      },
+      {
+        "command": "sheepWeave.gotoNextUnconfirmed",
+        "title": "SheepWeave: Go to Next Unconfirmed Segment"
+      },
+      {
+        "command": "sheepWeave.diffTargetWithTm",
+        "title": "SheepWeave: Compare Target with TM / 訳文とTMの差分を表示"
       }
     ],
     "menus": {
@@ -107,6 +118,19 @@
           "command": "sheepWeave.openPanel",
           "group": "navigation",
           "when": "editorLangId == shwvt || editorLangId == shwvs || editorLangId == shwv"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "sheepWeave.openPanel",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "sheepWeave.diffTargetWithTm",
+          "group": "sheepWeaveGroup@2",
+          "when": "editorLangId == shwvt"
         }
       ]
     },
@@ -302,7 +326,14 @@
       },
       {
         "command": "sheepWeave.loadLlmSelection",
-        "key": "ctrl+shift+l",
+        "key": "ctrl+q",
+        "mac": "ctrl+q",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.gotoNextUnconfirmed",
+        "key": "alt+down",
+        "mac": "alt+down",
         "when": "editorTextFocus && editorLangId == shwvt"
       }
     ],
@@ -331,6 +362,11 @@
           "type": "string",
           "default": "71TMRzhzwQSvITAd01PKWVlRfI4zSLa21cdpj_RWu4c",
           "description": "API Key for connecting to the local SheepBobbin server."
+        },
+        "sheepWeave.autoReflectLlmToTm": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to automatically reflect LLM output results into translation memory candidates (refs.tm)."
         },
         "sheepWeave.archiveDateFormat": {
           "type": "string",
@@ -370,6 +406,9 @@
     "package": "yarn build:webview && webpack --mode production --devtool hidden-source-map",
     "lint": "eslint src --ext ts",
     "build:webview": "cd webview && yarn build",
+    "i18n": "cd webview && yarn dev",
+    "sample": "npx ts-node --transpile-only scripts/generate_samples.ts",
+    "sync-manual": "powershell -ExecutionPolicy Bypass -File ./scripts/sync-manual.ps1",
     "vsix": "node -e \"if (!require('fs').existsSync('packages')) require('fs').mkdirSync('packages')\" && vsce package --allow-package-all-secrets --out packages/"
   },
   "devDependencies": {

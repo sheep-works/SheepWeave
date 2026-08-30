@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useShWvStore } from '../store/shwv';
+import { useI18nStore } from '../store/i18n';
 
 const store = useShWvStore();
+const i18nStore = useI18nStore();
 
 const emit = defineEmits(['ConcordanceCommand']);
 
@@ -46,20 +48,23 @@ function highlight(text: string, query: string): string {
     <div class="concordance-view">
         <div class="manual-search-container">
             <a-space>
-                <a-input-search v-model="manualQuery" placeholder="Enter text to search..." style="width: 300px"
+                <a-input-search v-model="manualQuery" :placeholder="i18nStore.getText('searchTab', 'placeholder')" style="width: 300px"
                     @search="handleManualSearch" @press-enter="handleManualSearch" />
                 <a-radio-group v-model="manualMode" type="button">
-                    <a-radio value="source">Source</a-radio>
-                    <a-radio value="target">Target</a-radio>
+                    <a-radio value="source">{{ i18nStore.getText('searchTab', 'modeSource') }}</a-radio>
+                    <a-radio value="target">{{ i18nStore.getText('searchTab', 'modeTarget') }}</a-radio>
                 </a-radio-group>
-                <a-button type="primary" @click="handleManualSearch">Search</a-button>
+                <a-tooltip :content="i18nStore.getText('searchTab', 'tooltipShortcut')">
+                    <a-button type="primary" @click="handleManualSearch">{{ i18nStore.getText('searchTab', 'searchBtn') }}</a-button>
+                </a-tooltip>
             </a-space>
         </div>
 
         <div v-if="!data && !manualQuery" class="empty-state">
-            <p>No concordance search results yet.</p>
-            <p class="subtitle">Select text in the editor and press <code>Ctrl+K</code> (Source) or
-                <code>Ctrl+Shift+K</code> (Target) to search.</p>
+            <p>{{ i18nStore.getText('common', 'nodata') }}</p>
+            <p class="subtitle">
+                {{ i18nStore.getText('searchTab', 'tooltipShortcut') }}
+            </p>
         </div>
         <div v-else-if="data" class="results-container">
             <div class="header">
