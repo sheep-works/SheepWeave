@@ -154,19 +154,19 @@ onMounted(() => {
             case 'LOAD_LLM_CHUNK':
                 if (message.data) {
                     shwvStore.setLlmUnits(message.data.units);
-                    shwvStore.setLlmResponse('');
+                    shwvStore.setLlmPartialResponse('');
                     activeTab.value = 'llm';
                 }
                 break;
             case 'LLM_RESPONSE':
                 if (message.data) {
-                    shwvStore.setLlmResponse(message.data.response);
+                    shwvStore.setLlmPartialResponse(message.data.response);
                     shwvStore.setLlmRequesting(false);
                 }
                 break;
             case 'LLM_ERROR':
                 if (message.data) {
-                    shwvStore.setLlmResponse('Error: ' + message.data.error);
+                    shwvStore.setLlmPartialResponse('Error: ' + message.data.error);
                     shwvStore.setLlmRequesting(false);
                 }
                 break;
@@ -184,13 +184,25 @@ onMounted(() => {
             case 'LLM_BATCH_DONE':
                 shwvStore.setLlmBatchRunning(false);
                 if (message.data) {
-                    shwvStore.setLlmResponse(message.data.result);
+                    shwvStore.setLlmBatchResponse(message.data.result);
                 }
                 break;
             case 'LLM_BATCH_ERROR':
                 shwvStore.setLlmBatchRunning(false);
                 if (message.data) {
-                    shwvStore.setLlmResponse('Batch Error: ' + message.data.error);
+                    shwvStore.setLlmBatchResponse('Batch Error: ' + message.data.error);
+                }
+                break;
+            case 'LLM_CHAT_RESPONSE':
+                if (message.data) {
+                    shwvStore.setLlmChatResponse(message.data.response);
+                    shwvStore.setLlmChatRequesting(false);
+                }
+                break;
+            case 'LLM_CHAT_ERROR':
+                if (message.data) {
+                    shwvStore.setLlmChatResponse('Error: ' + message.data.error);
+                    shwvStore.setLlmChatRequesting(false);
                 }
                 break;
         }

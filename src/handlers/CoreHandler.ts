@@ -7,6 +7,7 @@ import { DirHelper } from '../services/core/DirHelper';
 import { initDirs, prepareWorking, syncRefDir, preprocessor, postprocessor, runTikalExtraction, runPackage, saveAndCloseShwvEditors, incrementalAddSource, advanceWorkflow } from '../services/fileOps';
 import { globalDirector } from '../store';
 import { renderConfirmedDecorations } from '../features/decorators';
+import { BackupOps } from '../services/core/backupOps';
 
 let isLlmBatchCancelled = false;
 
@@ -14,7 +15,15 @@ export class CoreHandler {
     public static async handle(message: any, globalShWvData: ShWvData, rootPath: string, panel: vscode.WebviewPanel) {
         switch (message.type) {
             case 'open-current':
-                vscode.env.openExternal(vscode.Uri.file(rootPath));
+                try {
+                    if (fs.existsSync(rootPath)) {
+                        await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(rootPath));
+                    } else {
+                        vscode.window.showErrorMessage(`フォルダが存在しません: ${rootPath}`);
+                    }
+                } catch (err: any) {
+                    vscode.window.showErrorMessage(`エクスプローラーを開けませんでした: ${err.message || err}`);
+                }
                 break;
             case 'open-workflow-ini': {
                 const workflowPath = path.join(rootPath, 'workflow.ini');
@@ -308,10 +317,17 @@ export class CoreHandler {
                 const config = vscode.workspace.getConfiguration('sheepWeave');
                 let versionLogs = '';
                 try {
-                    const candidatePaths = [
+                    const candidatePaths: string[] = [
+                        path.join(__dirname, 'VersionLogs.md'),
+                        path.join(__dirname, '..', 'VersionLogs.md'),
+                        path.join(__dirname, '..', '..', 'VersionLogs.md'),
                         path.join(rootPath, 'VersionLogs.md'),
                         path.join(rootPath, '..', 'VersionLogs.md')
                     ];
+                    const ext = vscode.extensions.getExtension('LambuageLLC.sheep-weave') || vscode.extensions.all.find(e => e.id.toLowerCase().includes('sheepweave') || e.id.toLowerCase().includes('sheep-weave'));
+                    if (ext) {
+                        candidatePaths.unshift(path.join(ext.extensionPath, 'VersionLogs.md'));
+                    }
                     if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
                         candidatePaths.push(path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, 'VersionLogs.md'));
                     }
@@ -341,6 +357,15 @@ export class CoreHandler {
                         type: 'SHWV_DATA_LOADED',
                         data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalDirector.phrases, projectInfo: globalShWvData.projectInfo }
                     });
+                }
+
+                try {
+                    panel.webview.postMessage({
+                        type: 'BACKUP_LIST_UPDATED',
+                        data: { backups: BackupOps.listBackups(rootPath) }
+                    });
+                } catch (e) {
+                    console.error('Failed to list backups on READY:', e);
                 }
                 break;
             case 'update-units':
@@ -522,6 +547,34 @@ export class CoreHandler {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
                 break;
+            case 'run-llm-chat-request':
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    const { query, includeContext, contextChunk, previousResponse } = message.payload || {};
+                    let chatPrompt = `あなたはプロの翻訳者および翻訳チェッカーのアシスタントです。
+ユーザーから翻訳作業中のセグメントに関する質問や、口調・表現の追加修正指示が与えられます。
+文脈を踏まえ、親切・的確・具体的に回答してください。
+訳文の修正案を提示する場合は、該当する行番号(idx)が分かりやすいように示してください。`;
+
+                    let promptAdditions = '';
+                    if (includeContext) {
+                        if (contextChunk) {
+                            promptAdditions += `\n\n# 対象セグメントの原文・情報 (JSONL):\n${contextChunk}`;
+                        }
+                        if (previousResponse) {
+                            promptAdditions += `\n\n# 直前のAI翻訳出力結果:\n${previousResponse}`;
+                        }
+                    }
+
+                    const finalPrompt = chatPrompt + promptAdditions;
+                    const response = await runLlmRequest(query, finalPrompt);
+                    panel.webview.postMessage({ type: 'LLM_CHAT_RESPONSE', data: { response } });
+                } catch (err: any) {
+                    panel.webview.postMessage({ type: 'LLM_CHAT_ERROR', data: { error: err.message || err } });
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
             case 'cancel-llm-batch':
                 isLlmBatchCancelled = true;
                 break;
@@ -529,6 +582,17 @@ export class CoreHandler {
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 isLlmBatchCancelled = false;
                 try {
+                    // Auto-backup before starting batch translation
+                    try {
+                        await BackupOps.createBackup(rootPath, globalShWvData, 'LLM');
+                        panel.webview.postMessage({
+                            type: 'BACKUP_LIST_UPDATED',
+                            data: { backups: BackupOps.listBackups(rootPath) }
+                        });
+                    } catch (backupErr) {
+                        console.warn('Auto backup before LLM batch failed:', backupErr);
+                    }
+
                     const { prompt, mode, options } = message.payload;
                     const units = globalShWvData.body.units;
                     if (!units || units.length === 0) {
@@ -540,7 +604,9 @@ export class CoreHandler {
                     const chunks: any[][] = [];
                     let currentChunk: any[] = [];
                     let currentLen = 0;
-                    const maxChunkChars = 3500;
+                    const maxChunkChars = (typeof message.payload?.chunkSize === 'number' && message.payload.chunkSize > 0)
+                        ? message.payload.chunkSize
+                        : 3500;
 
                     for (const unit of units) {
                         const historyObj = (unit.ref?.tms && options?.history)
@@ -624,6 +690,55 @@ export class CoreHandler {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
                 break;
+            case 'apply-llm-partial-results':
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    const updates: { idx: number, tgt: string }[] = message.payload?.updates || [];
+                    if (updates.length > 0) {
+                        const shwvtPath = DirHelper.getShwvtPath(rootPath);
+                        const shwvtUri = vscode.Uri.file(shwvtPath);
+                        const doc = await vscode.workspace.openTextDocument(shwvtUri);
+                        const edit = new vscode.WorkspaceEdit();
+
+                        const affectedIdxs: number[] = [];
+                        for (const item of updates) {
+                            const unit = globalShWvData.body.units[item.idx];
+                            if (unit) {
+                                unit.tgt = item.tgt;
+                                // Directly update target without confirming (status remains unconfirmed 0) and without TM registration
+                                unit.status = 0;
+                                affectedIdxs.push(item.idx);
+
+                                if (item.idx < doc.lineCount) {
+                                    const lineRange = doc.lineAt(item.idx).range;
+                                    edit.replace(shwvtUri, lineRange, item.tgt);
+                                }
+                            }
+                        }
+
+                        await vscode.workspace.applyEdit(edit);
+                        await doc.save();
+                        globalShWvData.save(rootPath);
+
+                        globalDirector.initializeFromState();
+                        if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.uri.fsPath === shwvtPath) {
+                            renderConfirmedDecorations(vscode.window.activeTextEditor);
+                        }
+
+                        panel.webview.postMessage({
+                            type: 'SHWV_DATA_LOADED',
+                            data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalDirector.phrases, projectInfo: globalShWvData.projectInfo }
+                        });
+                        vscode.window.showInformationMessage(`Applied LLM translation directly to ${affectedIdxs.length} segments.`);
+                    } else {
+                        vscode.window.showWarningMessage('No valid segments to apply.');
+                    }
+                } catch (err: any) {
+                    vscode.window.showErrorMessage(`Failed to apply partial LLM results: ${err.message || err}`);
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
             case 'apply-llm-results':
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {
@@ -632,8 +747,29 @@ export class CoreHandler {
                     const autoReflect = config.get<boolean>('autoReflectLlmToTm') ?? true;
                     const updatedCount = CoreHandler.applyLlmResultText(globalShWvData, resultText, autoReflect);
                     if (updatedCount > 0) {
-                        await globalShWvData.writeShwv(rootPath);
+                        const shwvtPath = DirHelper.getShwvtPath(rootPath);
+                        const shwvtUri = vscode.Uri.file(shwvtPath);
+                        const doc = await vscode.workspace.openTextDocument(shwvtUri);
+                        const edit = new vscode.WorkspaceEdit();
+
+                        for (let idx = 0; idx < globalShWvData.body.units.length; idx++) {
+                            const unit = globalShWvData.body.units[idx];
+                            if (unit && idx < doc.lineCount) {
+                                const text = unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src);
+                                if (doc.lineAt(idx).text !== text) {
+                                    edit.replace(shwvtUri, doc.lineAt(idx).range, text);
+                                }
+                            }
+                        }
+                        await vscode.workspace.applyEdit(edit);
+                        await doc.save();
                         globalShWvData.save(rootPath);
+
+                        globalDirector.initializeFromState();
+                        if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.uri.fsPath === shwvtPath) {
+                            renderConfirmedDecorations(vscode.window.activeTextEditor);
+                        }
+
                         panel.webview.postMessage({
                             type: 'SHWV_DATA_LOADED',
                             data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalDirector.phrases, projectInfo: globalShWvData.projectInfo }
@@ -660,7 +796,6 @@ export class CoreHandler {
                         }
                     }
                     if (deletedCount > 0) {
-                        await globalShWvData.writeShwv(rootPath);
                         globalShWvData.save(rootPath);
                         panel.webview.postMessage({
                             type: 'SHWV_DATA_LOADED',
@@ -701,6 +836,59 @@ export class CoreHandler {
                     vscode.window.showErrorMessage(`Failed to import prompt: ${err.message || err}`);
                 }
                 break;
+            case 'create-backup':
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    const tag = message.payload?.tag;
+                    const folderName = await BackupOps.createBackup(rootPath, globalShWvData, tag);
+                    panel.webview.postMessage({
+                        type: 'BACKUP_LIST_UPDATED',
+                        data: { backups: BackupOps.listBackups(rootPath) }
+                    });
+                    vscode.window.showInformationMessage(`Created project backup: ${folderName}`);
+                } catch (err: any) {
+                    vscode.window.showErrorMessage(`Failed to create backup: ${err.message || err}`);
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
+            case 'list-backups':
+                try {
+                    panel.webview.postMessage({
+                        type: 'BACKUP_LIST_UPDATED',
+                        data: { backups: BackupOps.listBackups(rootPath) }
+                    });
+                } catch (err: any) {
+                    console.error('Failed to list backups:', err);
+                }
+                break;
+            case 'restore-backup':
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    const folderName = message.payload?.folderName;
+                    if (!folderName) {
+                        vscode.window.showWarningMessage('No backup selected to restore.');
+                        break;
+                    }
+                    await BackupOps.restoreBackup(rootPath, folderName, globalShWvData, panel);
+                    vscode.window.showInformationMessage(`Successfully restored project from backup: ${folderName}`);
+                } catch (err: any) {
+                    vscode.window.showErrorMessage(`Failed to restore backup: ${err.message || err}`);
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
+            case 'open-backup-folder':
+                try {
+                    const backupDir = BackupOps.getBackupDir(rootPath);
+                    if (!fs.existsSync(backupDir)) {
+                        fs.mkdirSync(backupDir, { recursive: true });
+                    }
+                    await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(backupDir));
+                } catch (err: any) {
+                    vscode.window.showErrorMessage(`エクスプローラーを開けませんでした: ${err.message || err}`);
+                }
+                break;
             case 'scan-filter-files': {
                 try {
                     const filterFiles: string[] = [];
@@ -735,7 +923,15 @@ export class CoreHandler {
                             .map(f => path.join('prompts', f).replace(/\\/g, '/'));
                         promptFiles.push(...inPrompts);
                     }
-                    // 2. Check root directory
+                    // 2. Check Working/01_REF/ folder
+                    const refDir = path.join(rootPath, 'Working', '01_REF');
+                    if (fs.existsSync(refDir)) {
+                        const inRef = fs.readdirSync(refDir)
+                            .filter(f => f.toLowerCase().endsWith('.md') && fs.statSync(path.join(refDir, f)).isFile())
+                            .map(f => path.join('Working/01_REF', f).replace(/\\/g, '/'));
+                        promptFiles.push(...inRef);
+                    }
+                    // 3. Check root directory
                     const inRoot = fs.readdirSync(rootPath)
                         .filter(f => f.toLowerCase().endsWith('.md') && fs.statSync(path.join(rootPath, f)).isFile())
                         .map(f => f);
@@ -762,6 +958,142 @@ export class CoreHandler {
                 }
                 vscode.window.showInformationMessage('phrase.jsonl updated successfully.');
                 break;
+            case 'fetch-sample-resources': {
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    const filtersUrl = 'https://storage.lambuage.com/bundled_filters.json';
+                    const promptsUrl = 'https://storage.lambuage.com/bundled_prompts.json';
+
+                    const fetchJson = async (url: string): Promise<any> => {
+                        if (typeof fetch === 'function') {
+                            const res = await fetch(url);
+                            if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+                            return await res.json();
+                        } else {
+                            const https = await import('https');
+                            return new Promise((resolve, reject) => {
+                                https.get(url, (res) => {
+                                    if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+                                        return reject(new Error(`HTTP ${res.statusCode}`));
+                                    }
+                                    let raw = '';
+                                    res.on('data', chunk => raw += chunk);
+                                    res.on('end', () => {
+                                        try {
+                                            resolve(JSON.parse(raw));
+                                        } catch (e) {
+                                            reject(e);
+                                        }
+                                    });
+                                }).on('error', reject);
+                            });
+                        }
+                    };
+
+                    const [filtersData, promptsData] = await Promise.all([
+                        fetchJson(filtersUrl),
+                        fetchJson(promptsUrl)
+                    ]);
+
+                    const filtersDir = path.join(rootPath, 'filters');
+                    const promptsDir = path.join(rootPath, 'prompts');
+
+                    if (!fs.existsSync(filtersDir)) {
+                        fs.mkdirSync(filtersDir, { recursive: true });
+                    }
+                    if (!fs.existsSync(promptsDir)) {
+                        fs.mkdirSync(promptsDir, { recursive: true });
+                    }
+
+                    let createdFilters = 0;
+                    let skippedFilters = 0;
+                    if (Array.isArray(filtersData)) {
+                        for (const item of filtersData) {
+                            const fileName = item.name || item.idx;
+                            if (!fileName || !item.data) continue;
+                            const filePath = path.join(filtersDir, fileName);
+                            if (fs.existsSync(filePath)) {
+                                skippedFilters++;
+                            } else {
+                                fs.writeFileSync(filePath, item.data, 'utf-8');
+                                createdFilters++;
+                            }
+                        }
+                    }
+
+                    let createdPrompts = 0;
+                    let skippedPrompts = 0;
+                    if (Array.isArray(promptsData)) {
+                        for (const item of promptsData) {
+                            const fileName = item.name || item.idx;
+                            if (!fileName || !item.data) continue;
+                            const filePath = path.join(promptsDir, fileName);
+                            if (fs.existsSync(filePath)) {
+                                skippedPrompts++;
+                            } else {
+                                fs.writeFileSync(filePath, item.data, 'utf-8');
+                                createdPrompts++;
+                            }
+                        }
+                    }
+
+                    // Rescan filter and prompt lists for webview
+                    try {
+                        const filterFiles: string[] = [];
+                        if (fs.existsSync(filtersDir)) {
+                            const inFilters = fs.readdirSync(filtersDir)
+                                .filter(f => f.toLowerCase().endsWith('.fprm') && fs.statSync(path.join(filtersDir, f)).isFile())
+                                .map(f => path.join('filters', f).replace(/\\/g, '/'));
+                            filterFiles.push(...inFilters);
+                        }
+                        const inRootFilters = fs.readdirSync(rootPath)
+                            .filter(f => f.toLowerCase().endsWith('.fprm') && fs.statSync(path.join(rootPath, f)).isFile())
+                            .map(f => f);
+                        filterFiles.push(...inRootFilters);
+                        panel.webview.postMessage({ type: 'FILTER_FILES_SCANNED', data: filterFiles });
+
+                        const promptFiles: string[] = [];
+                        if (fs.existsSync(promptsDir)) {
+                            const inPrompts = fs.readdirSync(promptsDir)
+                                .filter(f => f.toLowerCase().endsWith('.md') && fs.statSync(path.join(promptsDir, f)).isFile())
+                                .map(f => path.join('prompts', f).replace(/\\/g, '/'));
+                            promptFiles.push(...inPrompts);
+                        }
+                        const refDir = path.join(rootPath, 'Working', '01_REF');
+                        if (fs.existsSync(refDir)) {
+                            const inRef = fs.readdirSync(refDir)
+                                .filter(f => f.toLowerCase().endsWith('.md') && fs.statSync(path.join(refDir, f)).isFile())
+                                .map(f => path.join('Working/01_REF', f).replace(/\\/g, '/'));
+                            promptFiles.push(...inRef);
+                        }
+                        const inRootPrompts = fs.readdirSync(rootPath)
+                            .filter(f => f.toLowerCase().endsWith('.md') && fs.statSync(path.join(rootPath, f)).isFile())
+                            .map(f => f);
+                        promptFiles.push(...inRootPrompts);
+                        panel.webview.postMessage({ type: 'PROMPT_FILES_SCANNED', data: promptFiles });
+                    } catch (scanErr) {
+                        console.error('Error rescanning files after fetching samples:', scanErr);
+                    }
+
+                    const infoMsg = `サンプルデータを取得しました。\n` +
+                        `・フィルター (filters/): ${createdFilters}件作成 (${skippedFilters}件スキップ)\n` +
+                        `・プロンプト (prompts/): ${createdPrompts}件作成 (${skippedPrompts}件スキップ)`;
+                    vscode.window.showInformationMessage(infoMsg);
+                    panel.webview.postMessage({
+                        type: 'FETCH_SAMPLES_COMPLETED',
+                        data: { createdFilters, skippedFilters, createdPrompts, skippedPrompts }
+                    });
+                } catch (err: any) {
+                    vscode.window.showErrorMessage(`サンプルデータの取得に失敗しました: ${err.message || err}`);
+                    panel.webview.postMessage({
+                        type: 'FETCH_SAMPLES_ERROR',
+                        data: { error: err.message || err }
+                    });
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
+            }
             default:
                 break;
         }

@@ -33,6 +33,7 @@ export const useShWvStore = defineStore('shwv', {
         crtPos: 0,
         maxPos: 0,
         llmUnits: [] as any[],
+        llmPartialIndices: [] as number[],
         llmChunkOptions: {
             src: true,
             tgt: true,
@@ -41,11 +42,20 @@ export const useShWvStore = defineStore('shwv', {
             terms: false
         },
         llmResponse: '',
+        llmPartialResponse: '',
+        llmBatchResponse: '',
         llmPrompt: DEFAULT_LLM_PROMPT,
         llmRequesting: false,
         llmMode: 'normal' as 'normal' | 'advanced',
         llmBatchRunning: false,
         llmBatchProgress: { current: 0, total: 0, status: '' },
+        llmChatQuery: '',
+        llmChatResponse: '',
+        llmChatRequesting: false,
+        llmChatIncludeContext: true,
+        llmUseLocalPrompt: false,
+        llmSelectedPromptFile: '',
+        llmBatchChunkSize: 3500,
     }),
     actions: {
         setConcordanceData(data: { query: string, mode: string, tbMatches: any[], tmMatches: any[], currentDocumentMatches: any[] }) {
@@ -99,9 +109,18 @@ export const useShWvStore = defineStore('shwv', {
         },
         setLlmUnits(units: any[]) {
             this.llmUnits = units;
+            this.llmPartialIndices = units.map((u: any) => u.idx);
         },
         setLlmResponse(response: string) {
             this.llmResponse = response;
+            this.llmPartialResponse = response;
+        },
+        setLlmPartialResponse(response: string) {
+            this.llmPartialResponse = response;
+            this.llmResponse = response;
+        },
+        setLlmBatchResponse(response: string) {
+            this.llmBatchResponse = response;
         },
         setLlmRequesting(requesting: boolean) {
             this.llmRequesting = requesting;
@@ -124,6 +143,27 @@ export const useShWvStore = defineStore('shwv', {
         },
         setLlmPrompt(prompt: string) {
             this.llmPrompt = prompt;
+        },
+        setLlmChatQuery(query: string) {
+            this.llmChatQuery = query;
+        },
+        setLlmChatResponse(response: string) {
+            this.llmChatResponse = response;
+        },
+        setLlmChatRequesting(requesting: boolean) {
+            this.llmChatRequesting = requesting;
+        },
+        setLlmChatIncludeContext(include: boolean) {
+            this.llmChatIncludeContext = include;
+        },
+        setLlmUseLocalPrompt(useLocal: boolean) {
+            this.llmUseLocalPrompt = useLocal;
+        },
+        setLlmSelectedPromptFile(file: string) {
+            this.llmSelectedPromptFile = file;
+        },
+        setLlmBatchChunkSize(size: number) {
+            this.llmBatchChunkSize = size;
         }
     },
     getters: {

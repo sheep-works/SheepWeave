@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
-import { IconSettings, IconDelete, IconPlus } from '@arco-design/web-vue/es/icon';
+import { IconSettings, IconDelete, IconPlus, IconDownload } from '@arco-design/web-vue/es/icon';
 import { useShWvStore } from '../store/shwv';
 import { useI18nStore } from '../store/i18n';
 import { storeToRefs } from 'pinia';
@@ -22,12 +22,19 @@ const { locale } = storeToRefs(i18nStore);
 const localFontSize = ref(props.config.fontSize);
 const localPhrases = ref<any[]>([]);
 const activeTab = ref('editor');
+const fetchingSamples = ref(false);
 
 const extensionVersion = (window as any).SHEEP_WEAVE_VERSION || '0.0.0';
 const testVer = ref(import.meta.env.VITE_TEST_VER || "");
 
 onMounted(() => {
   localPhrases.value = JSON.parse(JSON.stringify(phrases.value || []));
+  window.addEventListener('message', (event) => {
+    const message = event.data;
+    if (message.type === 'FETCH_SAMPLES_COMPLETED' || message.type === 'FETCH_SAMPLES_ERROR') {
+      fetchingSamples.value = false;
+    }
+  });
 });
 
 watch(phrases, (newVal) => {
@@ -40,6 +47,11 @@ watch(() => props.config.fontSize, (newVal) => {
 
 function handleFontSizeChange(value: number) {
   emit('updateConfig', { fontSize: value });
+}
+
+function handleFetchSamples() {
+  fetchingSamples.value = true;
+  emit('SettingsCommand', 'fetch-sample-resources');
 }
 
 function addPhrase() {
@@ -95,6 +107,16 @@ function savePhrases() {
                 </a-tooltip>
               </a-form-item>
             </a-form>
+          </a-card>
+
+          <a-card :title="i18nStore.getText('settingsTab', 'samplesCard') || 'サンプルデータ'" :bordered="false" class="settings-card">
+            <a-typography-paragraph type="secondary" style="margin-bottom: 12px; font-size: 13px;">
+              {{ i18nStore.getText('settingsTab', 'samplesHelp') || '公式のフィルター定義 (.fprm) およびサンプルプロンプト (.md) をダウンロードしてプロジェクト（filters / prompts）に配置します。（既存ファイルはスキップされます）' }}
+            </a-typography-paragraph>
+            <a-button type="primary" :loading="fetchingSamples" @click="handleFetchSamples">
+              <template #icon><icon-download /></template>
+              {{ i18nStore.getText('settingsTab', 'fetchSamplesBtn') || 'サンプルプロンプトとフィルターを取得' }}
+            </a-button>
           </a-card>
         </div>
       </a-tab-pane>

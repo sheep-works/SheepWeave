@@ -9,6 +9,7 @@ import { renameLikeReplaceCommand } from './commands/renameLikeReplace';
 import { startAddTermSide, confirmAddTermSide, cancelAddTermSide } from './commands/addTermSide';
 import { confirmLineCommand } from './commands/confirmLine';
 import { gotoNextUnconfirmedCommand } from './commands/gotoNextUnconfirmed';
+import { gotoPrevUnconfirmedCommand } from './commands/gotoPrevUnconfirmed';
 import { concordanceSearchCommand } from './commands/concordanceSearch';
 import { diffTargetWithTmCommand } from './commands/diffTargetWithTm';
 import { initEditorGuard } from './features/editorGuard';
@@ -71,6 +72,9 @@ export function activate(context: vscode.ExtensionContext) {
         }),
         vscode.commands.registerCommand('sheepWeave.gotoNextUnconfirmed', () => {
             gotoNextUnconfirmedCommand();
+        }),
+        vscode.commands.registerCommand('sheepWeave.gotoPrevUnconfirmed', () => {
+            gotoPrevUnconfirmedCommand();
         })
     );
 

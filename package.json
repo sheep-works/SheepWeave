@@ -108,6 +108,10 @@
         "title": "SheepWeave: Go to Next Unconfirmed Segment"
       },
       {
+        "command": "sheepWeave.gotoPrevUnconfirmed",
+        "title": "SheepWeave: Go to Previous Unconfirmed Segment"
+      },
+      {
         "command": "sheepWeave.diffTargetWithTm",
         "title": "SheepWeave: Compare Target with TM / 訳文とTMの差分を表示"
       }
@@ -334,6 +338,12 @@
         "command": "sheepWeave.gotoNextUnconfirmed",
         "key": "alt+down",
         "mac": "alt+down",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
+        "command": "sheepWeave.gotoPrevUnconfirmed",
+        "key": "alt+up",
+        "mac": "alt+up",
         "when": "editorTextFocus && editorLangId == shwvt"
       }
     ],
