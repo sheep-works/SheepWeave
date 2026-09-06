@@ -41,6 +41,8 @@ const config = ref({
     fontSize: 14,
     bobbinApiKey: '',
     autoReflectLlmToTm: true,
+    termDecorationColor: '#e5c07b',
+    termDecorationLineRange: 2,
     versionLogs: ''
 });
 
@@ -64,6 +66,12 @@ function updateConfig(newConfig: any) {
     }
     if (newConfig.autoReflectLlmToTm !== undefined) {
         config.value.autoReflectLlmToTm = newConfig.autoReflectLlmToTm;
+    }
+    if (newConfig.termDecorationColor !== undefined) {
+        config.value.termDecorationColor = newConfig.termDecorationColor;
+    }
+    if (newConfig.termDecorationLineRange !== undefined) {
+        config.value.termDecorationLineRange = newConfig.termDecorationLineRange;
     }
     if (vscode) {
         vscode.postMessage({ type: 'update-config', payload: newConfig });
@@ -111,6 +119,8 @@ onMounted(() => {
                 if (message.data.fontSize) config.value.fontSize = message.data.fontSize;
                 if (message.data.bobbinApiKey !== undefined) config.value.bobbinApiKey = message.data.bobbinApiKey;
                 if (message.data.autoReflectLlmToTm !== undefined) config.value.autoReflectLlmToTm = message.data.autoReflectLlmToTm;
+                if (message.data.termDecorationColor !== undefined) config.value.termDecorationColor = message.data.termDecorationColor;
+                if (message.data.termDecorationLineRange !== undefined) config.value.termDecorationLineRange = message.data.termDecorationLineRange;
                 if (message.data.versionLogs !== undefined) config.value.versionLogs = message.data.versionLogs;
                 break;
             case 'SHWV_DATA_LOADED':

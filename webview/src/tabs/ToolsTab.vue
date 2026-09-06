@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useShWvStore } from '../store/shwv';
 import { useI18nStore } from '../store/i18n';
 import { DiffUtils, type DiffResult } from '../utils/diffUtils';
+import { getVsCodeApi } from '../vscode';
 import {
   IconTool,
   IconPlayArrow,
@@ -20,6 +21,13 @@ const i18nStore = useI18nStore();
 
 const activeTab = ref('diff');
 const diffMode = ref<'segment' | 'manual'>('segment');
+
+function handleExportReviewHtml() {
+  const vscode = getVsCodeApi();
+  if (vscode) {
+    vscode.postMessage({ type: 'shuttle-export-review-html' });
+  }
+}
 
 // ==================== Segment TM Target Diff Mode ====================
 const currentUnitIdx = computed(() => shwvStore.crtPos);
@@ -358,7 +366,22 @@ const filteredBatchDiff = computed(() => {
         </div>
       </a-tab-pane>
 
-      <!-- 2. QA Subtab (QA) -->
+      <!-- 2. Review HTML Export Subtab -->
+      <a-tab-pane key="review" :title="i18nStore.getText('toolsTab', 'reviewSubtab') || 'レビュー'">
+        <div class="pane-content">
+          <a-card :title="i18nStore.getText('toolsTab', 'exportReviewHtmlCard') || 'レビュー用HTML出力'" :bordered="false" class="tools-card">
+            <a-typography-paragraph type="secondary" style="font-size: 13px; margin-bottom: 16px;">
+              {{ i18nStore.getText('toolsTab', 'exportReviewHtmlHelp') || '登録用語がハイライトされ段落が再構成された静的HTML (Review_Terms.html) を出力します。ブラウザで安全に全件レビューや印刷が可能です。' }}
+            </a-typography-paragraph>
+            <a-button type="primary" status="success" size="large" @click="handleExportReviewHtml">
+              <template #icon><icon-file /></template>
+              {{ i18nStore.getText('toolsTab', 'exportReviewHtmlBtn') || 'レビュー用HTMLを出力' }}
+            </a-button>
+          </a-card>
+        </div>
+      </a-tab-pane>
+
+      <!-- 3. QA Subtab (QA) -->
       <a-tab-pane key="qa" :title="i18nStore.getText('toolsTab', 'qaSubtab') || 'QA'">
         <div class="pane-content">
           <a-card :bordered="false" class="tools-card">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, computed } from 'vue';
 import { IconSettings, IconDelete, IconPlus, IconDownload } from '@arco-design/web-vue/es/icon';
 import { useShWvStore } from '../store/shwv';
 import { useI18nStore } from '../store/i18n';
@@ -20,6 +20,8 @@ const { phrases } = storeToRefs(shwvStore);
 const { locale } = storeToRefs(i18nStore);
 
 const localFontSize = ref(props.config.fontSize);
+const localTermLineRange = ref(props.config.termDecorationLineRange ?? 2);
+const localTermColor = ref(props.config.termDecorationColor || '#e5c07b');
 const localPhrases = ref<any[]>([]);
 const activeTab = ref('editor');
 const fetchingSamples = ref(false);
@@ -45,8 +47,24 @@ watch(() => props.config.fontSize, (newVal) => {
   localFontSize.value = newVal;
 });
 
+watch(() => props.config.termDecorationLineRange, (newVal) => {
+  if (newVal !== undefined) localTermLineRange.value = newVal;
+});
+
+watch(() => props.config.termDecorationColor, (newVal) => {
+  if (newVal !== undefined) localTermColor.value = newVal;
+});
+
 function handleFontSizeChange(value: number) {
   emit('updateConfig', { fontSize: value });
+}
+
+function handleTermLineRangeChange(value: number) {
+  emit('updateConfig', { termDecorationLineRange: value });
+}
+
+function handleTermColorChange(value: string) {
+  emit('updateConfig', { termDecorationColor: value });
 }
 
 function handleFetchSamples() {
@@ -67,6 +85,37 @@ function savePhrases() {
   const cleanPhrases = localPhrases.value.filter(p => p.input.trim() || p.phrase.trim());
   emit('SettingsCommand', 'update-phrases', cleanPhrases);
 }
+
+interface VersionLogItem {
+  version: string;
+  items: string[];
+}
+
+const parsedVersionLogs = computed<VersionLogItem[]>(() => {
+  const raw = props.config.versionLogs;
+  if (!raw) return [];
+  const lines = raw.split(/\r?\n/);
+  const result: VersionLogItem[] = [];
+  let current: VersionLogItem | null = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const headerMatch = trimmed.match(/^#\s+(.+)$/);
+    if (headerMatch) {
+      if (current) {
+        result.push(current);
+      }
+      current = { version: headerMatch[1], items: [] };
+    } else if (current) {
+      current.items.push(trimmed);
+    }
+  }
+  if (current) {
+    result.push(current);
+  }
+  return result;
+});
 </script>
 
 <template>
@@ -104,6 +153,20 @@ function savePhrases() {
                 <a-tooltip :content="i18nStore.getText('settingsTab', 'fontSizeTooltip')">
                   <a-input-number v-model="localFontSize" :min="8" :max="72" @change="handleFontSizeChange"
                     style="width: 120px" />
+                </a-tooltip>
+              </a-form-item>
+
+              <a-form-item :label="i18nStore.getText('settingsTab', 'termLineRange') || 'Term Highlight Range (Lines)'">
+                <a-tooltip :content="i18nStore.getText('settingsTab', 'termLineRangeTooltip')">
+                  <a-input-number v-model="localTermLineRange" :min="0" :max="20" @change="handleTermLineRangeChange"
+                    style="width: 120px" />
+                </a-tooltip>
+              </a-form-item>
+
+              <a-form-item :label="i18nStore.getText('settingsTab', 'termColor') || 'Term Highlight Color'">
+                <a-tooltip :content="i18nStore.getText('settingsTab', 'termColorTooltip')">
+                  <a-color-picker v-model="localTermColor" :show-text="true" :disabled-alpha="true" @change="handleTermColorChange"
+                    style="width: 160px" />
                 </a-tooltip>
               </a-form-item>
             </a-form>
@@ -180,8 +243,16 @@ function savePhrases() {
           </a-card>
 
           <a-card :title="i18nStore.getText('settingsTab', 'versionLogsCard') || 'バージョン履歴 (Version Logs)'" :bordered="false" class="settings-card">
-            <div v-if="props.config.versionLogs" class="version-logs-container">
-              <pre class="version-logs-pre">{{ props.config.versionLogs }}</pre>
+            <div v-if="parsedVersionLogs.length > 0" class="version-logs-container">
+              <a-collapse :default-active-key="[parsedVersionLogs[0].version]" accordion>
+                <a-collapse-item v-for="log in parsedVersionLogs" :key="log.version" :header="'v' + log.version">
+                  <ul style="margin: 0; padding-left: 20px; line-height: 1.8; color: var(--vscode-foreground);">
+                    <li v-for="(item, idx) in log.items" :key="idx">
+                      {{ item }}
+                    </li>
+                  </ul>
+                </a-collapse-item>
+              </a-collapse>
             </div>
             <div v-else class="empty-state" style="padding: 12px 0;">
               <a-typography-text type="secondary">

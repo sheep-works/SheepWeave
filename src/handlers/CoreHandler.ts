@@ -348,6 +348,8 @@ export class CoreHandler {
                         fontSize: config.get<number>('translateTab.fontSize') || 14,
                         bobbinApiKey: config.get<string>('bobbinApiKey') || '',
                         autoReflectLlmToTm: config.get<boolean>('autoReflectLlmToTm') ?? true,
+                        termDecorationColor: config.get<string>('termDecorationColor') || '#e5c07b',
+                        termDecorationLineRange: config.get<number>('termDecorationLineRange') ?? 2,
                         versionLogs
                     }
                 });
@@ -431,6 +433,12 @@ export class CoreHandler {
                 if (updatePayload.autoReflectLlmToTm !== undefined) {
                     await workspaceConfig.update('autoReflectLlmToTm', updatePayload.autoReflectLlmToTm, vscode.ConfigurationTarget.Global);
                 }
+                if (updatePayload.termDecorationColor !== undefined) {
+                    await workspaceConfig.update('termDecorationColor', updatePayload.termDecorationColor, vscode.ConfigurationTarget.Global);
+                }
+                if (updatePayload.termDecorationLineRange !== undefined) {
+                    await workspaceConfig.update('termDecorationLineRange', updatePayload.termDecorationLineRange, vscode.ConfigurationTarget.Global);
+                }
                 break;
             case 'propagate-quoted':
                 try {
@@ -484,8 +492,24 @@ export class CoreHandler {
                     console.error('Failed to toggle PE Ref:', err);
                 }
                 break;
+            case 'goto-line':
+                try {
+                    const { line } = message.payload || {};
+                    if (typeof line === 'number') {
+                        const shwvtPath = DirHelper.getShwvtPath(rootPath);
+                        if (fs.existsSync(shwvtPath)) {
+                            const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(shwvtPath));
+                            const editor = await vscode.window.showTextDocument(doc, { preserveFocus: false });
+                            const targetPos = new vscode.Position(line, 0);
+                            editor.selection = new vscode.Selection(targetPos, targetPos);
+                            editor.revealRange(new vscode.Range(targetPos, targetPos), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed to jump to line:', err);
+                }
+                break;
             case 'run-llm-request':
-                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {
                     const { chunk, prompt, mode } = message.payload;
                     let finalPrompt = prompt;
@@ -543,12 +567,9 @@ export class CoreHandler {
                     panel.webview.postMessage({ type: 'LLM_RESPONSE', data: { response } });
                 } catch (err: any) {
                     panel.webview.postMessage({ type: 'LLM_ERROR', data: { error: err.message || err } });
-                } finally {
-                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
                 break;
             case 'run-llm-chat-request':
-                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {
                     const { query, includeContext, contextChunk, previousResponse } = message.payload || {};
                     let chatPrompt = `あなたはプロの翻訳者および翻訳チェッカーのアシスタントです。
@@ -571,8 +592,6 @@ export class CoreHandler {
                     panel.webview.postMessage({ type: 'LLM_CHAT_RESPONSE', data: { response } });
                 } catch (err: any) {
                     panel.webview.postMessage({ type: 'LLM_CHAT_ERROR', data: { error: err.message || err } });
-                } finally {
-                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
                 break;
             case 'cancel-llm-batch':
@@ -632,7 +651,6 @@ export class CoreHandler {
                     if (currentChunk.length > 0) chunks.push(currentChunk);
 
                     let batchResults = '';
-                    let updatedUnitsCount = 0;
 
                     for (let i = 0; i < chunks.length; i++) {
                         if (isLlmBatchCancelled) {
@@ -694,6 +712,7 @@ export class CoreHandler {
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {
                     const updates: { idx: number, tgt: string }[] = message.payload?.updates || [];
+                    const applyToPre = message.payload?.applyToPre !== false;
                     if (updates.length > 0) {
                         const shwvtPath = DirHelper.getShwvtPath(rootPath);
                         const shwvtUri = vscode.Uri.file(shwvtPath);
@@ -705,6 +724,9 @@ export class CoreHandler {
                             const unit = globalShWvData.body.units[item.idx];
                             if (unit) {
                                 unit.tgt = item.tgt;
+                                if (applyToPre) {
+                                    unit.pre = item.tgt;
+                                }
                                 // Directly update target without confirming (status remains unconfirmed 0) and without TM registration
                                 unit.status = 0;
                                 affectedIdxs.push(item.idx);
@@ -1256,7 +1278,8 @@ async function runLlmRequest(chunk: string, prompt: string): Promise<string> {
     };
 
     try {
-        const response = await globalThis.fetch(`${honoUrl}/gen/check/user/sync`, {
+        // 1. Post async task request to /gen/check/user
+        const response = await globalThis.fetch(`${honoUrl}/gen/check/user`, {
             method: 'POST',
             headers,
             body: JSON.stringify({ chunk, prompt })
@@ -1268,7 +1291,35 @@ async function runLlmRequest(chunk: string, prompt: string): Promise<string> {
         }
 
         const resData = await response.json() as any;
-        if (resData.status === 'success') {
+
+        // 2. If task_id is returned, poll /tasks/{taskId}
+        const taskId = resData.task_id || resData.taskId || resData.id;
+        if (taskId) {
+            while (true) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                const taskResponse = await globalThis.fetch(`${honoUrl}/tasks/${taskId}`, {
+                    method: 'GET',
+                    headers
+                });
+
+                if (!taskResponse.ok) {
+                    const errText = await taskResponse.text();
+                    throw new Error(`HTTP ${taskResponse.status} checking task ${taskId}: ${errText}`);
+                }
+
+                const taskData = await taskResponse.json() as any;
+                if (taskData.status === 'completed' || taskData.status === 'success' || taskData.status === 'done') {
+                    return taskData.result || '';
+                } else if (taskData.status === 'error' || taskData.error) {
+                    throw new Error(taskData.error || `Task ${taskId} failed`);
+                }
+                // Status is pending or processing, loop continues
+            }
+        }
+
+        // Direct result fallback if sync response returned
+        if (resData.status === 'success' || resData.result !== undefined) {
             return resData.result || '';
         } else {
             throw new Error(resData.error || 'Unknown error from Hono API');

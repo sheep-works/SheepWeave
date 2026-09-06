@@ -13,7 +13,7 @@ import { gotoPrevUnconfirmedCommand } from './commands/gotoPrevUnconfirmed';
 import { concordanceSearchCommand } from './commands/concordanceSearch';
 import { diffTargetWithTmCommand } from './commands/diffTargetWithTm';
 import { initEditorGuard } from './features/editorGuard';
-import { initDecorators, renderConfirmedDecorations } from './features/decorators';
+import { initDecorators, renderConfirmedDecorations, renderTermDecorations } from './features/decorators';
 import { initShortcuts } from './features/shortcuts';
 import { TbCompletionProvider, PhraseCompletionProvider } from './features/intellisense';
 import { globalShWvData, globalDirector } from './store';
@@ -103,6 +103,7 @@ export function activate(context: vscode.ExtensionContext) {
             loadProjectData(editor);
             
             renderConfirmedDecorations(editor);
+            renderTermDecorations(editor);
 
             // .shwvt ファイルがアクティブになった時、パネルが開いていなければ自動で開く
             // if (editor.document.fileName.endsWith('.shwvt')) {
@@ -114,6 +115,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Initial render for already visible editors:
     if (vscode.window.activeTextEditor) {
         renderConfirmedDecorations(vscode.window.activeTextEditor);
+        renderTermDecorations(vscode.window.activeTextEditor);
         // if (vscode.window.activeTextEditor.document.fileName.endsWith('.shwvt')) {
         //     openSheepWeavePanel(context, true);
         // }
