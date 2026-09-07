@@ -3,6 +3,7 @@ import { globalDirector } from '../store';
 
 /**
  * .shwvt ファイルのエディタ上で、用語集（TB）に基づいた入力補完を提供します。
+ * 単語境界としてユーザーが半角スペースを入力した場合でも、スペースごと置換して消去する候補を同時注入します。
  */
 export class TbCompletionProvider implements vscode.CompletionItemProvider {
     provideCompletionItems(
@@ -25,6 +26,16 @@ export class TbCompletionProvider implements vscode.CompletionItemProvider {
             return undefined;
         }
 
+        const lineText = document.lineAt(position.line).text;
+        const wordRange = document.getWordRangeAtPosition(position);
+        const wordStart = wordRange ? wordRange.start.character : position.character;
+        
+        // 直前が半角スペースかどうか判定
+        const hasPrecedingSpace = wordStart > 0 && lineText.charAt(wordStart - 1) === ' ';
+        const spaceRange = hasPrecedingSpace
+            ? new vscode.Range(new vscode.Position(position.line, wordStart - 1), position)
+            : undefined;
+
         const items: vscode.CompletionItem[] = [];
         const seenLabels = new Set<string>();
         
@@ -33,14 +44,10 @@ export class TbCompletionProvider implements vscode.CompletionItemProvider {
             if (token.isCancellationRequested) return undefined;
 
             for (const tgt of tb.tgts) {
-                // すでに同じ内容がアイテムにないか確認 (Setを使用して O(1) に)
+                // すでに同じ内容がアイテムにないか確認
                 if (seenLabels.has(tgt)) continue;
                 seenLabels.add(tgt);
 
-                const item = new vscode.CompletionItem(tgt, vscode.CompletionItemKind.Reference);
-                item.detail = `[TB] ${tb.src} → ${tgt}`;
-                item.filterText = `${tgt} ${tb.src}`;
-                
                 let docText = `**Source:** ${tb.src}\n\n**Target:** ${tgt}`;
                 if (tb.note) {
                     docText += `\n\n---\n\n${tb.note}`;
@@ -48,16 +55,35 @@ export class TbCompletionProvider implements vscode.CompletionItemProvider {
                 if (tb.file) {
                     docText += `\n\n*File: ${tb.file}*`;
                 }
-                
-                item.documentation = new vscode.MarkdownString(docText);
-                
-                // 優先的に表示されるよう、ソートキーを調整
-                item.sortText = `00_${tgt}`;
-                
-                items.push(item);
+                const doc = new vscode.MarkdownString(docText);
+
+                // 1. 直前にスペースがある場合: スペースを自動消去して挿入する候補を最優先表示
+                if (hasPrecedingSpace && spaceRange) {
+                    const spaceTrimItem = new vscode.CompletionItem(
+                        { label: tgt, description: '␣除去' },
+                        vscode.CompletionItemKind.Reference
+                    );
+                    spaceTrimItem.insertText = tgt;
+                    spaceTrimItem.range = spaceRange;
+                    spaceTrimItem.detail = `[TB ␣除去] ${tb.src} → ${tgt}`;
+                    spaceTrimItem.filterText = ` ${tgt}  ${tb.src} ${tgt} ${tb.src} @${tb.src} /${tb.src}`;
+                    spaceTrimItem.documentation = doc;
+                    spaceTrimItem.sortText = `00_0_${tgt}`;
+                    items.push(spaceTrimItem);
+                }
+
+                // 2. 通常の補完候補 (スペース保持)
+                const normalItem = new vscode.CompletionItem(tgt, vscode.CompletionItemKind.Reference);
+                normalItem.detail = `[TB] ${tb.src} → ${tgt}`;
+                normalItem.filterText = `${tgt} ${tb.src} @${tb.src} /${tb.src}`;
+                normalItem.documentation = doc;
+                normalItem.sortText = `00_1_${tgt}`;
+                if (wordRange) {
+                    normalItem.range = wordRange;
+                }
+                items.push(normalItem);
             }
         }
-
 
         return items;
     }
@@ -65,11 +91,9 @@ export class TbCompletionProvider implements vscode.CompletionItemProvider {
 
 /**
  * phrase.json に定義されたプロジェクト固有のフレーズに基づいた入力補完を提供します。
+ * 単語境界の半角スペースを消去する候補もサポートします。
  */
 export class PhraseCompletionProvider implements vscode.CompletionItemProvider {
-    private cachedPhrases: any[] | undefined = undefined;
-    private cachedItems: vscode.CompletionItem[] | undefined = undefined;
-
     provideCompletionItems(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -82,30 +106,45 @@ export class PhraseCompletionProvider implements vscode.CompletionItemProvider {
             return undefined;
         }
 
-        // キャッシュチェック（phrases 配列の参照が変わっていなければ使い回す）
-        if (this.cachedPhrases === phrases && this.cachedItems) {
-            return this.cachedItems;
-        }
+        const lineText = document.lineAt(position.line).text;
+        const wordRange = document.getWordRangeAtPosition(position);
+        const wordStart = wordRange ? wordRange.start.character : position.character;
+        
+        const hasPrecedingSpace = wordStart > 0 && lineText.charAt(wordStart - 1) === ' ';
+        const spaceRange = hasPrecedingSpace
+            ? new vscode.Range(new vscode.Position(position.line, wordStart - 1), position)
+            : undefined;
 
         const items: vscode.CompletionItem[] = [];
         
         for (const p of phrases) {
             if (token.isCancellationRequested) return undefined;
 
-            // labelをフレーズにし、filterTextをショートカット(input)にする
+            // 1. 直前にスペースがある場合: スペース除去候補
+            if (hasPrecedingSpace && spaceRange) {
+                const spaceItem = new vscode.CompletionItem(
+                    { label: p.phrase, description: '␣除去' },
+                    vscode.CompletionItemKind.Snippet
+                );
+                spaceItem.insertText = p.phrase;
+                spaceItem.range = spaceRange;
+                spaceItem.filterText = ` ${p.input} ${p.input} ${p.phrase}`;
+                spaceItem.detail = `[Phrase ␣除去] ${p.input}`;
+                spaceItem.sortText = `01_0_${p.input}`;
+                items.push(spaceItem);
+            }
+
+            // 2. 通常候補
             const item = new vscode.CompletionItem(p.phrase, vscode.CompletionItemKind.Snippet);
             item.insertText = p.phrase;
-            item.filterText = p.input;
+            item.filterText = `${p.input} ${p.phrase}`;
             item.detail = `[Phrase] ${p.input}`;
-            
-            // TBの候補（00_）の次に来るように調整
-            item.sortText = `01_${p.input}`;
-            
+            item.sortText = `01_1_${p.input}`;
+            if (wordRange) {
+                item.range = wordRange;
+            }
             items.push(item);
         }
-
-        this.cachedPhrases = phrases;
-        this.cachedItems = items;
 
         return items;
     }
