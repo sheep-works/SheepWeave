@@ -125,15 +125,15 @@ export function activate(context: vscode.ExtensionContext) {
     initDecorators(context);
     initShortcuts(context);
 
-    // 用語集（TB）およびフレーズの入力補完を登録（トリガー文字 '@', '/', ' ' に対応）
+    // 用語集（TB）およびフレーズの入力補完を登録（トリガー文字 '@', '/', ' ' に対応、全スキーム対応）
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
-            { language: 'shwvt', scheme: 'file' },
+            'shwvt',
             new TbCompletionProvider(),
             '@', '/', ' '
         ),
         vscode.languages.registerCompletionItemProvider(
-            { language: 'shwvt', scheme: 'file' },
+            'shwvt',
             new PhraseCompletionProvider(),
             '@', '/', ' '
         )

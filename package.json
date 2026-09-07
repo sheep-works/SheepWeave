@@ -143,13 +143,15 @@
         "id": "shwvt",
         "extensions": [
           ".shwvt"
-        ]
+        ],
+        "configuration": "./language-configuration.json"
       },
       {
         "id": "shwvs",
         "extensions": [
           ".shwvs"
-        ]
+        ],
+        "configuration": "./language-configuration.json"
       },
       {
         "id": "shwv",
