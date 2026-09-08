@@ -90,8 +90,10 @@ function calculateStats() {
     };
 
     shwvStore.units.forEach(u => {
-        const srcLen = (u.src || "").length;
-        const tgtLen = (u.tgt || u.pre || "").length;
+        const cleanSrc = (u.src || "").replace(/\{@\d+\}/g, "");
+        const cleanTgt = (u.tgt || u.pre || "").replace(/\{@\d+\}/g, "");
+        const srcLen = cleanSrc.length;
+        const tgtLen = cleanTgt.length;
 
         s.total.src += srcLen;
         s.total.tgt += tgtLen;

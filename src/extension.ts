@@ -13,7 +13,7 @@ import { gotoPrevUnconfirmedCommand } from './commands/gotoPrevUnconfirmed';
 import { concordanceSearchCommand } from './commands/concordanceSearch';
 import { diffTargetWithTmCommand } from './commands/diffTargetWithTm';
 import { initEditorGuard } from './features/editorGuard';
-import { initDecorators, renderConfirmedDecorations } from './features/decorators';
+import { initDecorators, renderConfirmedDecorations, renderTermDecorations } from './features/decorators';
 import { initShortcuts } from './features/shortcuts';
 import { TbCompletionProvider, PhraseCompletionProvider } from './features/intellisense';
 import { globalShWvData, globalDirector } from './store';
@@ -103,6 +103,7 @@ export function activate(context: vscode.ExtensionContext) {
             loadProjectData(editor);
             
             renderConfirmedDecorations(editor);
+            renderTermDecorations(editor);
 
             // .shwvt ファイルがアクティブになった時、パネルが開いていなければ自動で開く
             // if (editor.document.fileName.endsWith('.shwvt')) {
@@ -114,6 +115,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Initial render for already visible editors:
     if (vscode.window.activeTextEditor) {
         renderConfirmedDecorations(vscode.window.activeTextEditor);
+        renderTermDecorations(vscode.window.activeTextEditor);
         // if (vscode.window.activeTextEditor.document.fileName.endsWith('.shwvt')) {
         //     openSheepWeavePanel(context, true);
         // }
@@ -123,17 +125,17 @@ export function activate(context: vscode.ExtensionContext) {
     initDecorators(context);
     initShortcuts(context);
 
-    // 用語集（TB）およびフレーズの入力補完を登録（トリガー文字 '@', '/' にも対応）
+    // 用語集（TB）およびフレーズの入力補完を登録（トリガー文字 '@', '/', ' ' に対応、全スキーム対応）
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
-            { language: 'shwvt', scheme: 'file' },
+            'shwvt',
             new TbCompletionProvider(),
-            '@', '/'
+            '@', '/', ' '
         ),
         vscode.languages.registerCompletionItemProvider(
-            { language: 'shwvt', scheme: 'file' },
+            'shwvt',
             new PhraseCompletionProvider(),
-            '@', '/'
+            '@', '/', ' '
         )
     );
 

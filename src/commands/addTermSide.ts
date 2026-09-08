@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { globalShWvData } from '../store';
 import { DirHelper } from '../services/core/DirHelper';
 import { notifyWebview } from './openSheepWeavePanel';
+import { renderTermDecorations } from '../features/decorators';
 
 /**
  * 登録待ちの訳文と、元のターゲットエディタを保持する
@@ -126,6 +127,7 @@ export async function confirmAddTermSide(): Promise<void> {
 
     // ターゲットエディタにフォーカスを戻す
     await vscode.window.showTextDocument(targetEditor.document, targetEditor.viewColumn);
+    renderTermDecorations(targetEditor);
 
     await cleanupAddTermSide();
 }

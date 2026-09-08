@@ -3,7 +3,7 @@ import { ref, watch, computed, onMounted } from 'vue';
 import { useShWvStore } from '../store/shwv';
 import { useI18nStore } from '../store/i18n';
 import { Message } from '@arco-design/web-vue';
-import { IconInteraction, IconPlayArrow, IconSync, IconStop, IconCheck, IconDelete, IconRefresh, IconSend, IconCopy, IconDownload } from '@arco-design/web-vue/es/icon';
+import { IconInteraction, IconPlayArrow, IconSync, IconStop, IconCheck, IconDelete, IconRefresh, IconSend, IconCopy, IconDownload, IconPushpin } from '@arco-design/web-vue/es/icon';
 
 const shwvStore = useShWvStore();
 const i18nStore = useI18nStore();
@@ -20,6 +20,7 @@ const emit = defineEmits(['LlmCommand', 'updateConfig']);
 const activeSubTab = ref('partial');
 const localApiKey = ref(props.config.bobbinApiKey || '');
 const localAutoReflect = ref(props.config.autoReflectLlmToTm !== false);
+const applyToPre = ref(true);
 const promptFiles = ref<string[]>([]);
 
 const scanPromptFiles = () => {
@@ -139,7 +140,8 @@ function applyPartialResults() {
   if (updates.length === 0) return;
 
   emit('LlmCommand', 'apply-llm-partial-results', {
-    updates
+    updates,
+    applyToPre: applyToPre.value
   });
 }
 
@@ -255,6 +257,22 @@ const batchPercent = computed(() => {
   if (!shwvStore.llmBatchProgress.total) return 0;
   return Math.round((shwvStore.llmBatchProgress.current / shwvStore.llmBatchProgress.total) * 100);
 });
+
+const pinnedUnits = computed(() => {
+  return shwvStore.units.filter(u => u.isPeRef);
+});
+
+function unpinUnit(idx: number) {
+  const unit = shwvStore.units.find(u => u.idx === idx);
+  if (unit) {
+    unit.isPeRef = false;
+    emit('LlmCommand', 'toggle-pe-ref', { idx, isPeRef: false });
+  }
+}
+
+function jumpToUnitLine(idx: number) {
+  emit('LlmCommand', 'goto-line', { line: idx });
+}
 </script>
 
 <template>
@@ -316,17 +334,21 @@ const batchPercent = computed(() => {
 
           <a-card :title="i18nStore.getText('llmTab', 'responseCard') || 'Response & Results'" :bordered="false" class="premium-card result-card">
             <template #extra>
-              <a-button
-                v-if="shwvStore.llmPartialResponse"
-                type="primary"
-                status="success"
-                size="small"
-                @click="applyPartialResults"
-                class="apply-btn"
-              >
-                <template #icon><icon-check /></template>
-                {{ i18nStore.getText('llmTab', 'applyPartialDirect') || 'Apply to Selection' }}
-              </a-button>
+              <a-space align="center" v-if="shwvStore.llmPartialResponse">
+                <a-checkbox v-model="applyToPre" style="font-size: 12px;">
+                  {{ i18nStore.getText('llmTab', 'applyToPreLabel') || '下訳 (pre) にも反映' }}
+                </a-checkbox>
+                <a-button
+                  type="primary"
+                  status="success"
+                  size="small"
+                  @click="applyPartialResults"
+                  class="apply-btn"
+                >
+                  <template #icon><icon-check /></template>
+                  {{ i18nStore.getText('llmTab', 'applyPartialDirect') || 'Apply to Selection' }}
+                </a-button>
+              </a-space>
             </template>
             <a-spin :loading="shwvStore.llmRequesting" :tip="i18nStore.getText('llmTab', 'callingLlmTip') || 'Calling LLM via SheepBobbin...'" style="display: block; width: 100%;">
               <div class="result-container">
@@ -334,9 +356,12 @@ const batchPercent = computed(() => {
                   <a-textarea
                     v-model="shwvStore.llmPartialResponse"
                     placeholder="LLM response will appear here. You can edit this text before applying."
-                    :auto-size="{ minRows: 8, maxRows: 20 }"
+                    :auto-size="{ minRows: 8, maxRows: 16 }"
                     class="result-textarea"
                   />
+                  <div class="result-note">
+                    {{ i18nStore.getText('llmTab', 'idxZeroNote') || '※ 行番号 (idx) は 0 始まりのため、エディタの行番号より 1 小さい場合があります。' }}
+                  </div>
                 </div>
                 <div v-else class="empty-state">
                   <a-typography-text type="secondary">
@@ -496,9 +521,12 @@ const batchPercent = computed(() => {
                   <a-textarea
                     v-model="shwvStore.llmBatchResponse"
                     placeholder="LLM batch response will appear here. You can edit this text before applying."
-                    :auto-size="{ minRows: 8, maxRows: 20 }"
+                    :auto-size="{ minRows: 8, maxRows: 16 }"
                     class="result-textarea"
                   />
+                  <div class="result-note">
+                    {{ i18nStore.getText('llmTab', 'idxZeroNote') || '※ 行番号 (idx) は 0 始まりのため、エディタの行番号より 1 小さい場合があります。' }}
+                  </div>
                 </div>
                 <div v-else class="empty-state">
                   <a-typography-text type="secondary">
@@ -523,6 +551,65 @@ const batchPercent = computed(() => {
                 {{ i18nStore.getText('llmTab', 'resetBtn') || 'LLM 翻訳メモリを一括削除' }}
               </a-button>
             </a-popconfirm>
+          </a-card>
+        </div>
+      </a-tab-pane>
+
+      <!-- Pinned PE References Tab -->
+      <a-tab-pane key="pinned" :title="i18nStore.getText('llmTab', 'pinnedTabTitle') || 'ピン留め (PE)'">
+        <div class="subtab-content">
+          <a-card :title="i18nStore.getText('llmTab', 'pinnedCard') || 'Advanced PE 用ピン留め一覧'" :bordered="false" class="premium-card">
+            <template #extra>
+              <a-tag color="orange" style="font-weight: bold;">
+                {{ pinnedUnits.length }} {{ i18nStore.getText('common', 'items') || '件' }}
+              </a-tag>
+            </template>
+
+            <a-typography-paragraph type="secondary" style="font-size: 13px; margin-bottom: 16px;">
+              {{ i18nStore.getText('llmTab', 'pinnedHelp') || 'ここでピン留めされたセグメントは、Advanced PE モード実行時にAIへ最優先の修正手本（PE参照例）として提示されます。' }}
+            </a-typography-paragraph>
+
+            <div v-if="pinnedUnits.length > 0" class="pinned-list">
+              <a-card
+                v-for="unit in pinnedUnits"
+                :key="unit.idx"
+                size="small"
+                class="pinned-item-card"
+                style="margin-bottom: 12px; border: 1px solid var(--vscode-sideBar-border); background-color: var(--vscode-editor-background);"
+              >
+                <template #title>
+                  <a-space align="center">
+                    <icon-pushpin style="color: #f59e0b;" />
+                    <span style="font-weight: bold; font-family: monospace;">Line {{ unit.idx + 1 }}</span>
+                    <a-tag v-if="unit.status === 1" color="green" size="small">Confirmed</a-tag>
+                    <a-tag v-else-if="unit.status === 2" color="orange" size="small">Proofed</a-tag>
+                  </a-space>
+                </template>
+                <template #extra>
+                  <a-space>
+                    <a-button type="outline" size="mini" @click="jumpToUnitLine(unit.idx)">
+                      {{ i18nStore.getText('llmTab', 'jumpToLine') || 'エディタで移動' }}
+                    </a-button>
+                    <a-button type="text" status="danger" size="mini" @click="unpinUnit(unit.idx)">
+                      <template #icon><icon-delete /></template>
+                      {{ i18nStore.getText('llmTab', 'unpinBtn') || 'ピン解除' }}
+                    </a-button>
+                  </a-space>
+                </template>
+
+                <div class="pinned-text-block">
+                  <div class="pinned-row"><span class="pinned-label">原文:</span> <span class="pinned-text">{{ unit.src }}</span></div>
+                  <div v-if="unit.pre" class="pinned-row"><span class="pinned-label">下訳:</span> <span class="pinned-text muted">{{ unit.pre }}</span></div>
+                  <div class="pinned-row"><span class="pinned-label">手直し後:</span> <span class="pinned-text highlight">{{ unit.tgt || '(未入力)' }}</span></div>
+                </div>
+              </a-card>
+            </div>
+
+            <div v-else class="empty-state" style="padding: 24px 0;">
+              <a-typography-text type="secondary">
+                {{ i18nStore.getText('llmTab', 'noPinnedSegments') || 'ピン留めされたセグメントはありません。翻訳タブやエディタでピンアイコンをクリックして登録できます。' }}
+              </a-typography-text>
+            </div>
           </a-card>
         </div>
       </a-tab-pane>
@@ -714,12 +801,17 @@ const batchPercent = computed(() => {
 
 .result-container {
   min-height: 180px;
-  max-height: 380px;
-  overflow-y: auto;
   background-color: var(--vscode-editor-background, #1e1e1e);
   border-radius: 6px;
-  padding: 14px;
+  padding: 12px;
   border: 1px solid var(--vscode-sideBar-border, #2d2d2d);
+}
+
+.result-note {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #888);
+  line-height: 1.4;
 }
 
 .result-pre,
@@ -853,5 +945,39 @@ const batchPercent = computed(() => {
 
 .copy-btn {
   color: var(--vscode-textLink-foreground, #3b82f6);
+}
+
+.pinned-text-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pinned-row {
+  display: flex;
+  gap: 8px;
+}
+
+.pinned-label {
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground, #888);
+  min-width: 65px;
+  flex-shrink: 0;
+}
+
+.pinned-text {
+  color: var(--vscode-foreground);
+  word-break: break-word;
+}
+
+.pinned-text.muted {
+  opacity: 0.7;
+}
+
+.pinned-text.highlight {
+  color: #10b981;
+  font-weight: 500;
 }
 </style>

@@ -14,7 +14,13 @@ export async function shwv2xlfLike(filepath: string, xmlContent: string, shwvUni
         if (unit.placeholders && Object.keys(unit.placeholders).length > 0) {
             const replacer = (match: string, idxStr: string) => {
                 const idx = parseInt(idxStr);
-                return unit.placeholders![idx] !== undefined ? unit.placeholders![idx] : match;
+                let ph = unit.placeholders![idx] !== undefined ? unit.placeholders![idx] : match;
+                if (ph.includes('&lt;') && ph.includes('&gt;')) {
+                    ph = ph.replace(/&lt;[\s\S]*?&gt;/g, (tagStr) => {
+                        return tagStr.replace(/"/g, '&quot;');
+                    });
+                }
+                return ph;
             };
 
             processedSrc = processedSrc.replace(/\{@(\d+)\}/g, replacer);
@@ -48,5 +54,12 @@ export async function shwv2xlfLike(filepath: string, xmlContent: string, shwvUni
         body: { units: processedUnits, terms: [] }
     } as any;
 
-    return await shuttle.build(xmlContent);
+    let resultXml = await shuttle.build(xmlContent);
+
+    // Re-escape quotes inside escaped XML tags (&lt;...&gt;) to &quot; for CAT tool / MXLIFF compatibility
+    resultXml = resultXml.replace(/&lt;[\s\S]*?&gt;/g, (tagMatch: string) => {
+        return tagMatch.replace(/"/g, '&quot;');
+    });
+
+    return resultXml;
 }

@@ -9,7 +9,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { getWebviewHtml } from '../webview/panel'; 
 import { globalShWvData, globalDirector } from '../store';
-import { renderConfirmedDecorations } from '../features/decorators';
+import { renderConfirmedDecorations, renderTermDecorations } from '../features/decorators';
 
 // 現在表示されているパネルを保持する変数。一度に一つだけ表示するために使います
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
@@ -77,6 +77,7 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFo
 
         selectionTimeout = setTimeout(() => {
             const currentLineNumber = event.selections[0].active.line;
+            renderTermDecorations(event.textEditor, currentLineNumber);
 
             // カーソルが別の行に移動した場合のみ処理
             if (lastLineNumber !== -1 && currentLineNumber !== lastLineNumber) {

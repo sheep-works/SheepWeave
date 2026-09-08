@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import { ShWvData } from '../services/core/ShWvData';
 import { SheepShuttle } from '../management';
 import { DirHelper } from '../services/core/DirHelper';
+import { ReviewHtmlExporter } from '../services/reviewHtmlExporter';
+import { globalDirector } from '../store';
 
 export class AdminHandler {
     public static async handle(message: any, globalShWvData: ShWvData, rootPath: string, panel: vscode.WebviewPanel) {
@@ -17,6 +19,35 @@ export class AdminHandler {
         const managePath = DirHelper.getManagePath(rootPath);
 
         switch (message.type) {
+            case 'shuttle-export-review-html':
+                try {
+                    // 1. 最新の Target.shwvt を読み込み
+                    const shwvtPath = DirHelper.getShwvtPath(rootPath);
+                    if (fs.existsSync(shwvtPath)) {
+                        globalShWvData.update(shwvtPath);
+                    }
+                    // 2. SSOT (project.json) を最新状態に保存
+                    globalDirector.initializeFromState();
+                    globalShWvData.save(rootPath);
+
+                    // 3. 用語ハイライト付きHTMLを出力
+                    const htmlPath = ReviewHtmlExporter.exportHtml(globalShWvData, rootPath, globalDirector.tbData);
+
+                    // 4. 通知およびブラウザで開くアクション
+                    const action = await vscode.window.showInformationMessage(
+                        `Review HTML を出力しました: ${path.basename(htmlPath)}`,
+                        'ブラウザで開く',
+                        'フォルダを開く'
+                    );
+                    if (action === 'ブラウザで開く') {
+                        vscode.env.openExternal(vscode.Uri.file(htmlPath));
+                    } else if (action === 'フォルダを開く') {
+                        vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(htmlPath));
+                    }
+                } catch (e) {
+                    vscode.window.showErrorMessage(`Failed to export Review HTML: ${e}`);
+                }
+                break;
             // メッセージの種類（type）によって処理を分岐させる
             case 'shuttle-export-json':
                 // SheepShuttleサービスを使い、外部からプロジェクトデータを取り込む

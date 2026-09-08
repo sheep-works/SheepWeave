@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "LambuageLLC",
   "license": "MIT",
   "repository": {
@@ -141,27 +141,20 @@
     "languages": [
       {
         "id": "shwvt",
-        "aliases": [
-          "SheepWeave Target"
-        ],
         "extensions": [
           ".shwvt"
-        ]
+        ],
+        "configuration": "./language-configuration.json"
       },
       {
         "id": "shwvs",
-        "aliases": [
-          "SheepWeave Source"
-        ],
         "extensions": [
           ".shwvs"
-        ]
+        ],
+        "configuration": "./language-configuration.json"
       },
       {
         "id": "shwv",
-        "aliases": [
-          "SheepWeave Text"
-        ],
         "extensions": [
           ".shwv"
         ],
@@ -395,6 +388,16 @@
           "type": "number",
           "default": 14,
           "description": "Base font size (in px) for the Translate Tab table."
+        },
+        "sheepWeave.termDecorationColor": {
+          "type": "string",
+          "default": "#e5c07b",
+          "description": "Font color used to highlight registered terms on the active line in editors."
+        },
+        "sheepWeave.termDecorationLineRange": {
+          "type": "number",
+          "default": 2,
+          "description": "Number of lines before and after the active line to highlight registered terms (0 for current line only, 2 for +/- 2 lines)."
         }
       }
     },
