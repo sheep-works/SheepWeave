@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useShWvStore } from '../store/shwv';
-import { IconPushpin } from '@arco-design/web-vue/es/icon';
+import { IconPushpin, IconFileImage, IconPlayCircle, IconCode } from '@arco-design/web-vue/es/icon';
 import { getVsCodeApi } from '../vscode';
 
 const shwvStore = useShWvStore();
@@ -35,6 +35,30 @@ const togglePeRef = () => {
 
 const rowspan = computed(() => {
     return Math.max(1, shwvStore.crtUnit?.ref?.tb?.length || 0);
+});
+
+interface ParsedMedia {
+    img?: string;
+    time?: string;
+    [key: string]: any;
+}
+
+const parsedNote = computed(() => {
+    const rawNote = shwvStore.crtUnit?.note || '';
+    if (!rawNote) return { text: '', media: null as ParsedMedia | null };
+
+    const match = rawNote.match(/@md\[\[(.*?)\]\]/s);
+    if (!match) {
+        return { text: rawNote, media: null as ParsedMedia | null };
+    }
+
+    let media: ParsedMedia | null = null;
+    try {
+        media = JSON.parse(match[1]);
+    } catch { }
+
+    const cleanText = rawNote.replace(/@md\[\[(.*?)\]\]/s, '').trim();
+    return { text: cleanText, media, rawMedia: match[1] };
 });
 </script>
 
@@ -90,8 +114,27 @@ const rowspan = computed(() => {
         <!-- note がある場合 -->
         <template v-if="shwvStore.crtUnit.note">
             <tr>
-                <td colspan="4" style="font-size: 0.85em; background: var(--vscode-editor-inactiveSelectionBackground); border-radius: 4px; border-top: 1px dashed var(--vscode-widget-border);">
-                    <strong style="opacity: 0.7;">Note:</strong> {{ shwvStore.crtUnit.note }}
+                <td colspan="4" style="font-size: 0.85em; background: var(--vscode-editor-inactiveSelectionBackground); border-radius: 4px; border-top: 1px dashed var(--vscode-widget-border); padding: 4px 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span v-if="parsedNote.text">
+                            <strong style="opacity: 0.7;">Note:</strong> {{ parsedNote.text }}
+                        </span>
+                        <!-- メディアメタデータ (@md[[...]]) のバッジ表示 -->
+                        <template v-if="parsedNote.media">
+                            <a-tag v-if="parsedNote.media.img" color="purple" size="small" bordered style="font-size: 11px;">
+                                <template #icon><icon-file-image /></template>
+                                {{ parsedNote.media.img }}
+                            </a-tag>
+                            <a-tag v-if="parsedNote.media.time" color="blue" size="small" bordered style="font-size: 11px;">
+                                <template #icon><icon-play-circle /></template>
+                                {{ parsedNote.media.time }}
+                            </a-tag>
+                            <a-tag v-if="!parsedNote.media.img && !parsedNote.media.time" color="gray" size="small" bordered style="font-size: 11px;">
+                                <template #icon><icon-code /></template>
+                                @md: {{ parsedNote.rawMedia }}
+                            </a-tag>
+                        </template>
+                    </div>
                 </td>
             </tr>
         </template>

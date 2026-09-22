@@ -19,6 +19,10 @@ export type {
     ProjectGroup,
     ProjectStats,
     ProjectInfo,
+    ShWvWorkflow,
+    QaConfig,
+    QaIssue,
+    QaIssueType,
 } from '../../modules/SheepComb/packages/types/src/index';
 
 export declare type ExtractMode = "source" | "target" | "both-horizontal" | "both-vertical";

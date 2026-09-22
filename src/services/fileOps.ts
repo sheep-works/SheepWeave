@@ -80,7 +80,14 @@ function moveRecursive(src: string, dest: string) {
     const entries = fs.readdirSync(src, { withFileTypes: true });
     for (const entry of entries) {
         const srcPath = path.join(src, entry.name);
-        const destPath = path.join(dest, entry.name);
+        let destName = entry.name;
+        // Rewrite .shwvt and .shwvs to .shwv upon archiving for safe viewing
+        if (destName.endsWith('.shwvt')) {
+            destName = destName.replace(/\.shwvt$/i, '.shwv');
+        } else if (destName.endsWith('.shwvs')) {
+            destName = destName.replace(/\.shwvs$/i, '.shwv');
+        }
+        const destPath = path.join(dest, destName);
 
         if (entry.isDirectory()) {
             moveRecursive(srcPath, destPath);

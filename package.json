@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "LambuageLLC",
   "license": "MIT",
   "repository": {
@@ -432,7 +432,7 @@
     "@types/xml2js": "^0.4.14",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
-    "@vscode/vsce": "^3.7.1",
+    "@vscode/vsce": "^3.9.2",
     "copy-webpack-plugin": "^14.0.0",
     "eslint": "^8.56.0",
     "glob": "^10.3.10",
