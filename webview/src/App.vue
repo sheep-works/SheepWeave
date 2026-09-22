@@ -8,6 +8,7 @@ import TranslateTab from './tabs/TranslateTab.vue';
 import DebugTab from './tabs/DebugTab.vue';
 import SettingsTab from './tabs/SettingsTab.vue';
 import SearchTab from './tabs/SearchTab.vue';
+import BypassTab from './tabs/BypassTab.vue';
 import InfoTab from './tabs/InfoTab.vue';
 import LlmTab from './tabs/LlmTab.vue';
 import ToolsTab from './tabs/ToolsTab.vue';
@@ -88,10 +89,11 @@ onMounted(() => {
                 case '1': activeTab.value = 'flow'; break;
                 case '2': activeTab.value = 'translate'; break;
                 case '3': activeTab.value = 'search'; break;
-                case '4': activeTab.value = 'tools'; break;
-                case '5': activeTab.value = 'llm'; break;
-                case '6': activeTab.value = 'information'; break;
-                case '7': activeTab.value = 'settings'; break;
+                case '4': activeTab.value = 'bypass'; break;
+                case '5': activeTab.value = 'tools'; break;
+                case '6': activeTab.value = 'llm'; break;
+                case '7': activeTab.value = 'information'; break;
+                case '8': activeTab.value = 'settings'; break;
             }
         }
 
@@ -156,6 +158,9 @@ onMounted(() => {
                 break;
             case 'SELECT_TAB':
                 if (message.data) activeTab.value = message.data;
+                break;
+            case 'OPEN_SUB_EDITOR':
+                activeTab.value = 'bypass';
                 break;
             case 'CONCORDANCE_SEARCH_RES':
                 shwvStore.setConcordanceData(message.data);
@@ -252,9 +257,22 @@ onMounted(() => {
                     </template>
                     <SearchTab @SearchCommand="handleCommand" />
                 </a-tab-pane>
-                <a-tab-pane key="tools">
+                <a-tab-pane key="bypass">
                     <template #title>
                         <a-tooltip content="Shortcut: Alt+4">
+                            <span>
+                                {{ i18nStore.getText('bypassTab', 'title') || 'Sub-Editor' }}
+                                <a-tag size="mini" color="purple" style="margin-left: 4px; font-size: 10px; padding: 0 4px; height: 16px; line-height: 14px;">
+                                    {{ i18nStore.getText('bypassTab', 'experimentalBadge') || '実験的' }}
+                                </a-tag>
+                            </span>
+                        </a-tooltip>
+                    </template>
+                    <BypassTab @BypassCommand="handleCommand" />
+                </a-tab-pane>
+                <a-tab-pane key="tools">
+                    <template #title>
+                        <a-tooltip content="Shortcut: Alt+5">
                             <span>{{ i18nStore.getText('toolsTab', 'title') || 'Tools' }}</span>
                         </a-tooltip>
                     </template>
@@ -262,7 +280,7 @@ onMounted(() => {
                 </a-tab-pane>
                 <a-tab-pane key="llm">
                     <template #title>
-                        <a-tooltip content="Shortcut: Alt+5">
+                        <a-tooltip content="Shortcut: Alt+6">
                             <span>LLM</span>
                         </a-tooltip>
                     </template>
@@ -270,7 +288,7 @@ onMounted(() => {
                 </a-tab-pane>
                 <a-tab-pane key="information">
                     <template #title>
-                        <a-tooltip content="Shortcut: Alt+6">
+                        <a-tooltip content="Shortcut: Alt+7">
                             <span>{{ i18nStore.getText('infoTab', 'title') || 'Info' }}</span>
                         </a-tooltip>
                     </template>
@@ -278,7 +296,7 @@ onMounted(() => {
                 </a-tab-pane>
                 <a-tab-pane key="settings">
                     <template #title>
-                        <a-tooltip content="Shortcut: Alt+7">
+                        <a-tooltip content="Shortcut: Alt+8">
                             <span>{{ i18nStore.getText('settingsTab', 'title') || 'Settings' }}</span>
                         </a-tooltip>
                     </template>

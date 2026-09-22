@@ -203,8 +203,12 @@ export class ShWvData {
             if (newUnit.idx < 0) continue;
             const targetUnit = this.body.units[newUnit.idx];
             if (targetUnit) {
-                targetUnit.tgt = newUnit.tgt;
-                targetUnit.status = newUnit.status;
+                if (newUnit.tgt !== undefined) {
+                    targetUnit.tgt = newUnit.tgt;
+                }
+                if (newUnit.status !== undefined) {
+                    targetUnit.status = newUnit.status;
+                }
                 affected.add(newUnit.idx);
             }
         }

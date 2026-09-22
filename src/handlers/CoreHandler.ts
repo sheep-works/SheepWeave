@@ -387,18 +387,20 @@ export class CoreHandler {
                     if (allAffectedUnitsSet.size > 0) {
                         // --- 1. エディタ (.shwvt) への差分同期 ---
                         const shwvtPath = DirHelper.getShwvtPath(rootPath);
-                        const shwvtUri = vscode.Uri.file(shwvtPath);
-                        const doc = await vscode.workspace.openTextDocument(shwvtUri);
+                        if (fs.existsSync(shwvtPath)) {
+                            const shwvtUri = vscode.Uri.file(shwvtPath);
+                            const doc = await vscode.workspace.openTextDocument(shwvtUri);
 
-                        const edit = new vscode.WorkspaceEdit();
-                        for (const idx of affectedIdxs) {
-                            const unit = globalShWvData.body.units[idx];
-                            if (unit && idx < doc.lineCount) {
-                                const lineRange = doc.lineAt(idx).range;
-                                edit.replace(shwvtUri, lineRange, unit.tgt);
+                            const edit = new vscode.WorkspaceEdit();
+                            for (const idx of affectedIdxs) {
+                                const unit = globalShWvData.body.units[idx];
+                                if (unit && idx < doc.lineCount && unit.tgt !== undefined) {
+                                    const lineRange = doc.lineAt(idx).range;
+                                    edit.replace(shwvtUri, lineRange, unit.tgt);
+                                }
                             }
+                            await vscode.workspace.applyEdit(edit);
                         }
-                        await vscode.workspace.applyEdit(edit);
 
                         // --- 2. 内部状態とデコレーションの同期 ---
                         globalDirector.initializeFromState();

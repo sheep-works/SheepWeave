@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 
 export type validLocale = 'en' | 'ja' | 'zh';
-export type validTab = 'common' | 'flowTab' | 'translateTab' | 'searchTab' | 'toolsTab' | 'llmTab' | 'infoTab' | 'settingsTab';
+export type validTab = 'common' | 'flowTab' | 'translateTab' | 'searchTab' | 'bypassTab' | 'toolsTab' | 'llmTab' | 'infoTab' | 'settingsTab';
 
 interface tabStrings {
     [key: string]: Record<validLocale, string>;
@@ -46,6 +46,7 @@ export const useI18nStore = defineStore('i18n', {
                 archiveDesc: { en: '💼 Archive the current working folder', ja: "💼 アーカイブ化", zh: "💼 归档当前工作目录（Working）" },
                 trialTitle: { en: 'TRIAL', ja: "体験", zh: "体验" },
                 trialDesc: { en: '🔰 Generate a sample project from demo file', ja: "🔰 サンプルファイル（JSON）からサンプルプロジェクトを作成", zh: "🔰 从演示文件生成示例项目" },
+                sampleLink: { en: 'Click here for sample files', ja: "サンプルファイルはこちら", zh: "示例文件请点击此处" },
             },
             translateTab: {
                 title: { en: "Translate", ja: "翻訳", zh: "翻译" },
@@ -73,12 +74,22 @@ export const useI18nStore = defineStore('i18n', {
                 tgtFilterPlaceholder: { en: "Target Filter", ja: "訳文フィルタ", zh: "译文筛选" },
                 filterBtn: { en: "Filter", ja: "抽出", zh: "筛选" },
                 applyBtn: { en: "Apply ({count})", ja: "適用 ({count})", zh: "应用 ({count})" },
+                applyCurrentBtn: { en: "Apply Current ({count})", ja: "表示中を反映 ({count})", zh: "反映当前 ({count})" },
+                applyAllBtn: { en: "Apply All ({count})", ja: "すべて反映 ({count})", zh: "反映全部 ({count})" },
                 foundSegments: { en: "Found {count} segments", ja: "{count} 件のセグメントが見つかりました", zh: "找到 {count} 个分句" },
                 resetBtn: { en: "Reset", ja: "リセット", zh: "重置" },
                 readOnlyTm: { en: "(Read-only TM)", ja: "(読み取り専用 TM)", zh: "(只读 TM)" },
                 enterTranslation: { en: "Enter translation...", ja: "訳文を入力...", zh: "输入译文..." },
                 noUnitsMatch: { en: "No units match \"{keyword}\"", ja: "「{keyword}」に一致するセグメントはありません", zh: "没有匹配“{keyword}”的分句" },
                 enterKeywordsPrompt: { en: "Enter keywords to filter and bulk-edit segments", ja: "キーワードを入力してセグメントを抽出・一括編集できます", zh: "输入关键词以筛选和批量编辑分句" }
+            },
+            bypassTab: {
+                title: { en: "Sub-Editor", ja: "サブエディタ", zh: "副编辑器" },
+                experimentalBadge: { en: "Experimental", ja: "実験的機能", zh: "实验性功能" },
+                modeBypass: { en: "🔀 Bypass Translation (Diff)", ja: "🔀 バイパス翻訳 (Diff)", zh: "🔀 旁路翻译 (Diff)" },
+                modeFree: { en: "📝 Free Editor", ja: "📝 フリーエディタ", zh: "📝 自由编辑器" },
+                applyAllBtn: { en: "Apply All ({count})", ja: "一括反映 ({count})", zh: "批量反映 ({count})" },
+                emptyPrompt: { en: "No segments loaded for sub-editing", ja: "編集対象のセグメントが読み込まれていません", zh: "未加载待编辑分句" }
             },
             llmTab: {
                 title: { en: "AI / LLM Assistant", ja: "AI / LLM 連携", zh: "AI 助手" },
