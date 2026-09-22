@@ -120,9 +120,24 @@ function runBatchRequest() {
     prompt: promptToSend,
     mode: shwvStore.llmMode,
     options: JSON.parse(JSON.stringify(shwvStore.llmChunkOptions)),
-    chunkSize: shwvStore.llmBatchChunkSize || 3500
+    chunkSize: shwvStore.llmBatchChunkSize || 3500,
+    startLine: shwvStore.llmBatchStartLine ? Number(shwvStore.llmBatchStartLine) : undefined,
+    endLine: shwvStore.llmBatchEndLine ? Number(shwvStore.llmBatchEndLine) : undefined
   });
 }
+
+function clearLineRange() {
+  shwvStore.clearLlmBatchRange();
+}
+
+const batchRunButtonText = computed(() => {
+  if (shwvStore.llmBatchStartLine || shwvStore.llmBatchEndLine) {
+    const start = shwvStore.llmBatchStartLine || 1;
+    const end = shwvStore.llmBatchEndLine || (shwvStore.units.length > 0 ? shwvStore.units.length : '末尾');
+    return i18nStore.getText('llmTab', 'batchRunRange', { start, end }) || `指定範囲の一括翻訳を実行 (Line ${start} - ${end})`;
+  }
+  return i18nStore.getText('llmTab', 'batchRun') || 'Run Full Document Batch';
+});
 
 function cancelBatchRequest() {
   emit('LlmCommand', 'cancel-llm-batch');
@@ -473,6 +488,47 @@ function jumpToUnitLine(idx: number) {
             </div>
 
             <div v-else class="execution-grid">
+              <div style="margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 13px;">{{ i18nStore.getText('llmTab', 'lineRangeLabel') || '処理範囲 (行番号)' }}:</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <a-tooltip :content="i18nStore.getText('llmTab', 'lineRangeTooltip') || '開始行 (1始まり)'">
+                    <a-input-number
+                      v-model="shwvStore.llmBatchStartLine"
+                      :min="1"
+                      :max="shwvStore.units.length || undefined"
+                      placeholder="1"
+                      size="small"
+                      style="width: 75px;"
+                    />
+                  </a-tooltip>
+                  <span style="color: var(--vscode-descriptionForeground, #888); font-size: 12px;">〜</span>
+                  <a-tooltip :content="i18nStore.getText('llmTab', 'lineRangeTooltip') || '終了行 (1始まり)'">
+                    <a-input-number
+                      v-model="shwvStore.llmBatchEndLine"
+                      :min="1"
+                      :max="shwvStore.units.length || undefined"
+                      :placeholder="shwvStore.units.length ? String(shwvStore.units.length) : '末尾'"
+                      size="small"
+                      style="width: 75px;"
+                    />
+                  </a-tooltip>
+                  <a-button
+                    v-if="shwvStore.llmBatchStartLine || shwvStore.llmBatchEndLine"
+                    type="text"
+                    size="mini"
+                    @click="clearLineRange"
+                    :title="i18nStore.getText('llmTab', 'resetRangeTooltip') || '全範囲にリセット'"
+                    style="padding: 0 4px;"
+                  >
+                    <template #icon><icon-sync /></template>
+                  </a-button>
+                </div>
+              </div>
+              <div style="margin-top: -4px; margin-bottom: 10px; text-align: right;">
+                <span style="font-size: 11px; color: var(--vscode-descriptionForeground, #888);">
+                  {{ i18nStore.getText('llmTab', 'lineRangeNote') || '※ VS Code上の行番号（1始まり、Line 1 = idx 0）で指定' }}
+                </span>
+              </div>
               <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
                 <span style="font-size: 13px;">{{ i18nStore.getText('llmTab', 'chunkSizeLabel') || 'チャンクサイズ (文字数)' }}:</span>
                 <a-tooltip :content="i18nStore.getText('llmTab', 'chunkSizeTooltip') || '一括処理で1回のリクエストに含める最大文字数（デフォルト: 3500）'">
@@ -495,7 +551,7 @@ function jumpToUnitLine(idx: number) {
                   class="batch-btn"
                 >
                   <template #icon><icon-play-arrow /></template>
-                  {{ i18nStore.getText('llmTab', 'batchRun') || 'Run Full Document Batch' }}
+                  {{ batchRunButtonText }}
                 </a-button>
               </a-tooltip>
             </div>

@@ -13,8 +13,18 @@ import {
   IconRight,
   IconExclamationCircle,
   IconFile,
-  IconFilter
+  IconFilter,
+  IconSafe,
+  IconCheckCircle,
+  IconDownload,
+  IconLocation,
+  IconRefresh
 } from '@arco-design/web-vue/es/icon';
+import {
+  checkAllUnits,
+  restorePlaceholders,
+} from '../../../modules/SheepComb/packages/core/src/qa/qaChecker';
+import type { QaConfig, QaIssue, QaIssueType } from '../../../src/types/datatype';
 
 const shwvStore = useShWvStore();
 const i18nStore = useI18nStore();
@@ -26,6 +36,99 @@ function handleExportReviewHtml() {
   const vscode = getVsCodeApi();
   if (vscode) {
     vscode.postMessage({ type: 'shuttle-export-review-html' });
+  }
+}
+
+// ==================== Global QA Checker Mode ====================
+const qaConfig = ref<QaConfig>({
+  check_numbers: true,
+  check_tags: true,
+  check_terms: true,
+  check_consistency: true,
+  check_unmodified_pe: true,
+});
+const qaIssues = ref<QaIssue[]>([]);
+const hasRunQa = ref(false);
+const selectedIssueFilter = ref<QaIssueType | 'ALL'>('ALL');
+
+function doRunQa() {
+  if (!shwvStore.units || shwvStore.units.length === 0) return;
+  qaIssues.value = checkAllUnits(shwvStore.units, qaConfig.value);
+  hasRunQa.value = true;
+}
+
+function escapeCsv(val: string | number | undefined | null): string {
+  const str = String(val ?? '');
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function doExportQaReportCsv() {
+  if (qaIssues.value.length === 0) return;
+  const headers = ['Line', 'IssueType', 'Message', 'Source', 'Target'];
+  const rows = qaIssues.value.map(issue => {
+    const preview = getQaUnitPreview(issue.idx);
+    return [
+      escapeCsv(issue.idx + 1),
+      escapeCsv(issue.issue_type),
+      escapeCsv(issue.message),
+      escapeCsv(preview?.src || ''),
+      escapeCsv(preview?.tgt || '')
+    ].join(',');
+  });
+
+  const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'qa_issues.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function doExportQaReportJson() {
+  if (qaIssues.value.length === 0) return;
+  const jsonStr = JSON.stringify(qaIssues.value, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'qa_issues.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const qaCounts = computed(() => {
+  const counts: Record<string, number> = { Number: 0, Tag: 0, Term: 0, Consistency: 0, UnmodifiedPe: 0 };
+  for (const issue of qaIssues.value) {
+    counts[issue.issue_type] = (counts[issue.issue_type] || 0) + 1;
+  }
+  return counts;
+});
+
+const filteredQaIssues = computed(() => {
+  if (selectedIssueFilter.value === 'ALL') {
+    return qaIssues.value;
+  }
+  return qaIssues.value.filter(issue => issue.issue_type === selectedIssueFilter.value);
+});
+
+function getQaUnitPreview(idx: number) {
+  const u = shwvStore.units.find(unit => unit.idx === idx);
+  if (!u) return null;
+  return {
+    src: restorePlaceholders(u.src, u.placeholders),
+    tgt: restorePlaceholders(u.tgt, u.placeholders),
+  };
+}
+
+function jumpToQaSegment(idx: number) {
+  const pos = shwvStore.units.findIndex(u => u.idx === idx);
+  if (pos !== -1) {
+    shwvStore.crtPos = pos;
   }
 }
 
@@ -381,16 +484,153 @@ const filteredBatchDiff = computed(() => {
         </div>
       </a-tab-pane>
 
-      <!-- 3. QA Subtab (QA) -->
+      <!-- 3. QA Subtab (QA 品質チェック) -->
       <a-tab-pane key="qa" :title="i18nStore.getText('toolsTab', 'qaSubtab') || 'QA'">
         <div class="pane-content">
+          <!-- Configuration Card -->
+          <a-card :bordered="false" class="tools-card" style="margin-bottom: 16px;">
+            <template #title>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <icon-safe style="color: var(--color-primary-light-4); font-size: 18px;" />
+                <span>{{ i18nStore.getText('toolsTab', 'qaTitle') || 'QA (品質チェック)' }}</span>
+              </div>
+            </template>
+
+            <a-typography-paragraph type="secondary" style="font-size: 13px; margin-bottom: 16px;">
+              {{ i18nStore.getText('toolsTab', 'qaHelp') || '全セグメントの品質チェック（数字、タグ、用語集、整合性、PE修正漏れ）を一括実行します。' }}
+            </a-typography-paragraph>
+
+            <div class="qa-config-grid">
+              <a-checkbox v-model="qaConfig.check_numbers">
+                {{ i18nStore.getText('toolsTab', 'qaCheckNumbers') || '数字不一致' }}
+              </a-checkbox>
+              <a-checkbox v-model="qaConfig.check_tags">
+                {{ i18nStore.getText('toolsTab', 'qaCheckTags') || 'タグ / プレースホルダー' }}
+              </a-checkbox>
+              <a-checkbox v-model="qaConfig.check_terms">
+                {{ i18nStore.getText('toolsTab', 'qaCheckTerms') || '用語集 (TB) 含有' }}
+              </a-checkbox>
+              <a-checkbox v-model="qaConfig.check_consistency">
+                {{ i18nStore.getText('toolsTab', 'qaCheckConsistency') || '整合性 (100%一致行)' }}
+              </a-checkbox>
+              <a-checkbox v-model="qaConfig.check_unmodified_pe">
+                {{ i18nStore.getText('toolsTab', 'qaCheckUnmodifiedPe') || 'PE修正漏れ (未編集の下訳)' }}
+              </a-checkbox>
+            </div>
+
+            <div style="margin-top: 16px;">
+              <a-space wrap>
+                <a-button type="primary" :disabled="!shwvStore.units || shwvStore.units.length === 0" @click="doRunQa">
+                  <template #icon><icon-safe /></template>
+                  {{ i18nStore.getText('toolsTab', 'qaRunBtn') || 'QAチェック実行' }}
+                </a-button>
+                <a-button v-if="qaIssues.length > 0" type="outline" status="success" @click="doExportQaReportCsv">
+                  <template #icon><icon-download /></template>
+                  {{ i18nStore.getText('toolsTab', 'qaExportReportCsvBtn') || 'QAレポート (CSV)' }}
+                </a-button>
+                <a-button v-if="qaIssues.length > 0" type="outline" @click="doExportQaReportJson">
+                  <template #icon><icon-download /></template>
+                  {{ i18nStore.getText('toolsTab', 'qaExportReportJsonBtn') || 'QAレポート (JSON)' }}
+                </a-button>
+              </a-space>
+            </div>
+          </a-card>
+
+          <!-- Results Card -->
           <a-card :bordered="false" class="tools-card">
-            <a-empty :description="i18nStore.getText('toolsTab', 'underConstruction') || '作成中'" />
+            <template #title>
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span>QA 検証結果</span>
+                <a-tag v-if="hasRunQa" :color="qaIssues.length > 0 ? 'orange' : 'green'" size="small">
+                  {{ qaIssues.length > 0 ? `${qaIssues.length} 件の問題` : 'パス (0 件)' }}
+                </a-tag>
+              </div>
+            </template>
+
+            <!-- State 1: Before Run -->
+            <div v-if="!hasRunQa" style="padding: 24px 0; text-align: center;">
+              <a-empty :description="i18nStore.getText('toolsTab', 'qaEmptyPrompt') || '「QAチェック実行」ボタンをクリックすると、全セグメントの検証結果がここに表示されます。'" />
+            </div>
+
+            <!-- State 2: Passed with 0 errors -->
+            <div v-else-if="qaIssues.length === 0" class="qa-pass-banner">
+              <icon-check-circle style="font-size: 32px; color: #52c41a; margin-right: 12px; flex-shrink: 0;" />
+              <div>
+                <div style="font-weight: 700; font-size: 15px; color: #52c41a;">
+                  {{ i18nStore.getText('toolsTab', 'qaPassTitle') || 'すべてチェックをクリアしました！' }}
+                </div>
+                <div style="font-size: 13px; color: var(--color-text-3); margin-top: 4px;">
+                  {{ i18nStore.getText('toolsTab', 'qaPassDesc') || '数字、タグ、用語集、100%一致行の整合性、PE修正漏れに問題は見つかりませんでした。' }}
+                </div>
+              </div>
+            </div>
+
+            <!-- State 3: Issues Found -->
+            <div v-else class="qa-results-container">
+              <!-- Summary Filter Chips -->
+              <div class="qa-summary-chips">
+                <div class="qa-chip" :class="{ active: selectedIssueFilter === 'ALL' }" @click="selectedIssueFilter = 'ALL'">
+                  <span>合計</span>
+                  <strong>{{ qaIssues.length }}</strong>
+                </div>
+                <div class="qa-chip chip-number" :class="{ active: selectedIssueFilter === 'Number' }" @click="selectedIssueFilter = 'Number'">
+                  <span>数字</span>
+                  <strong>{{ qaCounts.Number }}</strong>
+                </div>
+                <div class="qa-chip chip-tag" :class="{ active: selectedIssueFilter === 'Tag' }" @click="selectedIssueFilter = 'Tag'">
+                  <span>タグ</span>
+                  <strong>{{ qaCounts.Tag }}</strong>
+                </div>
+                <div class="qa-chip chip-term" :class="{ active: selectedIssueFilter === 'Term' }" @click="selectedIssueFilter = 'Term'">
+                  <span>用語</span>
+                  <strong>{{ qaCounts.Term }}</strong>
+                </div>
+                <div class="qa-chip chip-consistency" :class="{ active: selectedIssueFilter === 'Consistency' }" @click="selectedIssueFilter = 'Consistency'">
+                  <span>整合性</span>
+                  <strong>{{ qaCounts.Consistency }}</strong>
+                </div>
+                <div class="qa-chip chip-unmodifiedpe" :class="{ active: selectedIssueFilter === 'UnmodifiedPe' }" @click="selectedIssueFilter = 'UnmodifiedPe'">
+                  <span>PE修正漏れ</span>
+                  <strong>{{ qaCounts.UnmodifiedPe }}</strong>
+                </div>
+              </div>
+
+              <!-- Issue Items List -->
+              <div class="qa-issue-list">
+                <div v-for="(issue, idx) in filteredQaIssues" :key="idx" class="qa-issue-item">
+                  <div class="qa-item-header">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                      <a-tag color="gray" size="small" style="font-family: monospace; font-weight: bold;">
+                        #{{ issue.idx + 1 }} (ID: {{ issue.idx }})
+                      </a-tag>
+                      <span :class="['qa-type-badge', issue.issue_type.toLowerCase()]">{{ issue.issue_type }}</span>
+                      <span class="qa-item-msg">{{ issue.message }}</span>
+                    </div>
+                    <a-button size="mini" type="text" @click="jumpToQaSegment(issue.idx)">
+                      <template #icon><icon-location /></template>
+                      {{ i18nStore.getText('toolsTab', 'qaJumpToLine') || 'この行を表示' }}
+                    </a-button>
+                  </div>
+
+                  <!-- Source & Target Segment Previews -->
+                  <div v-if="getQaUnitPreview(issue.idx)" class="qa-item-preview">
+                    <div class="preview-row">
+                      <span class="preview-label">原文:</span>
+                      <span class="preview-val">{{ getQaUnitPreview(issue.idx)?.src }}</span>
+                    </div>
+                    <div class="preview-row" style="margin-top: 4px;">
+                      <span class="preview-label">訳文:</span>
+                      <span class="preview-val preview-target">{{ getQaUnitPreview(issue.idx)?.tgt || '(未入力)' }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </a-card>
         </div>
       </a-tab-pane>
 
-      <!-- 3. Sub-editor Subtab (サブエディタ) -->
+      <!-- 4. Sub-editor Subtab (サブエディタ) -->
       <a-tab-pane key="subeditor" :title="i18nStore.getText('toolsTab', 'subeditorSubtab') || 'サブエディタ'">
         <div class="pane-content">
           <a-card :bordered="false" class="tools-card">
@@ -554,5 +794,142 @@ const filteredBatchDiff = computed(() => {
 .action-bar {
   display: flex;
   align-items: center;
+}
+
+/* QA Subtab Styles */
+.qa-config-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  background-color: var(--color-fill-2);
+  padding: 12px 16px;
+  border-radius: 4px;
+}
+
+.qa-pass-banner {
+  display: flex;
+  align-items: center;
+  background-color: rgba(82, 196, 26, 0.1);
+  border: 1px solid rgba(82, 196, 26, 0.3);
+  padding: 16px 20px;
+  border-radius: 6px;
+}
+
+.qa-results-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.qa-summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border-2);
+}
+
+.qa-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background-color: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--color-text-2);
+}
+
+.qa-chip:hover {
+  border-color: var(--color-primary-light-3);
+}
+
+.qa-chip.active {
+  background-color: var(--color-primary-light-1);
+  border-color: var(--color-primary-light-4);
+  color: var(--color-primary-light-4);
+}
+
+.qa-chip strong {
+  font-weight: bold;
+}
+
+.qa-chip.chip-number strong { color: #60a5fa; }
+.qa-chip.chip-tag strong { color: #f59e0b; }
+.qa-chip.chip-term strong { color: #a78bfa; }
+.qa-chip.chip-consistency strong { color: #ec4899; }
+.qa-chip.chip-unmodifiedpe strong { color: #f97316; }
+
+.qa-issue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qa-issue-item {
+  background-color: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qa-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.qa-type-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.qa-type-badge.number { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
+.qa-type-badge.tag { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.qa-type-badge.term { background: rgba(167, 139, 250, 0.15); color: #a78bfa; }
+.qa-type-badge.consistency { background: rgba(236, 72, 153, 0.15); color: #ec4899; }
+.qa-type-badge.unmodifiedpe { background: rgba(249, 115, 22, 0.15); color: #f97316; }
+
+.qa-item-msg {
+  font-size: 13px;
+  color: var(--color-text-1);
+}
+
+.qa-item-preview {
+  background-color: var(--color-bg-1);
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preview-label {
+  color: var(--color-text-3);
+  font-weight: 600;
+  min-width: 36px;
+  flex-shrink: 0;
+}
+
+.preview-val {
+  color: var(--color-text-2);
+  word-break: break-all;
+}
+
+.preview-val.preview-target {
+  color: var(--color-text-1);
+  font-weight: 500;
 }
 </style>

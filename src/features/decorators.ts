@@ -164,6 +164,7 @@ export function initDecorators(context: vscode.ExtensionContext) {
 
 import { globalDirector, globalShWvData } from '../store';
 import { findProjectRoot } from '../util';
+import { emitActiveUnitChange } from '../api';
 
 /**
  * 現在のアクティブ行（および指定範囲の行）に登録用語のハイライトを適用します。
@@ -189,9 +190,9 @@ export function renderTermDecorations(
     const langId = editor.document.languageId;
     const isSource = langId === 'shwvs' || fileName.endsWith('.shwvs');
     const isTarget = langId === 'shwvt' || fileName.endsWith('.shwvt');
-    const isBilingual = langId === 'shwv' || fileName.endsWith('.shwv');
 
-    if (!isSource && !isTarget && !isBilingual) {
+    if (!isSource && !isTarget) {
+        editor.setDecorations(termDecoration, []);
         return;
     }
 
@@ -219,57 +220,11 @@ export function renderTermDecorations(
         rangeOffset = config.get<number>('termDecorationLineRange', 2);
     }
 
+    // サブ拡張向けの行変更イベントを発火
+    emitActiveUnitChange(editor, targetLine);
+
     const startLine = Math.max(0, targetLine - rangeOffset);
     const endLine = Math.min(editor.document.lineCount - 1, targetLine + rangeOffset);
-
-    // 登録用語の収集 (src -> Set of tgts)
-    const termMap = new Map<string, Set<string>>();
-
-    // 1. プロジェクト内用語 (globalShWvData.body.terms)
-    if (globalShWvData?.body?.terms) {
-        for (const t of globalShWvData.body.terms) {
-            if (t.src && t.src.trim()) {
-                if (!termMap.has(t.src)) termMap.set(t.src, new Set());
-                if (t.tgt) termMap.get(t.src)!.add(t.tgt);
-            }
-        }
-    }
-
-    // 2. 参照TB (globalDirector.tbData)
-    if (globalDirector?.tbData) {
-        for (const t of globalDirector.tbData) {
-            if (t.src && t.src.trim()) {
-                if (!termMap.has(t.src)) termMap.set(t.src, new Set());
-                if (t.tgt) termMap.get(t.src)!.add(t.tgt);
-            }
-        }
-    }
-
-    // 3. 対象行のユニット固有 TB (unit.ref.tb)
-    for (let line = startLine; line <= endLine; line++) {
-        const unit = globalShWvData?.body?.units?.[line];
-        if (unit?.ref?.tb) {
-            for (const tb of unit.ref.tb) {
-                if (tb.src && tb.src.trim()) {
-                    if (!termMap.has(tb.src)) termMap.set(tb.src, new Set());
-                    if (tb.tgts) {
-                        for (const tgt of tb.tgts) {
-                            if (tgt) termMap.get(tb.src)!.add(tgt);
-                        }
-                    }
-                    if ((tb as any).tgt) {
-                        termMap.get(tb.src)!.add((tb as any).tgt);
-                    }
-                }
-            }
-        }
-    }
-
-    // 用語が1件もない場合は装飾をクリア
-    if (termMap.size === 0) {
-        editor.setDecorations(termDecoration, []);
-        return;
-    }
 
     const termDecorations: vscode.DecorationOptions[] = [];
     const seenRanges = new Set<string>();
@@ -295,15 +250,39 @@ export function renderTermDecorations(
         }
     }
 
-    // 長い用語から順にマッチさせるためキーを長さ降順にソート
-    const sortedSrcs = Array.from(termMap.keys()).sort((a, b) => b.length - a.length);
-
+    // 各行について、その行の unit.ref.tb に登録されている用語のみを装飾
     for (let line = startLine; line <= endLine; line++) {
+        const unit = globalShWvData?.body?.units?.[line];
+        if (!unit?.ref?.tb || unit.ref.tb.length === 0) {
+            continue;
+        }
+
         const lineText = editor.document.lineAt(line).text;
         if (!lineText) continue;
 
+        // 当該行の unit.ref.tb を収集 (src -> Set of tgts)
+        const lineTermMap = new Map<string, Set<string>>();
+        for (const tb of unit.ref.tb) {
+            if (tb.src && tb.src.trim()) {
+                if (!lineTermMap.has(tb.src)) lineTermMap.set(tb.src, new Set());
+                if (tb.tgts) {
+                    for (const tgt of tb.tgts) {
+                        if (tgt) lineTermMap.get(tb.src)!.add(tgt);
+                    }
+                }
+                if ((tb as any).tgt) {
+                    lineTermMap.get(tb.src)!.add((tb as any).tgt);
+                }
+            }
+        }
+
+        if (lineTermMap.size === 0) continue;
+
+        // 長い用語から順にマッチさせるためキーを長さ降順にソート
+        const sortedSrcs = Array.from(lineTermMap.keys()).sort((a, b) => b.length - a.length);
+
         for (const src of sortedSrcs) {
-            const tgtsSet = termMap.get(src)!;
+            const tgtsSet = lineTermMap.get(src)!;
             const tgts = Array.from(tgtsSet);
             const tooltip = `**用語集 (TB)**\n\n- 原文: \`${src}\`\n- 訳文: ${tgts.length > 0 ? tgts.map(t => `\`${t}\``).join(', ') : '*(未指定)*'}`;
 
@@ -318,19 +297,11 @@ export function renderTermDecorations(
                     }
                 }
                 findOccurrences(lineText, src, line, tooltip);
-            } else if (isBilingual) {
-                // .shwv: 原文・訳文の両方を装飾
-                findOccurrences(lineText, src, line, tooltip);
-                for (const tgt of tgts) {
-                    if (tgt && tgt.trim()) {
-                        findOccurrences(lineText, tgt, line, tooltip);
-                    }
-                }
             }
         }
     }
 
-    // デコレーションを適用（以前の現在行以外の装飾は自動的にクリアされる）
+    // デコレーションを適用（対象外の行や以前の装飾は自動的にクリアされる）
     editor.setDecorations(termDecoration, termDecorations);
 }
 

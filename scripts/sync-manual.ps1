@@ -1,5 +1,5 @@
 # 双方向マニュアル同期スクリプト (PowerShell 5.1 / 7+ 完全対応)
-# ../SheepPress/contents/sheep-weave と ./manual/sheep-weave (または ./manuarl/sheep-weave) の内容を比較し、
+# ../SheepPress/contents/sheep-weave と ./manual/sheep-weave の内容を比較し、
 # 更新日時が新しいファイルでお互いを上書き・同期します。
 
 param (
@@ -28,11 +28,6 @@ if (-not (Test-Path (Join-Path $currentPath "package.json"))) {
     if (Test-Path (Join-Path $currentPath "..\package.json")) {
         $currentPath = [System.IO.Path]::GetFullPath((Join-Path $currentPath ".."))
     }
-}
-
-# manuarl フォルダが存在する場合はそちらをデフォルト対象とする
-if ($DirB -eq ".\manual\sheep-weave" -and (Test-Path (Join-Path $currentPath "manuarl\sheep-weave"))) {
-    $DirB = ".\manuarl\sheep-weave"
 }
 
 $combinedA = [System.IO.Path]::Combine($currentPath, $DirA)

@@ -18,10 +18,11 @@ import { initShortcuts } from './features/shortcuts';
 import { TbCompletionProvider, PhraseCompletionProvider } from './features/intellisense';
 import { globalShWvData, globalDirector } from './store';
 import { findProjectRoot } from './util';
+import { createPublicApi, SheepWeavePublicApi, ActiveUnitChangeEvent } from './api';
 
-// Expose standard events here if needed
+export type { SheepWeavePublicApi, ActiveUnitChangeEvent };
 
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: vscode.ExtensionContext): SheepWeavePublicApi {
     console.log('Congratulations, your extension "sheep-weave" is now active!');
 
     // プロジェクトデータをロード（アクティブなエディタに基づいてルートを特定）
@@ -146,6 +147,9 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.tooltip = 'Open SheepWeave Panel';
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
+
+    // 外部サブ拡張向けのパブリックAPIを公開
+    return createPublicApi();
 }
 
 export function deactivate() { }

@@ -56,6 +56,8 @@ export const useShWvStore = defineStore('shwv', {
         llmUseLocalPrompt: false,
         llmSelectedPromptFile: '',
         llmBatchChunkSize: 3500,
+        llmBatchStartLine: undefined as number | undefined,
+        llmBatchEndLine: undefined as number | undefined,
     }),
     actions: {
         setConcordanceData(data: { query: string, mode: string, tbMatches: any[], tmMatches: any[], currentDocumentMatches: any[] }) {
@@ -164,6 +166,14 @@ export const useShWvStore = defineStore('shwv', {
         },
         setLlmBatchChunkSize(size: number) {
             this.llmBatchChunkSize = size;
+        },
+        setLlmBatchRange(start?: number, end?: number) {
+            this.llmBatchStartLine = start;
+            this.llmBatchEndLine = end;
+        },
+        clearLlmBatchRange() {
+            this.llmBatchStartLine = undefined;
+            this.llmBatchEndLine = undefined;
         }
     },
     getters: {

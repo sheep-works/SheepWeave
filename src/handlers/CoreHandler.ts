@@ -612,10 +612,22 @@ export class CoreHandler {
                         console.warn('Auto backup before LLM batch failed:', backupErr);
                     }
 
-                    const { prompt, mode, options } = message.payload;
-                    const units = globalShWvData.body.units;
+                    const { prompt, mode, options, startLine, endLine } = message.payload;
+                    let units = globalShWvData.body.units;
                     if (!units || units.length === 0) {
                         panel.webview.postMessage({ type: 'LLM_BATCH_ERROR', data: { error: 'No units found in document.' } });
+                        break;
+                    }
+
+                    if (typeof startLine === 'number' && startLine > 0) {
+                        units = units.filter(u => (u.idx + 1) >= startLine);
+                    }
+                    if (typeof endLine === 'number' && endLine > 0) {
+                        units = units.filter(u => (u.idx + 1) <= endLine);
+                    }
+
+                    if (units.length === 0) {
+                        panel.webview.postMessage({ type: 'LLM_BATCH_ERROR', data: { error: 'No units found in the specified line range.' } });
                         break;
                     }
 
