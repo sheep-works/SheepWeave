@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { IconSearch } from '@arco-design/web-vue/es/icon';
 import { useShWvStore } from '../store/shwv';
 import { useI18nStore } from '../store/i18n';
 
@@ -46,19 +47,36 @@ function highlight(text: string, query: string): string {
 
 <template>
     <div class="concordance-view">
-        <div class="manual-search-container">
-            <a-space>
-                <a-input-search v-model="manualQuery" :placeholder="i18nStore.getText('searchTab', 'placeholder')" style="width: 300px"
-                    @search="handleManualSearch" @press-enter="handleManualSearch" />
-                <a-radio-group v-model="manualMode" type="button">
-                    <a-radio value="source">{{ i18nStore.getText('searchTab', 'modeSource') }}</a-radio>
-                    <a-radio value="target">{{ i18nStore.getText('searchTab', 'modeTarget') }}</a-radio>
-                </a-radio-group>
-                <a-tooltip :content="i18nStore.getText('searchTab', 'tooltipShortcut')">
-                    <a-button type="primary" @click="handleManualSearch">{{ i18nStore.getText('searchTab', 'searchBtn') }}</a-button>
-                </a-tooltip>
-            </a-space>
-        </div>
+        <!-- Input Toolbar Area (Aligned with FilterView style) -->
+        <a-row :gutter="10" align="center" class="toolbar-row">
+            <a-col :span="12">
+                <a-input
+                    v-model="manualQuery"
+                    :placeholder="i18nStore.getText('searchTab', 'placeholder') || '検索キーワードを入力...'"
+                    allow-clear
+                    size="small"
+                    @press-enter="handleManualSearch"
+                >
+                    <template #prefix>
+                        <icon-search />
+                    </template>
+                </a-input>
+            </a-col>
+            <a-col :span="12">
+                <a-space size="small">
+                    <a-radio-group v-model="manualMode" type="button" size="small">
+                        <a-radio value="source">{{ i18nStore.getText('searchTab', 'modeSource') }}</a-radio>
+                        <a-radio value="target">{{ i18nStore.getText('searchTab', 'modeTarget') }}</a-radio>
+                    </a-radio-group>
+                    <a-tooltip :content="i18nStore.getText('searchTab', 'tooltipShortcut')">
+                        <a-button type="primary" size="small" @click="handleManualSearch">
+                            <template #icon><icon-search /></template>
+                            {{ i18nStore.getText('searchTab', 'searchBtn') }}
+                        </a-button>
+                    </a-tooltip>
+                </a-space>
+            </a-col>
+        </a-row>
 
         <div v-if="!data && !manualQuery" class="empty-state">
             <p>{{ i18nStore.getText('common', 'nodata') }}</p>
@@ -150,12 +168,9 @@ function highlight(text: string, query: string): string {
     flex-direction: column;
 }
 
-.manual-search-container {
-    margin-bottom: 2rem;
-    background: var(--vscode-editorWidget-background);
-    padding: 1rem;
-    border-radius: 4px;
-    border: 1px solid var(--vscode-widget-border);
+.toolbar-row {
+    margin-bottom: 8px;
+    flex-shrink: 0;
 }
 
 .empty-state {

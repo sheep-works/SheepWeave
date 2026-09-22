@@ -114,6 +114,14 @@
       {
         "command": "sheepWeave.diffTargetWithTm",
         "title": "SheepWeave: Compare Target with TM / 訳文とTMの差分を表示"
+      },
+      {
+        "command": "sheepWeave.openBypassTranslation",
+        "title": "SheepWeave: Bypass Translation / バイパス翻訳"
+      },
+      {
+        "command": "sheepWeave.openFreeEditor",
+        "title": "SheepWeave: Edit Freely / 自由に編集"
       }
     ],
     "menus": {
@@ -135,6 +143,16 @@
           "command": "sheepWeave.diffTargetWithTm",
           "group": "sheepWeaveGroup@2",
           "when": "editorLangId == shwvt"
+        },
+        {
+          "command": "sheepWeave.openBypassTranslation",
+          "group": "sheepWeaveGroup@3",
+          "when": "editorLangId == shwvt || editorLangId == shwvs || editorLangId == shwv"
+        },
+        {
+          "command": "sheepWeave.openFreeEditor",
+          "group": "sheepWeaveGroup@4",
+          "when": "editorLangId == shwvt || editorLangId == shwvs || editorLangId == shwv"
         }
       ]
     },

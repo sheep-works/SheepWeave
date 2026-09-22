@@ -12,6 +12,7 @@ import { gotoNextUnconfirmedCommand } from './commands/gotoNextUnconfirmed';
 import { gotoPrevUnconfirmedCommand } from './commands/gotoPrevUnconfirmed';
 import { concordanceSearchCommand } from './commands/concordanceSearch';
 import { diffTargetWithTmCommand } from './commands/diffTargetWithTm';
+import { openBypassTranslationCommand, openFreeEditorCommand } from './commands/bypassCommands';
 import { initEditorGuard } from './features/editorGuard';
 import { initDecorators, renderConfirmedDecorations, renderTermDecorations } from './features/decorators';
 import { initShortcuts } from './features/shortcuts';
@@ -94,6 +95,12 @@ export function activate(context: vscode.ExtensionContext): SheepWeavePublicApi 
         }),
         vscode.commands.registerCommand('sheepWeave.diffTargetWithTm', () => {
             diffTargetWithTmCommand(context);
+        }),
+        vscode.commands.registerCommand('sheepWeave.openBypassTranslation', () => {
+            openBypassTranslationCommand(context);
+        }),
+        vscode.commands.registerCommand('sheepWeave.openFreeEditor', () => {
+            openFreeEditorCommand(context);
         })
     );
 

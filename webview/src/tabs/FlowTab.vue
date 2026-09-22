@@ -255,6 +255,14 @@ watch(() => props.config, (newVal) => {
                   </a-tooltip>
                 </a-space>
               </a-list-item>
+              <a-list-item>
+                <a-space align="center">
+                  <a-typography-text type="secondary">🌐</a-typography-text>
+                  <a-link href="https://storage.lambuage.com/#samples" target="_blank">
+                    {{ i18nStore.getText('flowTab', 'sampleLink') || 'サンプルファイルはこちら' }}
+                  </a-link>
+                </a-space>
+              </a-list-item>
             </a-list>
           </a-card>
         </div>

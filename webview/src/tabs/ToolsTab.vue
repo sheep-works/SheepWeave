@@ -629,15 +629,6 @@ const filteredBatchDiff = computed(() => {
           </a-card>
         </div>
       </a-tab-pane>
-
-      <!-- 4. Sub-editor Subtab (サブエディタ) -->
-      <a-tab-pane key="subeditor" :title="i18nStore.getText('toolsTab', 'subeditorSubtab') || 'サブエディタ'">
-        <div class="pane-content">
-          <a-card :bordered="false" class="tools-card">
-            <a-empty :description="i18nStore.getText('toolsTab', 'underConstruction') || '作成中'" />
-          </a-card>
-        </div>
-      </a-tab-pane>
     </a-tabs>
   </div>
 </template>
@@ -776,19 +767,20 @@ const filteredBatchDiff = computed(() => {
 }
 
 .diff-html :deep(ins) {
-  background-color: rgba(46, 160, 67, 0.25);
-  color: #2da44e;
-  text-decoration: none;
-  padding: 2px 4px;
-  border-radius: 2px;
+  background-color: rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+  font-weight: 600;
+  text-decoration: underline;
+  padding: 1px 4px;
+  border-radius: 3px;
 }
 
 .diff-html :deep(del) {
-  background-color: rgba(207, 34, 46, 0.25);
-  color: #cf222e;
+  background-color: rgba(239, 68, 68, 0.25);
+  color: #f87171;
   text-decoration: line-through;
-  padding: 2px 4px;
-  border-radius: 2px;
+  padding: 1px 4px;
+  border-radius: 3px;
 }
 
 .action-bar {
