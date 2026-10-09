@@ -19,6 +19,7 @@ import { initShortcuts } from './features/shortcuts';
 import { TbCompletionProvider, PhraseCompletionProvider } from './features/intellisense';
 import { globalShWvData, globalDirector } from './store';
 import { findProjectRoot } from './util';
+import { exportScopedPatch, mergePatchUnits } from './services/fileOps';
 import { createPublicApi, SheepWeavePublicApi, ActiveUnitChangeEvent } from './api';
 
 export type { SheepWeavePublicApi, ActiveUnitChangeEvent };
@@ -101,6 +102,43 @@ export function activate(context: vscode.ExtensionContext): SheepWeavePublicApi 
         }),
         vscode.commands.registerCommand('sheepWeave.openFreeEditor', () => {
             openFreeEditorCommand(context);
+        }),
+        vscode.commands.registerCommand('sheepWeave.exportScopedPatch', async () => {
+            const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (root) {
+                try {
+                    const res = await exportScopedPatch(root);
+                    vscode.window.showInformationMessage(`担当範囲のパッチを出力しました (${res.count} 件): ${res.exportPath}`);
+                } catch (e: any) {
+                    vscode.window.showErrorMessage(`パッチ出力エラー: ${e.message || e}`);
+                }
+            }
+        }),
+        vscode.commands.registerCommand('sheepWeave.mergePatch', async () => {
+            const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (root) {
+                const uri = await vscode.window.showOpenDialog({
+                    canSelectMany: false,
+                    filters: { 'Patch Files': ['json', 'jsonl'] },
+                    openLabel: 'マージするパッチを選択'
+                });
+                if (uri && uri[0]) {
+                    try {
+                        const fs = require('fs');
+                        const content = fs.readFileSync(uri[0].fsPath, 'utf-8');
+                        const patchUnits = JSON.parse(content);
+                        if (Array.isArray(patchUnits)) {
+                            const updated = await mergePatchUnits(root, patchUnits);
+                            vscode.window.visibleTextEditors.forEach(editor => {
+                                renderConfirmedDecorations(editor);
+                            });
+                            vscode.window.showInformationMessage(`パッチをマージしました (${updated.length} 件更新)`);
+                        }
+                    } catch (e: any) {
+                        vscode.window.showErrorMessage(`パッチマージエラー: ${e.message || e}`);
+                    }
+                }
+            }
         })
     );
 

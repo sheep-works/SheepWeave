@@ -134,6 +134,63 @@ export class ShWvData {
         }
     }
 
+    public getScopedUnits(workflow = this.meta.workflow): ShWvUnit[] {
+        if (!workflow || (!workflow.range && !workflow.files)) {
+            return this.body.units;
+        }
+
+        const { range, files } = workflow;
+        let rangeSet: Set<number> | null = null;
+        if (range) {
+            rangeSet = new Set<number>();
+            const parts = range.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            for (const part of parts) {
+                if (part.includes('-')) {
+                    const [startStr, endStr] = part.split('-').map(s => s.trim());
+                    const start = parseInt(startStr, 10);
+                    const end = parseInt(endStr, 10);
+                    if (!isNaN(start) && !isNaN(end)) {
+                        const min = Math.min(start, end);
+                        const max = Math.max(start, end);
+                        for (let i = min; i <= max; i++) {
+                            rangeSet.add(i);
+                        }
+                    }
+                } else {
+                    const single = parseInt(part, 10);
+                    if (!isNaN(single)) {
+                        rangeSet.add(single);
+                    }
+                }
+            }
+        }
+
+        let fileSet: Set<number> | null = null;
+        if (files) {
+            fileSet = new Set<number>();
+            const targetFileNames = (Array.isArray(files) ? files : files.split(','))
+                .map(f => f.trim().toLowerCase())
+                .filter(f => f.length > 0);
+
+            for (const f of this.meta.files || []) {
+                if (targetFileNames.includes(f.name.toLowerCase())) {
+                    for (let i = f.start; i <= f.end; i++) {
+                        fileSet.add(i);
+                    }
+                }
+            }
+        }
+
+        return this.body.units.filter(unit => {
+            if (rangeSet && fileSet) {
+                return rangeSet.has(unit.idx) && fileSet.has(unit.idx);
+            }
+            if (rangeSet) return rangeSet.has(unit.idx);
+            if (fileSet) return fileSet.has(unit.idx);
+            return true;
+        });
+    }
+
     public extract(mode: "source" | "target" | "both-horizontal" | "both-vertical"): string[] {
         switch (mode) {
             case "source":
@@ -150,19 +207,19 @@ export class ShWvData {
     }
 
     private extractSource(): string[] {
-        return this.body.units.map(unit => unit.src);
+        return this.getScopedUnits().map(unit => unit.src);
     }
 
     private extractTarget(): string[] {
-        return this.body.units.map(unit => unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src));
+        return this.getScopedUnits().map(unit => unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src));
     }
 
     private extractBothHorizontal(): string[] {
-        return this.body.units.map(unit => unit.src + '\t' + (unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src)));
+        return this.getScopedUnits().map(unit => unit.src + '\t' + (unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src)));
     }
 
     private extractBothVertical(): string[] {
-        return this.body.units.map(unit => unit.src + '\n' + (unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src)));
+        return this.getScopedUnits().map(unit => unit.src + '\n' + (unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src)));
     }
 
 
@@ -181,17 +238,16 @@ export class ShWvData {
         const content = readFileSync(filepath, 'utf-8');
         const lines = content.split('\n');
 
-        let targetIdx = 0;
-        for (let i = 0; i < this.body.units.length; i++) {
-            if (targetIdx < lines.length) {
-                this.body.units[i].tgt = lines[targetIdx];
-                targetIdx++;
-            }
+        const scopedUnits = this.getScopedUnits();
+        for (let i = 0; i < scopedUnits.length && i < lines.length; i++) {
+            scopedUnits[i].tgt = lines[i];
         }
     }
 
     public updateUnitTarget(index: number, text: string): void {
-        const targetUnit = this.body.units[index];
+        const targetUnit = (this.body.units[index] && this.body.units[index].idx === index)
+            ? this.body.units[index]
+            : this.body.units.find(u => u.idx === index);
         if (targetUnit) {
             targetUnit.tgt = text;
         }
@@ -327,7 +383,9 @@ export class ShWvData {
                         index: workflow.index,
                         role: workflow.role || '',
                         name: workflow.name || '',
-                        segmentation: segOption
+                        segmentation: segOption,
+                        range: workflow.range || undefined,
+                        files: workflow.files || undefined,
                     };
                 }
             } catch (e) {

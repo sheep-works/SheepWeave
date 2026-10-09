@@ -3,7 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ShWvData } from './core/ShWvData';
 import { DirHelper } from './core/DirHelper';
-import { globalShWvData } from '../store';
+import { globalShWvData, globalDirector } from '../store';
+import type { ShWvUnit } from '../types/datatype';
 import { groupFilesByFilter, resolveTikalPath, runTikal } from './tikal';
 import { ProjectManager, ProjectFileStatus } from './core/ProjectManager';
 import { SheepShuttle } from '../management';
@@ -787,12 +788,8 @@ export async function advanceWorkflow(root: string): Promise<{ previousIndex: nu
     // Save project.json
     data.save(root);
 
-    // Write updated Target.shwvt (all lines empty) and Source.shwvs
-    const shwvtPath = DirHelper.getShwvtPath(root);
-    const shwvsPath = DirHelper.getShwvsPath(root);
-    const emptyTargets = data.body.units.map(u => u.tgt || '').join('\n');
-    fs.writeFileSync(shwvtPath, emptyTargets, 'utf-8');
-    fs.writeFileSync(shwvsPath, data.body.units.map(u => u.src).join('\n'), 'utf-8');
+    // Write updated Target.shwvt and Source.shwvs with scoped units
+    await data.writeShwv(root);
 
     return {
         previousIndex,
@@ -800,5 +797,190 @@ export async function advanceWorkflow(root: string): Promise<{ previousIndex: nu
         exportedPath,
         data
     };
+}
+
+/**
+ * Exports scoped units as a patch JSON file to Working/04_SHWV/
+ */
+export async function exportScopedPatch(root: string): Promise<{ exportPath: string; count: number }> {
+    const data = globalShWvData;
+    if (!data.meta || !data.body || data.body.units.length === 0) {
+        data.load(root);
+    }
+    const shwvtPath = DirHelper.getShwvtPath(root);
+    if (fs.existsSync(shwvtPath)) {
+        data.update(shwvtPath);
+    }
+
+    const scopedUnits = data.getScopedUnits();
+    const patchUnits = scopedUnits.map(u => ({
+        idx: u.idx,
+        src: u.src,
+        tgt: u.tgt || '',
+        pre: u.pre || '',
+        status: u.status || 0,
+        note: u.note
+    }));
+
+    const workflow = data.meta.workflow;
+    const role = workflow?.role || 'Translation';
+    const rangeTag = workflow?.range ? `range-${workflow.range.replace(/[, ]+/g, '_')}` : (workflow?.files ? 'files' : 'all');
+    const filename = `patch_${role}_${rangeTag}.json`;
+
+    const shwvDir = path.join(root, 'Working', '04_SHWV');
+    ensureDir(shwvDir);
+    const exportPath = path.join(shwvDir, filename);
+
+    fs.writeFileSync(exportPath, JSON.stringify(patchUnits, null, 2), 'utf-8');
+    return { exportPath, count: patchUnits.length };
+}
+
+/**
+ * Merges patch units into ShWvData, propagates translations, saves project.json and updates editor files.
+ */
+export async function mergePatchUnits(root: string, patchUnits: Array<Partial<ShWvUnit> & { idx: number }>): Promise<number[]> {
+    const data = globalShWvData;
+    if (!data.meta || !data.body || data.body.units.length === 0) {
+        data.load(root);
+    }
+
+    const unitMap = new Map<number, ShWvUnit>();
+    for (const u of data.body.units) {
+        unitMap.set(u.idx, u);
+    }
+
+    const updatedIndices: number[] = [];
+    for (const patch of patchUnits) {
+        const targetUnit = unitMap.get(patch.idx);
+        if (targetUnit) {
+            let changed = false;
+            if (patch.tgt !== undefined && patch.tgt !== targetUnit.tgt) {
+                targetUnit.tgt = patch.tgt;
+                changed = true;
+            }
+            if (patch.pre !== undefined && patch.pre !== targetUnit.pre) {
+                targetUnit.pre = patch.pre;
+                changed = true;
+            }
+            if (patch.status !== undefined && patch.status !== targetUnit.status) {
+                targetUnit.status = patch.status;
+                changed = true;
+            }
+            if (patch.note !== undefined && patch.note !== targetUnit.note) {
+                targetUnit.note = patch.note;
+                changed = true;
+            }
+            if (changed) {
+                updatedIndices.push(patch.idx);
+            }
+        }
+    }
+
+    if (updatedIndices.length > 0) {
+        data.propagateAllTranslations();
+        data.save(root);
+        await data.writeShwv(root);
+        globalDirector.initializeFromState();
+    }
+
+    return updatedIndices;
+}
+
+export interface ScopedAssignment {
+    name: string;
+    role?: string;
+    index?: number;
+    segmentation?: string;
+    range?: string;
+    files?: string[] | string;
+}
+
+/**
+ * Generates scoped project packages in Working/99_MANAGE/<name>/ for each assigned worker.
+ */
+export async function generateScopedProjects(root: string, assignments: ScopedAssignment[]): Promise<{ manageDir: string; generated: string[] }> {
+    const data = globalShWvData;
+    if (!data.meta || !data.body || data.body.units.length === 0) {
+        data.load(root);
+    }
+    const storagePath = DirHelper.getStoragePath(root);
+    if (!fs.existsSync(storagePath)) {
+        data.save(root);
+    }
+
+    const manageDir = path.join(root, 'Working', '99_MANAGE');
+    ensureDir(manageDir);
+
+    const generated: string[] = [];
+
+    for (const assign of assignments) {
+        if (!assign.name || !assign.name.trim()) continue;
+        const workerName = assign.name.trim().replace(/[\\/:*?"<>|]+/g, '_');
+        const workerDir = path.join(manageDir, workerName);
+        ensureDir(workerDir);
+
+        // 1. Prepare scoped project.json
+        const clonedData: any = JSON.parse(fs.readFileSync(storagePath, 'utf-8'));
+        const workflowIndex = assign.index ?? (data.meta.workflow?.index ?? 1);
+        const workflowRole = assign.role || data.meta.workflow?.role || 'Translation';
+        const workflowSeg = assign.segmentation || data.meta.workflow?.segmentation || 'line';
+
+        clonedData.meta = clonedData.meta || {};
+        clonedData.meta.workflow = {
+            index: workflowIndex,
+            role: workflowRole,
+            name: assign.name,
+            segmentation: workflowSeg,
+            range: assign.range || undefined,
+            files: assign.files || undefined,
+        };
+
+        const targetProjectJson = path.join(workerDir, 'project.json');
+        fs.writeFileSync(targetProjectJson, JSON.stringify(clonedData, null, 2), 'utf-8');
+
+        // 2. Prepare workflow.ini
+        let iniLines = [
+            `index=${workflowIndex}`,
+            `role=${workflowRole}`,
+            `name=${assign.name}`,
+            `segmentation=${workflowSeg}`,
+        ];
+        if (assign.range) {
+            iniLines.push(`range=${assign.range}`);
+        }
+        if (assign.files) {
+            const filesStr = Array.isArray(assign.files) ? assign.files.join(', ') : assign.files;
+            iniLines.push(`files=${filesStr}`);
+        }
+        const targetWorkflowIni = path.join(workerDir, 'workflow.ini');
+        fs.writeFileSync(targetWorkflowIni, iniLines.join('\n') + '\n', 'utf-8');
+
+        // 3. Copy reference folder (Working/01_REF) if exists
+        const refDir = path.join(root, 'Working', '01_REF');
+        if (fs.existsSync(refDir)) {
+            const targetRefDir = path.join(workerDir, 'Working', '01_REF');
+            ensureDir(targetRefDir);
+            copyDirRecursiveSync(refDir, targetRefDir);
+        }
+
+        generated.push(workerName);
+    }
+
+    return { manageDir, generated };
+}
+
+function copyDirRecursiveSync(src: string, dest: string) {
+    if (!fs.existsSync(src)) return;
+    ensureDir(dest);
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        if (entry.isDirectory()) {
+            copyDirRecursiveSync(srcPath, destPath);
+        } else {
+            fs.copyFileSync(srcPath, destPath);
+        }
+    }
 }
 

@@ -3,7 +3,7 @@
  * TMの置換や用語の置換などを提供します。
  */
 import * as vscode from 'vscode';
-import { globalShWvData } from '../store';
+import { globalDirector, globalShWvData } from '../store';
 import { openSheepWeavePanel, notifyWebview } from '../commands/openSheepWeavePanel';
 
 export function initShortcuts(context: vscode.ExtensionContext) {
@@ -43,11 +43,11 @@ function replaceWithTm(index: number) {
     if (!editor || !isShwvtFile(editor.document)) return;
 
     const line = editor.selection.active.line;
-    const unit = globalShWvData.body.units[line];
+    const unit = globalDirector.getUnitByLine(line);
 
     if (unit && unit.ref.tms && unit.ref.tms[index]) {
         const tm = unit.ref.tms[index];
-        const tgt = tm.idx !== -1 ? (globalShWvData.body.units[tm.idx]?.tgt || tm.tgt) : tm.tgt;
+        const tgt = tm.idx !== -1 ? (globalDirector.getUnitByIdx(tm.idx)?.tgt || tm.tgt) : tm.tgt;
         const lineItem = editor.document.lineAt(line);
 
         editor.edit(editBuilder => {
@@ -65,7 +65,7 @@ function replaceWithTb() {
 
     const selectedText = editor.document.getText(selection);
     const line = selection.active.line;
-    const unit = globalShWvData.body.units[line];
+    const unit = globalDirector.getUnitByLine(line);
 
     if (unit && unit.ref.tb) {
         // 現在のセグメントに紐付いている用語集から検索
@@ -88,7 +88,7 @@ function replaceAllWithTb() {
 
     const selectedText = editor.document.getText(selection);
     const line = selection.active.line;
-    const unit = globalShWvData.body.units[line];
+    const unit = globalDirector.getUnitByLine(line);
 
     if (unit && unit.ref.tb) {
         const tbMatch = unit.ref.tb.find(tb => tb.src === selectedText);
@@ -115,7 +115,7 @@ function copySource() {
     if (!editor || !isShwvtFile(editor.document)) return;
 
     const line = editor.selection.active.line;
-    const unit = globalShWvData.body.units[line];
+    const unit = globalDirector.getUnitByLine(line);
 
     if (unit) {
         const src = unit.src;
@@ -148,7 +148,7 @@ async function loadLlmSelection(context: vscode.ExtensionContext) {
 
     const selectedUnits: any[] = [];
     for (let i = startLine; i <= endLine; i++) {
-        const unit = globalShWvData.body.units[i];
+        const unit = globalDirector.getUnitByLine(i);
         if (unit) {
             selectedUnits.push(unit);
         }

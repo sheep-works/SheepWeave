@@ -10,9 +10,10 @@ export function confirmLineCommand() {
 
     const line = editor.selection.active.line;
     const text = editor.document.lineAt(line).text;
+    const idx = globalDirector.getIdxByLine(line);
 
     // Execute confirmation business logic (syncs down to ref.quoted natively)
-    globalDirector.confirmLine(line, text);
+    globalDirector.confirmLine(idx, text);
 
     // Apply decorations
     renderConfirmedDecorations(editor);

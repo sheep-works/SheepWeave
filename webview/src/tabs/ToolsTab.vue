@@ -39,6 +39,143 @@ function handleExportReviewHtml() {
   }
 }
 
+// ==================== Virtual Merge Mode ====================
+const droppedPatchUnits = ref<any[]>([]);
+const patchFileName = ref('');
+const isDragging = ref(false);
+
+function handleOpenMergeDialog() {
+  const vscode = getVsCodeApi();
+  if (vscode) {
+    vscode.postMessage({ type: 'merge-patch-dialog' });
+  }
+}
+
+function handleFileDrop(e: DragEvent) {
+  isDragging.value = false;
+  if (!e.dataTransfer || !e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+  const file = e.dataTransfer.files[0];
+  if (!file.name.toLowerCase().endsWith('.json') && !file.name.toLowerCase().endsWith('.jsonl')) {
+    return;
+  }
+  patchFileName.value = file.name;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const content = event.target?.result as string;
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        droppedPatchUnits.value = parsed;
+      }
+    } catch (err) {
+      console.error('Failed to parse dropped patch JSON', err);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function executeDroppedMerge() {
+  if (droppedPatchUnits.value.length === 0) return;
+  const vscode = getVsCodeApi();
+  if (vscode) {
+    vscode.postMessage({
+      type: 'merge-patch-content',
+      data: droppedPatchUnits.value
+    });
+    droppedPatchUnits.value = [];
+    patchFileName.value = '';
+  }
+}
+
+function clearDroppedPatch() {
+  droppedPatchUnits.value = [];
+  patchFileName.value = '';
+}
+
+// ==================== Virtual Scope Dispatch Mode ====================
+interface WorkerScopeItem {
+  name: string;
+  role: string;
+  type: 'range' | 'files';
+  range: string;
+  files: string;
+}
+
+const workerList = ref<WorkerScopeItem[]>([
+  { name: 'Translator_A', role: 'Translation', type: 'range', range: '0-50', files: '' },
+  { name: 'Translator_B', role: 'Translation', type: 'range', range: '51-100', files: '' },
+]);
+
+function addWorker() {
+  const nextNum = workerList.value.length + 1;
+  workerList.value.push({
+    name: `Translator_${String.fromCharCode(64 + nextNum)}`,
+    role: 'Translation',
+    type: 'range',
+    range: '',
+    files: ''
+  });
+}
+
+function removeWorker(index: number) {
+  workerList.value.splice(index, 1);
+}
+
+function splitEvenly(parts: number) {
+  const total = shwvStore.units.length;
+  if (total === 0 || parts <= 0) return;
+  const chunkSize = Math.ceil(total / parts);
+  const newWorkers: WorkerScopeItem[] = [];
+
+  for (let i = 0; i < parts; i++) {
+    const start = i * chunkSize;
+    const end = Math.min((i + 1) * chunkSize - 1, total - 1);
+    if (start >= total) break;
+    newWorkers.push({
+      name: `Translator_${String.fromCharCode(65 + i)}`,
+      role: 'Translation',
+      type: 'range',
+      range: `${start}-${end}`,
+      files: ''
+    });
+  }
+  workerList.value = newWorkers;
+}
+
+function splitByFile() {
+  const files = shwvStore.meta?.files || [];
+  if (files.length === 0) return;
+  const newWorkers: WorkerScopeItem[] = [];
+
+  files.forEach((f, idx) => {
+    const baseName = f.name.replace(/\.[^.]+$/, '');
+    newWorkers.push({
+      name: `Translator_${baseName || String.fromCharCode(65 + idx)}`,
+      role: 'Translation',
+      type: 'files',
+      range: '',
+      files: f.name
+    });
+  });
+  workerList.value = newWorkers;
+}
+
+function executeGeneratePackages() {
+  const assignments = workerList.value.map(w => ({
+    name: w.name,
+    role: w.role,
+    range: w.type === 'range' ? w.range : undefined,
+    files: w.type === 'files' ? w.files : undefined,
+  }));
+  const vscode = getVsCodeApi();
+  if (vscode) {
+    vscode.postMessage({
+      type: 'generate-scoped-projects',
+      data: { assignments }
+    });
+  }
+}
+
 // ==================== Global QA Checker Mode ====================
 const qaConfig = ref<QaConfig>({
   check_numbers: true,
@@ -629,6 +766,172 @@ const filteredBatchDiff = computed(() => {
           </a-card>
         </div>
       </a-tab-pane>
+
+      <!-- 4. Virtual Scope Dispatch Subtab (仮想スコープ分担設定・配布出力) -->
+      <a-tab-pane key="scope" :title="i18nStore.getText('toolsTab', 'scopeSubtab') || 'スコープ分担'">
+        <div class="pane-content">
+          <a-card :bordered="false" class="tools-card" style="margin-bottom: 16px;">
+            <template #title>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <icon-tool style="color: var(--color-primary-light-4); font-size: 18px;" />
+                <span>{{ i18nStore.getText('toolsTab', 'scopeTitle') || '仮想スコープ分担（担当者パッケージ出力）' }}</span>
+              </div>
+            </template>
+
+            <a-typography-paragraph type="secondary" style="font-size: 13px; margin-bottom: 16px;">
+              {{ i18nStore.getText('toolsTab', 'scopeHelp') || '本体 project.json の構造を壊すことなく、担当者ごとにスコープ（行範囲やファイル）を割り当てた配布用パッケージ（Working/99_MANAGE/<担当者名>/）を一括出力します。' }}
+            </a-typography-paragraph>
+
+            <!-- Quick Auto-Split Buttons -->
+            <div style="margin-bottom: 16px;">
+              <a-space wrap>
+                <a-button type="outline" size="small" @click="splitEvenly(2)">
+                  {{ i18nStore.getText('toolsTab', 'scopeSplitEvenBtn', { n: 2 }) || '2人で均等分割' }}
+                </a-button>
+                <a-button type="outline" size="small" @click="splitEvenly(3)">
+                  {{ i18nStore.getText('toolsTab', 'scopeSplitEvenBtn', { n: 3 }) || '3人で均等分割' }}
+                </a-button>
+                <a-button type="outline" size="small" @click="splitEvenly(4)">
+                  {{ i18nStore.getText('toolsTab', 'scopeSplitEvenBtn', { n: 4 }) || '4人で均等分割' }}
+                </a-button>
+                <a-button type="outline" size="small" :disabled="!shwvStore.meta?.files || shwvStore.meta.files.length === 0" @click="splitByFile">
+                  <template #icon><icon-file /></template>
+                  {{ i18nStore.getText('toolsTab', 'scopeSplitByFileBtn') || 'ファイルごとに分割' }}
+                </a-button>
+                <a-button type="secondary" size="small" @click="addWorker">
+                  <template #icon><icon-import /></template>
+                  {{ i18nStore.getText('toolsTab', 'scopeAddBtn') || '担当者を追加' }}
+                </a-button>
+              </a-space>
+            </div>
+
+            <!-- Worker List Table -->
+            <div class="worker-table-container">
+              <table class="worker-table">
+                <thead>
+                  <tr>
+                    <th style="width: 25%;">{{ i18nStore.getText('toolsTab', 'scopeColName') || '担当者名' }}</th>
+                    <th style="width: 20%;">{{ i18nStore.getText('toolsTab', 'scopeColRole') || 'ロール' }}</th>
+                    <th style="width: 20%;">{{ i18nStore.getText('toolsTab', 'scopeColType') || '種別' }}</th>
+                    <th style="width: 25%;">{{ i18nStore.getText('toolsTab', 'scopeColTarget') || '担当範囲' }}</th>
+                    <th style="width: 10%; text-align: center;">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(worker, idx) in workerList" :key="idx">
+                    <td>
+                      <a-input v-model="worker.name" size="small" placeholder="Translator_A" />
+                    </td>
+                    <td>
+                      <a-select v-model="worker.role" size="small" :options="['Translation', 'Review', 'Proofread', 'Extract']" allow-create />
+                    </td>
+                    <td>
+                      <a-select v-model="worker.type" size="small">
+                        <a-option value="range">{{ i18nStore.getText('toolsTab', 'scopeTypeRange') || '行範囲' }}</a-option>
+                        <a-option value="files">{{ i18nStore.getText('toolsTab', 'scopeTypeFiles') || 'ファイル' }}</a-option>
+                      </a-select>
+                    </td>
+                    <td>
+                      <a-input v-if="worker.type === 'range'" v-model="worker.range" size="small" placeholder="例: 0-50, 80-100" />
+                      <a-input v-else v-model="worker.files" size="small" placeholder="例: Chapter1.xlsx" />
+                    </td>
+                    <td style="text-align: center;">
+                      <a-button size="mini" status="danger" type="text" @click="removeWorker(idx)">
+                        <template #icon><icon-delete /></template>
+                      </a-button>
+                    </td>
+                  </tr>
+                  <tr v-if="workerList.length === 0">
+                    <td colspan="5" style="text-align: center; color: var(--color-text-3); padding: 16px;">
+                      担当者が設定されていません。「担当者を追加」または「均等分割」をクリックしてください。
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="margin-top: 20px;">
+              <a-button type="primary" status="success" size="large" :disabled="workerList.length === 0" @click="executeGeneratePackages">
+                <template #icon><icon-download /></template>
+                {{ i18nStore.getText('toolsTab', 'scopeGenerateBtn') || '担当者パッケージを出力 (Working/99_MANAGE)' }}
+              </a-button>
+            </div>
+          </a-card>
+        </div>
+      </a-tab-pane>
+
+      <!-- 5. Virtual Merge Subtab (仮想マージ・成果物統合) -->
+      <a-tab-pane key="merge" :title="i18nStore.getText('toolsTab', 'mergeSubtab') || 'マージ'">
+        <div class="pane-content">
+          <a-card :bordered="false" class="tools-card" style="margin-bottom: 16px;">
+            <template #title>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <icon-import style="color: var(--color-primary-light-4); font-size: 18px;" />
+                <span>{{ i18nStore.getText('toolsTab', 'mergeTitle') || '仮想マージ（成果物パッチ統合）' }}</span>
+              </div>
+            </template>
+
+            <a-typography-paragraph type="secondary" style="font-size: 13px; margin-bottom: 16px;">
+              {{ i18nStore.getText('toolsTab', 'mergeHelp') || '他の作業者や外部から受け取った担当範囲のパッチファイル（JSON）を、idx に基づいて本体 project.json へ安全かつ高速にマージします。' }}
+            </a-typography-paragraph>
+
+            <div style="margin-bottom: 16px;">
+              <a-button type="primary" size="medium" @click="handleOpenMergeDialog">
+                <template #icon><icon-import /></template>
+                {{ i18nStore.getText('toolsTab', 'mergeSelectBtn') || 'パッチファイルを選択 (.json)' }}
+              </a-button>
+            </div>
+
+            <!-- Drag & Drop Zone -->
+            <div
+              class="drop-zone"
+              :class="{ 'drop-zone-active': isDragging }"
+              @dragover.prevent="isDragging = true"
+              @dragleave.prevent="isDragging = false"
+              @drop.prevent="handleFileDrop"
+            >
+              <div style="text-align: center; padding: 24px 16px;">
+                <icon-file style="font-size: 32px; color: var(--color-text-3); margin-bottom: 8px;" />
+                <div style="font-size: 13px; color: var(--color-text-2);">
+                  {{ i18nStore.getText('toolsTab', 'mergeDropPrompt') || 'ここにパッチファイル (JSON) をドラッグ＆ドロップ、または上のボタンから選択してください' }}
+                </div>
+              </div>
+            </div>
+          </a-card>
+
+          <!-- Dropped Patch Preview Card -->
+          <a-card v-if="droppedPatchUnits.length > 0" :bordered="false" class="tools-card">
+            <template #title>
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span>{{ patchFileName }} - {{ i18nStore.getText('toolsTab', 'mergePreviewTitle', { count: droppedPatchUnits.length }) || `パッチプレビュー (${droppedPatchUnits.length} 件)` }}</span>
+                <a-space>
+                  <a-button type="primary" status="success" size="small" @click="executeDroppedMerge">
+                    <template #icon><icon-check-circle /></template>
+                    {{ i18nStore.getText('toolsTab', 'mergeExecuteBtn') || 'マージを実行' }}
+                  </a-button>
+                  <a-button size="small" status="danger" @click="clearDroppedPatch">
+                    <template #icon><icon-delete /></template>
+                    {{ i18nStore.getText('toolsTab', 'mergeClearBtn') || 'クリア' }}
+                  </a-button>
+                </a-space>
+              </div>
+            </template>
+
+            <div class="patch-preview-list">
+              <div v-for="(unit, idx) in droppedPatchUnits.slice(0, 10)" :key="idx" class="patch-preview-item">
+                <div style="font-weight: bold; font-family: monospace; margin-bottom: 4px;">
+                  idx: {{ unit.idx }} <span v-if="unit.status !== undefined" style="font-size: 11px; color: var(--color-text-3); font-weight: normal;">(status: {{ unit.status }})</span>
+                </div>
+                <div v-if="unit.src" style="font-size: 12px; color: var(--color-text-3);">原文: {{ unit.src }}</div>
+                <div style="font-size: 13px; color: var(--color-primary-light-4); font-weight: 500;">訳文: {{ unit.tgt || '(空)' }}</div>
+              </div>
+              <div v-if="droppedPatchUnits.length > 10" style="text-align: center; color: var(--color-text-3); font-size: 12px; margin-top: 8px;">
+                ... 他 {{ droppedPatchUnits.length - 10 }} 件
+              </div>
+            </div>
+          </a-card>
+        </div>
+      </a-tab-pane>
     </a-tabs>
   </div>
 </template>
@@ -923,5 +1226,66 @@ const filteredBatchDiff = computed(() => {
 .preview-val.preview-target {
   color: var(--color-text-1);
   font-weight: 500;
+}
+
+/* Drop Zone Styles */
+.drop-zone {
+  border: 2px dashed var(--color-border-3);
+  border-radius: 8px;
+  background-color: var(--color-fill-1);
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.drop-zone:hover, .drop-zone-active {
+  border-color: var(--color-primary-light-4);
+  background-color: rgba(var(--primary-6), 0.05);
+}
+
+.patch-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.patch-preview-item {
+  background-color: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+/* Worker Table Styles */
+.worker-table-container {
+  overflow-x: auto;
+  margin-top: 12px;
+  border: 1px solid var(--color-border-2);
+  border-radius: 6px;
+}
+
+.worker-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.worker-table th {
+  background-color: var(--color-fill-2);
+  color: var(--color-text-2);
+  font-weight: 600;
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-2);
+}
+
+.worker-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border-1);
+}
+
+.worker-table tbody tr:hover {
+  background-color: var(--color-fill-1);
 }
 </style>

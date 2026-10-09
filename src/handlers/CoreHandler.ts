@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { ShWvData } from '../services/core/ShWvData';
 import { ProjectManager } from '../services/core/ProjectManager';
 import { DirHelper } from '../services/core/DirHelper';
-import { initDirs, prepareWorking, syncRefDir, preprocessor, postprocessor, runTikalExtraction, runPackage, saveAndCloseShwvEditors, incrementalAddSource, advanceWorkflow } from '../services/fileOps';
+import { initDirs, prepareWorking, syncRefDir, preprocessor, postprocessor, runTikalExtraction, runPackage, saveAndCloseShwvEditors, incrementalAddSource, advanceWorkflow, exportScopedPatch, mergePatchUnits, generateScopedProjects } from '../services/fileOps';
 import { globalDirector } from '../store';
 import { renderConfirmedDecorations } from '../features/decorators';
 import { BackupOps } from '../services/core/backupOps';
@@ -126,6 +126,111 @@ export class CoreHandler {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
                 break;
+            case 'export-scoped-patch':
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    const result = await exportScopedPatch(rootPath);
+                    vscode.window.showInformationMessage(`担当範囲のパッチを出力しました (${result.count} 件): ${path.basename(result.exportPath)}`);
+                } catch (err: any) {
+                    console.error("[CoreHandler] Error during export-scoped-patch:", err);
+                    vscode.window.showErrorMessage(`パッチ出力エラー: ${err.message || err}`);
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
+            case 'merge-patch-dialog': {
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    const uri = await vscode.window.showOpenDialog({
+                        canSelectMany: false,
+                        filters: { 'Patch Files': ['json', 'jsonl'] },
+                        openLabel: 'マージするパッチを選択'
+                    });
+                    if (uri && uri[0]) {
+                        const content = fs.readFileSync(uri[0].fsPath, 'utf-8');
+                        const patchUnits = JSON.parse(content);
+                        if (Array.isArray(patchUnits)) {
+                            const updated = await mergePatchUnits(rootPath, patchUnits);
+                            vscode.window.visibleTextEditors.forEach(editor => {
+                                renderConfirmedDecorations(editor);
+                            });
+                            panel.webview.postMessage({
+                                type: 'SHWV_DATA_LOADED',
+                                data: {
+                                    meta: globalShWvData.meta,
+                                    units: globalShWvData.body.units,
+                                    phrases: globalDirector.phrases,
+                                    projectInfo: globalShWvData.projectInfo
+                                }
+                            });
+                            vscode.window.showInformationMessage(`パッチをマージしました (${updated.length} 件更新)`);
+                        } else {
+                            vscode.window.showErrorMessage('無効なパッチファイル形式です。配列形式のJSONを指定してください。');
+                        }
+                    }
+                } catch (err: any) {
+                    console.error("[CoreHandler] Error during merge-patch-dialog:", err);
+                    vscode.window.showErrorMessage(`パッチマージエラー: ${err.message || err}`);
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
+            }
+            case 'merge-patch-content': {
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    const content = message.data || message.payload;
+                    const patchUnits = typeof content === 'string' ? JSON.parse(content) : content;
+                    if (Array.isArray(patchUnits)) {
+                        const updated = await mergePatchUnits(rootPath, patchUnits);
+                        vscode.window.visibleTextEditors.forEach(editor => {
+                            renderConfirmedDecorations(editor);
+                        });
+                        panel.webview.postMessage({
+                            type: 'SHWV_DATA_LOADED',
+                            data: {
+                                meta: globalShWvData.meta,
+                                units: globalShWvData.body.units,
+                                phrases: globalDirector.phrases,
+                                projectInfo: globalShWvData.projectInfo
+                            }
+                        });
+                        vscode.window.showInformationMessage(`パッチをマージしました (${updated.length} 件更新)`);
+                    } else {
+                        vscode.window.showErrorMessage('無効なパッチデータ形式です。');
+                    }
+                } catch (err: any) {
+                    console.error("[CoreHandler] Error during merge-patch-content:", err);
+                    vscode.window.showErrorMessage(`パッチマージエラー: ${err.message || err}`);
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
+            }
+            case 'generate-scoped-projects': {
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    const assignments = message.data?.assignments || message.payload?.assignments || [];
+                    if (Array.isArray(assignments) && assignments.length > 0) {
+                        const result = await generateScopedProjects(rootPath, assignments);
+                        const selection = await vscode.window.showInformationMessage(
+                            `Working/99_MANAGE に ${result.generated.length} 名分の担当者パッケージを出力しました。`,
+                            'フォルダを開く'
+                        );
+                        if (selection === 'フォルダを開く') {
+                            await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(result.manageDir));
+                        }
+                    } else {
+                        vscode.window.showWarningMessage('担当者の割り当てが設定されていません。');
+                    }
+                } catch (err: any) {
+                    console.error("[CoreHandler] Error during generate-scoped-projects:", err);
+                    vscode.window.showErrorMessage(`パッケージ生成エラー: ${err.message || err}`);
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
+            }
             case 'generate-sample':
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {

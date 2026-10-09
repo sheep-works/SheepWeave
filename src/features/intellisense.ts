@@ -14,13 +14,8 @@ export class TbCompletionProvider implements vscode.CompletionItemProvider {
     ): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList<vscode.CompletionItem>> {
         
         // 現在の行に対応するユニットを取得
-        const lineIdx = position.line;
-        const units = globalDirector.state.body.units;
-
-        // 高速化: まず行番号と同じインデックスを試す
-        const unit = (units[lineIdx] && units[lineIdx].idx === lineIdx)
-            ? units[lineIdx]
-            : units.find(u => u.idx === lineIdx);
+        const line = position.line;
+        const unit = globalDirector.getUnitByLine(line);
 
         if (!unit || !unit.ref || !unit.ref.tb || unit.ref.tb.length === 0) {
             return undefined;

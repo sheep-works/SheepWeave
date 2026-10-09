@@ -215,6 +215,22 @@ watch(() => props.config, (newVal) => {
             <a-list>
               <a-list-item>
                 <a-space>
+                  <a-typography-text>{{ i18nStore.getText('flowTab', 'exportPatchDesc') }}</a-typography-text>
+                  <a-tooltip :content="i18nStore.getText('flowTab', 'exportPatchDesc')">
+                    <a-button type="outline" status="success" @click="$emit('FlowCommand', 'export-scoped-patch')">{{ i18nStore.getText('flowTab', 'exportPatchBtn') }}</a-button>
+                  </a-tooltip>
+                </a-space>
+              </a-list-item>
+              <a-list-item>
+                <a-space>
+                  <a-typography-text>{{ i18nStore.getText('flowTab', 'mergePatchDesc') }}</a-typography-text>
+                  <a-tooltip :content="i18nStore.getText('flowTab', 'mergePatchDesc')">
+                    <a-button type="outline" status="warning" @click="$emit('FlowCommand', 'merge-patch-dialog')">{{ i18nStore.getText('flowTab', 'mergePatchBtn') }}</a-button>
+                  </a-tooltip>
+                </a-space>
+              </a-list-item>
+              <a-list-item>
+                <a-space>
                   <a-typography-text>{{ i18nStore.getText('flowTab', 'completeDesc') }}</a-typography-text>
                   <a-tooltip :content="i18nStore.getText('flowTab', 'completeDesc')">
                     <a-button @click="$emit('FlowCommand', 'export-xliff')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>

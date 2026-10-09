@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "LambuageLLC",
   "license": "MIT",
   "repository": {
@@ -122,6 +122,14 @@
       {
         "command": "sheepWeave.openFreeEditor",
         "title": "SheepWeave: Edit Freely / 自由に編集"
+      },
+      {
+        "command": "sheepWeave.exportScopedPatch",
+        "title": "SheepWeave: Export Scoped Patch / 担当パッチを出力"
+      },
+      {
+        "command": "sheepWeave.mergePatch",
+        "title": "SheepWeave: Merge Patch / パッチをマージ"
       }
     ],
     "menus": {

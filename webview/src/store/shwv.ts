@@ -88,7 +88,7 @@ export const useShWvStore = defineStore('shwv', {
             this.units = [];
         },
         moveCursor(newPos: number, textInOldPos: string, status?: number) {
-            const oldUnit = this.units[this.crtPos];
+            const oldUnit = this.units.find(u => u.idx === this.crtPos) || this.units[this.crtPos];
             if (oldUnit) {
                 oldUnit.tgt = textInOldPos;
                 if (status !== undefined) {
@@ -182,9 +182,13 @@ export const useShWvStore = defineStore('shwv', {
         sourceLang: (state) => state.meta?.sourceLang || state.projectInfo?.sourceLanguage || '',
         targetLang: (state) => state.meta?.targetLang || state.projectInfo?.targetLanguage || '',
         projectName: (state) => state.meta?.projectName || state.projectInfo?.projectName || '',
-        crtUnit: (state) => state.units[state.crtPos] || {
-            src: '-- N/A --',
-            tgt: '-- N/A --',
+        crtUnit: (state) => {
+            const found = state.units.find(u => u.idx === state.crtPos);
+            if (found) return found;
+            return state.units[state.crtPos] || {
+                src: '-- N/A --',
+                tgt: '-- N/A --',
+            };
         },
         llmChunk(state) {
             if (!state.llmUnits || state.llmUnits.length === 0) return '';

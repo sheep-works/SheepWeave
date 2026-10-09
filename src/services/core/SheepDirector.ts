@@ -18,6 +18,8 @@ export class SheepDirector {
     public state: ShWvData;
     public lastLine: number = -1;
     public confirmedLines: Set<number> = new Set();
+    public lineToIdxMap: number[] = [];
+    public idxToLineMap: Map<number, number> = new Map();
     public phrases: { input: string, phrase: string }[] = [];
 
     public concordance: ShuttleSearch;
@@ -41,85 +43,120 @@ export class SheepDirector {
             }
         }
 
+        // Initialize Virtual Scope mappings
+        const scopedUnits = this.state.getScopedUnits();
+        this.lineToIdxMap = scopedUnits.map(u => u.idx);
+        this.idxToLineMap.clear();
+        this.lineToIdxMap.forEach((idx, line) => {
+            this.idxToLineMap.set(idx, line);
+        });
+
         this.loadPhrases();
     }
 
     /**
-     * Updates the target text of a line without confirming it.
-     * Use this during typing/cursor movements. Does NOT propagate to quoting segments.
+     * Resolves editor 0-based line to 0-based/1-based unit.idx.
      */
-    public updateTargetOnly(lineIdx: number, text: string) {
-        // 高速パス: インデックスが一致するか確認
-        const unit = (this.state.body.units[lineIdx] && this.state.body.units[lineIdx].idx === lineIdx)
-            ? this.state.body.units[lineIdx]
-            : this.state.body.units.find(u => u.idx === lineIdx);
+    public getIdxByLine(line: number): number {
+        if (line >= 0 && line < this.lineToIdxMap.length) {
+            return this.lineToIdxMap[line];
+        }
+        return line;
+    }
 
+    /**
+     * Resolves unit.idx to editor 0-based line, or undefined if outside current scope.
+     */
+    public getLineByIdx(idx: number): number | undefined {
+        return this.idxToLineMap.get(idx);
+    }
+
+    /**
+     * Gets a unit by its unique idx.
+     */
+    public getUnitByIdx(idx: number): ShWvUnit | undefined {
+        return (this.state.body.units[idx] && this.state.body.units[idx].idx === idx)
+            ? this.state.body.units[idx]
+            : this.state.body.units.find(u => u.idx === idx);
+    }
+
+    /**
+     * Gets a unit by editor 0-based line number.
+     */
+    public getUnitByLine(line: number): ShWvUnit | undefined {
+        const idx = this.getIdxByLine(line);
+        return this.getUnitByIdx(idx);
+    }
+
+    /**
+     * Returns scoped units for the current workflow.
+     */
+    public getScopedUnits(): ShWvUnit[] {
+        return this.state.getScopedUnits();
+    }
+
+    /**
+     * Updates the target text of a unit without confirming it.
+     * Use this during typing/cursor movements. Does NOT propagate to quoting segments.
+     * @param idx unit.idx
+     */
+    public updateTargetOnly(idx: number, text: string) {
+        const unit = this.getUnitByIdx(idx);
         if (unit) {
             unit.tgt = text;
         }
     }
 
     /**
-     * Explicitly confirms a line.
-     * Updates target, sets status to 1, and propagates the translation to referring memory segments.
+     * Explicitly confirms a unit by idx.
+     * Updates target, sets status to current workflow index, and propagates to referring segments.
+     * @param idx unit.idx
      */
-    public confirmLine(lineIdx: number, text: string) {
-        const unit = (this.state.body.units[lineIdx] && this.state.body.units[lineIdx].idx === lineIdx)
-            ? this.state.body.units[lineIdx]
-            : this.state.body.units.find(u => u.idx === lineIdx);
-
+    public confirmLine(idx: number, text: string) {
+        const unit = this.getUnitByIdx(idx);
         if (!unit) return;
 
         const currentWorkflowIndex = this.state.meta.workflow?.index ?? 1;
         if ((unit.status || 0) < currentWorkflowIndex) {
             unit.status = currentWorkflowIndex;
         }
-        this.confirmedLines.add(lineIdx);
+        this.confirmedLines.add(idx);
 
         // This method intrinsically updates the unit and propagates to ref.quoted / ref.tms
-        this.state.updateUnitTarget(lineIdx, text);
-        this.state.propagateSingleUnit(lineIdx);
+        this.state.updateUnitTarget(idx, text);
+        this.state.propagateSingleUnit(idx);
     }
 
     /**
-     * Unconfirms a line.
+     * Unconfirms a unit by idx.
      * Usually called when a confirmed line is edited.
+     * @param idx unit.idx
      */
-    public unconfirmLine(lineIdx: number) {
-        const unit = (this.state.body.units[lineIdx] && this.state.body.units[lineIdx].idx === lineIdx)
-            ? this.state.body.units[lineIdx]
-            : this.state.body.units.find(u => u.idx === lineIdx);
-
+    public unconfirmLine(idx: number) {
+        const unit = this.getUnitByIdx(idx);
         if (!unit) return;
 
         const currentWorkflowIndex = this.state.meta.workflow?.index ?? 1;
         if ((unit.status || 0) >= currentWorkflowIndex) {
             unit.status = currentWorkflowIndex - 1;
         }
-        this.confirmedLines.delete(lineIdx);
-        // Note: We do NOT rollback `tgt` or update ref.quoted here,
-        // it just loses its confirmed status.
+        this.confirmedLines.delete(idx);
     }
 
     /**
      * Propagates a translation to all segments marked as 100% matched (identical) 
      * in the current unit's ref.quoted100.
+     * @param idx unit.idx
      */
-    public propagateQuoted100(lineIdx: number, text: string): number[] {
-        const unit = (this.state.body.units[lineIdx] && this.state.body.units[lineIdx].idx === lineIdx)
-            ? this.state.body.units[lineIdx]
-            : this.state.body.units.find(u => u.idx === lineIdx);
-
+    public propagateQuoted100(idx: number, text: string): number[] {
+        const unit = this.getUnitByIdx(idx);
         if (!unit || !unit.ref.quoted100 || unit.ref.quoted100.length === 0) return [];
 
         const currentWorkflowIndex = this.state.meta.workflow?.index ?? 1;
 
         const affectedIdxs: number[] = [];
         for (const targetIdx of unit.ref.quoted100) {
-            const targetUnit = (this.state.body.units[targetIdx] && this.state.body.units[targetIdx].idx === targetIdx)
-                ? this.state.body.units[targetIdx]
-                : this.state.body.units.find(u => u.idx === targetIdx);
-
+            const targetUnit = this.getUnitByIdx(targetIdx);
             if (targetUnit) {
                 targetUnit.tgt = text;
                 targetUnit.status = currentWorkflowIndex; // Auto confirm identical segments with current role

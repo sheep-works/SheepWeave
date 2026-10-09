@@ -15,12 +15,14 @@ export function gotoNextUnconfirmedCommand() {
         return;
     }
 
-    const isConfirmed = (lineIdx: number): boolean => {
-        if (globalDirector.confirmedLines.has(lineIdx)) {
+    const isConfirmed = (line: number): boolean => {
+        const idx = globalDirector.getIdxByLine(line);
+        if (globalDirector.confirmedLines.has(idx)) {
             return true;
         }
-        const unit = units[lineIdx] && units[lineIdx].idx === lineIdx ? units[lineIdx] : units.find(u => u.idx === lineIdx);
-        return unit ? (unit.status !== undefined && unit.status > 0) : false;
+        const unit = globalDirector.getUnitByIdx(idx);
+        const currentWorkflowIndex = globalShWvData.meta.workflow?.index ?? 1;
+        return unit ? (unit.status !== undefined && unit.status >= currentWorkflowIndex) : false;
     };
 
     let targetLine: number | -1 = -1;
