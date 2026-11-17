@@ -4,7 +4,7 @@
     <div class="card-header">
       <div class="header-left">
         <a-tag :color="unit.idx === -1 ? 'orange' : 'arcoblue'" size="small">
-          {{ unit.idx === -1 ? 'TM' : `#${unit.idx + 1}` }}
+          {{ unit.idx === -1 ? 'TM' : `#${unit.idx}` }}
         </a-tag>
 
         <a-tag v-if="unit.status" :color="unit.status === 'confirmed' ? 'green' : 'gray'" size="small">

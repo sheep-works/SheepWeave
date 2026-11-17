@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { ShWvData } from '../services/core/ShWvData';
 import { ProjectManager } from '../services/core/ProjectManager';
 import { DirHelper } from '../services/core/DirHelper';
-import { initDirs, prepareWorking, syncRefDir, preprocessor, postprocessor, runTikalExtraction, runPackage, saveAndCloseShwvEditors, incrementalAddSource, advanceWorkflow, exportScopedPatch, mergePatchUnits, generateScopedProjects } from '../services/fileOps';
+import { initDirs, prepareWorking, syncRefDir, preprocessor, postprocessor, runTikalExtraction, runPackage, saveAndCloseShwvEditors, incrementalAddSource, advanceWorkflow, exportScopedPatch, mergePatchUnits, generateScopedProjects, ensureDir } from '../services/fileOps';
 import { globalDirector } from '../store';
 import { renderConfirmedDecorations } from '../features/decorators';
 import { BackupOps } from '../services/core/backupOps';
@@ -39,6 +39,71 @@ export class CoreHandler {
             case 'archive-previous':
                 await initDirs(rootPath);
                 vscode.window.showInformationMessage('Project Initialized (Current Working Archived)');
+                break;
+            case 'extract-and-convert':
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    const payload = message.payload || {};
+                    let customFilter: string | undefined = undefined;
+
+                    if (payload.useFprmFilter) {
+                        if (payload.selectedFilterFile) {
+                            const targetPath = path.join(rootPath, payload.selectedFilterFile);
+                            if (!fs.existsSync(targetPath)) {
+                                vscode.window.showErrorMessage(`指定されたフィルタファイルが見つかりません: ${payload.selectedFilterFile}`);
+                                return;
+                            }
+                            customFilter = payload.selectedFilterFile;
+                        } else {
+                            vscode.window.showWarningMessage('フィルタファイルが選択されていません。');
+                            return;
+                        }
+                    }
+
+                    // 1. 作業フォルダの準備 (01_INPUT -> 02_SOURCE)
+                    await prepareWorking(rootPath);
+                    
+                    let sourceFiles: string[] = [];
+                    const sourceDir = path.join(rootPath, 'Working', '02_SOURCE');
+                    if (fs.existsSync(sourceDir)) {
+                        sourceFiles = fs.readdirSync(sourceDir).filter((f: string) => !f.startsWith('~$') && fs.statSync(path.join(sourceDir, f)).isFile());
+                    }
+
+                    const projectManager = new ProjectManager(rootPath);
+                    projectManager.initialize(
+                        payload.projectName || 'SheepWeaveProject',
+                        payload.sourceLang || 'en-US',
+                        payload.targetLang || 'ja-JP',
+                        sourceFiles
+                    );
+                    projectManager.save();
+
+                    // 2. 抽出処理 (Suffolk または Tikal)
+                    await runTikalExtraction(rootPath, projectManager.data.sourceLanguage, projectManager.data.targetLanguage, customFilter);
+
+                    // 3. 続けて ShWvData 解析・作成を直列実行
+                    const shwvData = await preprocessor(rootPath);
+                    if (shwvData) {
+                        globalDirector.initializeFromState();
+                        globalDirector.loadPhrasesFromRoot(rootPath);
+                        await globalDirector.loadRefData(rootPath);
+                        panel.webview.postMessage({
+                            type: 'SHWV_DATA_LOADED',
+                            data: {
+                                meta: shwvData.meta,
+                                units: shwvData.body.units,
+                                phrases: globalDirector.phrases,
+                                projectInfo: shwvData.projectInfo
+                            }
+                        });
+                    }
+                    vscode.window.showInformationMessage('プロジェクトの準備と解析が完了しました (Data loaded to Webview)');
+                } catch (err: any) {
+                    console.error("[CoreHandler] Error during extract-and-convert:", err);
+                    vscode.window.showErrorMessage(`Error during prepare & convert: ${err.message || err}`);
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
                 break;
             case 'extract-source':
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
@@ -279,21 +344,122 @@ export class CoreHandler {
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {
                     await saveAndCloseShwvEditors(rootPath);
-                    globalShWvData.load(rootPath);
+                    globalShWvData.load(rootPath, true);
+                    if (!globalShWvData.body || globalShWvData.body.units.length === 0) {
+                        throw new Error(`project.json に有効な翻訳ユニット (units) が存在しません。(${DirHelper.getStoragePath(rootPath)})`);
+                    }
                     await globalShWvData.writeShwv(rootPath);
                     globalDirector.initializeFromState();
                     globalDirector.loadPhrasesFromRoot(rootPath);
                     await globalDirector.loadRefData(rootPath);
-                    if (globalShWvData.meta && globalShWvData.body?.units?.length > 0) {
-                        panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalDirector.phrases, projectInfo: globalShWvData.projectInfo } });
-                        vscode.window.showInformationMessage('Data Loaded and Synchronized');
-                    }
+                    panel.webview.postMessage({
+                        type: 'SHWV_DATA_LOADED',
+                        data: {
+                            meta: globalShWvData.meta,
+                            units: globalShWvData.body.units,
+                            phrases: globalDirector.phrases,
+                            projectInfo: globalShWvData.projectInfo
+                        }
+                    });
+                    vscode.window.showInformationMessage(`データが正常に読み込まれました (${globalShWvData.body.units.length} 項目)`);
                 } catch (e: any) {
-                    vscode.window.showErrorMessage(`Failed to load data: ${e.message || e}`);
+                    vscode.window.showErrorMessage(`データの読み込みに失敗しました: ${e.message || e}`);
                 } finally {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
                 break;
+            case 'init-from-project-json': {
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    let projectJsonPath = DirHelper.getStoragePath(rootPath);
+                    
+                    // If not found in rootPath, check common subfolders
+                    if (!fs.existsSync(projectJsonPath)) {
+                        const candidates = [
+                            path.join(rootPath, 'shwv', 'project.json'),
+                            path.join(rootPath, 'Working', 'project.json')
+                        ];
+                        const found = candidates.find(c => fs.existsSync(c));
+                        if (found) {
+                            projectJsonPath = found;
+                        } else {
+                            // Let the user pick project.json
+                            const uris = await vscode.window.showOpenDialog({
+                                canSelectFiles: true,
+                                canSelectFolders: false,
+                                canSelectMany: false,
+                                defaultUri: vscode.Uri.file(rootPath),
+                                filters: { 'SheepWeave Project': ['json'] },
+                                title: '読み込む project.json を選択してください'
+                            });
+                            if (uris && uris[0]) {
+                                projectJsonPath = uris[0].fsPath;
+                            } else {
+                                vscode.window.showInformationMessage('project.json の読み込みがキャンセルされました。');
+                                break;
+                            }
+                        }
+                    }
+
+                    // Ensure Working directories exist
+                    ensureDir(path.join(rootPath, 'Working', '01_REF', 'TM'));
+                    ensureDir(path.join(rootPath, 'Working', '01_REF', 'TB'));
+                    ensureDir(path.join(rootPath, 'Working', '02_SOURCE'));
+                    ensureDir(path.join(rootPath, 'Working', '03_XLF_JSON'));
+                    ensureDir(path.join(rootPath, 'Working', '04_SHWV'));
+                    ensureDir(path.join(rootPath, 'Working', '05_COMPLETED'));
+                    ensureDir(path.join(rootPath, 'Working', '06_PACKAGE'));
+
+                    // If picked from another location, copy to rootPath/project.json
+                    const rootProjectJson = DirHelper.getStoragePath(rootPath);
+                    if (path.resolve(projectJsonPath) !== path.resolve(rootProjectJson)) {
+                        fs.copyFileSync(projectJsonPath, rootProjectJson);
+                    }
+
+                    // Load into globalShWvData
+                    globalShWvData.load(rootPath, true);
+
+                    if (!globalShWvData.body || globalShWvData.body.units.length === 0) {
+                        throw new Error(`project.json に有効な翻訳ユニット (units) が存在しません。(${projectJsonPath})`);
+                    }
+
+                    // Write out Source.shwvs and Target.shwvt
+                    await globalShWvData.writeShwv(rootPath);
+
+                    // Ensure workflow.ini exists
+                    globalShWvData.loadWorkflowIni(rootPath);
+
+                    // Sync Director & Ref
+                    globalDirector.initializeFromState();
+                    globalDirector.loadPhrasesFromRoot(rootPath);
+                    await globalDirector.loadRefData(rootPath);
+
+                    // Notify Webview
+                    panel.webview.postMessage({
+                        type: 'SHWV_DATA_LOADED',
+                        data: {
+                            meta: globalShWvData.meta,
+                            units: globalShWvData.body.units,
+                            phrases: globalDirector.phrases,
+                            projectInfo: globalShWvData.projectInfo
+                        }
+                    });
+
+                    // Open Target.shwvt in editor
+                    const shwvtPath = DirHelper.getShwvtPath(rootPath);
+                    if (fs.existsSync(shwvtPath)) {
+                        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(shwvtPath));
+                        await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
+                    }
+
+                    vscode.window.showInformationMessage(`project.json から ${globalShWvData.body.units.length} 項目を読み込み、プロジェクトを開始しました。`);
+                } catch (e: any) {
+                    vscode.window.showErrorMessage(`project.json からの開始に失敗しました: ${e.message || e}`);
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
+            }
             case 'add-files':
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {
@@ -322,13 +488,50 @@ export class CoreHandler {
             case 'reanalyze':
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {
+                    // Ensure project data is loaded before analysis
+                    if (!globalShWvData.body || globalShWvData.body.units.length === 0) {
+                        globalShWvData.load(rootPath);
+                    }
+                    if (!globalShWvData.body || globalShWvData.body.units.length === 0) {
+                        vscode.window.showWarningMessage('No project data loaded to re-analyze. Please open or load a project first.');
+                        break;
+                    }
+                    // Auto backup before re-analyzing
+                    try {
+                        await BackupOps.createBackup(rootPath, globalShWvData, 'pre-reanalyze');
+                    } catch (bErr) {
+                        console.warn('Pre-reanalyze backup failed:', bErr);
+                    }
                     await syncRefDir(rootPath);
                     await globalShWvData.analyze(rootPath);
                     globalDirector.initializeFromState();
                     globalDirector.loadRefData(rootPath); // Refresh TM/TB
                     globalShWvData.save(rootPath);
                     panel.webview.postMessage({ type: 'SHWV_DATA_LOADED', data: { meta: globalShWvData.meta, units: globalShWvData.body.units, phrases: globalDirector.phrases, projectInfo: globalShWvData.projectInfo } });
-                    vscode.window.showInformationMessage('Re-analysis completed and data updated');
+
+                    // Check if new/unregistered files exist in Working/02_SOURCE and inform the user
+                    let extraHint = '';
+                    try {
+                        const sourceDir = path.join(rootPath, 'Working', '02_SOURCE');
+                        if (fs.existsSync(sourceDir)) {
+                            const pm = new ProjectManager(rootPath);
+                            const registeredFiles = new Set<string>();
+                            for (const g of pm.data.okapi) {
+                                for (const f of g.files) registeredFiles.add(path.resolve(f.source));
+                            }
+                            const allSourceFiles = fs.readdirSync(sourceDir).map(f => path.resolve(path.join(sourceDir, f)));
+                            const newFiles = allSourceFiles.filter(f => !registeredFiles.has(f) && fs.statSync(f).isFile());
+                            if (newFiles.length > 0) {
+                                extraHint = `（注: Working/02_SOURCE に未取り込みのファイルが ${newFiles.length} 件あります。新規原文を追加する場合は「🧶 原文ファイルの追加」を実行してください）`;
+                            }
+                        }
+                    } catch (_) {}
+
+                    if (extraHint) {
+                        vscode.window.showInformationMessage(`再分析が完了しました。${extraHint}`);
+                    } else {
+                        vscode.window.showInformationMessage('Re-analysis completed and data updated');
+                    }
                 } finally {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
@@ -336,6 +539,18 @@ export class CoreHandler {
             case 'legacy-analyze':
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {
+                    if (!globalShWvData.body || globalShWvData.body.units.length === 0) {
+                        globalShWvData.load(rootPath);
+                    }
+                    if (!globalShWvData.body || globalShWvData.body.units.length === 0) {
+                        vscode.window.showWarningMessage('No project data loaded to re-analyze. Please open or load a project first.');
+                        break;
+                    }
+                    try {
+                        await BackupOps.createBackup(rootPath, globalShWvData, 'pre-legacy-analyze');
+                    } catch (bErr) {
+                        console.warn('Pre-legacy-analyze backup failed:', bErr);
+                    }
                     await globalShWvData.analyze(rootPath, true);
                     globalDirector.initializeFromState();
                     globalShWvData.save(rootPath);
@@ -459,6 +674,21 @@ export class CoreHandler {
                     }
                 });
 
+                // If project exists on disk but not in memory, auto-load it on READY
+                if (!globalShWvData.body || globalShWvData.body.units.length === 0) {
+                    const storagePath = DirHelper.getStoragePath(rootPath);
+                    if (fs.existsSync(storagePath)) {
+                        try {
+                            globalShWvData.load(rootPath);
+                            globalDirector.initializeFromState();
+                            globalDirector.loadPhrasesFromRoot(rootPath);
+                            globalDirector.loadRefData(rootPath);
+                        } catch (loadErr) {
+                            console.error('Failed to auto-load project on READY:', loadErr);
+                        }
+                    }
+                }
+
                 if (globalShWvData.meta && globalShWvData.body.units.length > 0) {
                     panel.webview.postMessage({
                         type: 'SHWV_DATA_LOADED',
@@ -498,9 +728,10 @@ export class CoreHandler {
 
                             const edit = new vscode.WorkspaceEdit();
                             for (const idx of affectedIdxs) {
-                                const unit = globalShWvData.body.units[idx];
-                                if (unit && idx < doc.lineCount && unit.tgt !== undefined) {
-                                    const lineRange = doc.lineAt(idx).range;
+                                const unit = globalDirector.getUnitByIdx(idx);
+                                const line = globalDirector.getLineByIdx(idx);
+                                if (unit && line !== undefined && line < doc.lineCount && unit.tgt !== undefined) {
+                                    const lineRange = doc.lineAt(line).range;
                                     edit.replace(shwvtUri, lineRange, unit.tgt);
                                 }
                             }
@@ -514,7 +745,7 @@ export class CoreHandler {
                         }
 
                         // Webviewへの通知（同期）
-                        const affectedUnits = Array.from(allAffectedUnitsSet).map(idx => globalShWvData.body.units[idx]).filter(u => !!u);
+                        const affectedUnits = Array.from(allAffectedUnitsSet).map(idx => globalDirector.getUnitByIdx(idx)).filter(u => !!u);
                         panel.webview.postMessage({
                             type: 'UNITS_UPDATED',
                             data: { units: affectedUnits, meta: globalShWvData.meta }
@@ -524,6 +755,37 @@ export class CoreHandler {
                 } catch (err) {
                     vscode.window.showErrorMessage(`Failed to update units: ${err}`);
                     console.error('[CoreHandler] update-units error:', err);
+                } finally {
+                    panel.webview.postMessage({ type: 'SET_LOADING', data: false });
+                }
+                break;
+            case 'confirm-units':
+                panel.webview.postMessage({ type: 'SET_LOADING', data: true });
+                try {
+                    const items: (number | { idx: number; tgt?: string })[] = message.payload || [];
+                    if (items.length > 0) {
+                        const batchItems = items.map(item => {
+                            if (typeof item === 'number') return { idx: item };
+                            return { idx: item.idx, text: item.tgt };
+                        });
+                        const confirmedIdxs = globalDirector.confirmLines(batchItems);
+
+                        const activeEditor = vscode.window.activeTextEditor;
+                        if (activeEditor && activeEditor.document.fileName.endsWith('.shwvt')) {
+                            renderConfirmedDecorations(activeEditor);
+                        }
+
+                        const affectedUnits = confirmedIdxs.map(idx => globalDirector.getUnitByIdx(idx)).filter(u => !!u);
+                        panel.webview.postMessage({
+                            type: 'UNITS_UPDATED',
+                            data: { units: affectedUnits, meta: globalShWvData.meta }
+                        });
+
+                        vscode.window.showInformationMessage(`Successfully confirmed ${confirmedIdxs.length} segments.`);
+                    }
+                } catch (err) {
+                    vscode.window.showErrorMessage(`Failed to confirm units: ${err}`);
+                    console.error('[CoreHandler] confirm-units error:', err);
                 } finally {
                     panel.webview.postMessage({ type: 'SET_LOADING', data: false });
                 }
@@ -559,9 +821,10 @@ export class CoreHandler {
 
                         const edit = new vscode.WorkspaceEdit();
                         for (const targetIdx of affectedIdxs) {
-                            const unit = globalShWvData.body.units[targetIdx];
-                            if (unit && targetIdx < doc.lineCount) {
-                                edit.replace(shwvtUri, doc.lineAt(targetIdx).range, unit.tgt);
+                            const unit = globalDirector.getUnitByIdx(targetIdx);
+                            const line = globalDirector.getLineByIdx(targetIdx);
+                            if (unit && line !== undefined && line < doc.lineCount) {
+                                edit.replace(shwvtUri, doc.lineAt(line).range, unit.tgt);
                             }
                         }
                         await vscode.workspace.applyEdit(edit);
@@ -574,7 +837,7 @@ export class CoreHandler {
                         }
 
                         // Notify Webview
-                        const affectedUnits = affectedIdxs.map(idx => globalShWvData.body.units[idx]).filter(u => !!u);
+                        const affectedUnits = affectedIdxs.map(idx => globalDirector.getUnitByIdx(idx)).filter(u => !!u);
                         panel.webview.postMessage({
                             type: 'UNITS_UPDATED',
                             data: { units: affectedUnits, meta: globalShWvData.meta }
@@ -628,8 +891,8 @@ export class CoreHandler {
 
                         // 1. Fetch preceding 3 translated context segments
                         const precedingExamples: any[] = [];
-                        for (let i = minIndex - 1; i >= 0; i--) {
-                            const u = globalShWvData.body.units[i];
+                        for (let i = minIndex - 1; i >= 1; i--) {
+                            const u = globalDirector.getUnitByIdx(i);
                             if (u && u.tgt && u.tgt.trim() !== '') {
                                 precedingExamples.push({
                                     src: u.src,
@@ -789,8 +1052,8 @@ export class CoreHandler {
                         if (mode === 'advanced') {
                             const minIndex = chunkArr.length > 0 ? Math.min(...chunkArr.map((u: any) => u.idx)) : 0;
                             const precedingExamples: any[] = [];
-                            for (let k = minIndex - 1; k >= 0; k--) {
-                                const u = globalShWvData.body.units[k];
+                            for (let k = minIndex - 1; k >= 1; k--) {
+                                const u = globalDirector.getUnitByIdx(k);
                                 if (u && u.tgt && u.tgt.trim() !== '') {
                                     precedingExamples.push({ src: u.src, pre: u.pre || '', tgt: u.tgt });
                                     if (precedingExamples.length >= 3) break;
@@ -840,7 +1103,8 @@ export class CoreHandler {
 
                         const affectedIdxs: number[] = [];
                         for (const item of updates) {
-                            const unit = globalShWvData.body.units[item.idx];
+                            const unit = globalDirector.getUnitByIdx(item.idx);
+                            const line = globalDirector.getLineByIdx(item.idx);
                             if (unit) {
                                 unit.tgt = item.tgt;
                                 if (applyToPre) {
@@ -850,8 +1114,8 @@ export class CoreHandler {
                                 unit.status = 0;
                                 affectedIdxs.push(item.idx);
 
-                                if (item.idx < doc.lineCount) {
-                                    const lineRange = doc.lineAt(item.idx).range;
+                                if (line !== undefined && line < doc.lineCount) {
+                                    const lineRange = doc.lineAt(line).range;
                                     edit.replace(shwvtUri, lineRange, item.tgt);
                                 }
                             }
@@ -895,10 +1159,11 @@ export class CoreHandler {
 
                         for (let idx = 0; idx < globalShWvData.body.units.length; idx++) {
                             const unit = globalShWvData.body.units[idx];
-                            if (unit && idx < doc.lineCount) {
+                            const line = globalDirector.getLineByIdx(unit.idx) ?? idx;
+                            if (unit && line < doc.lineCount) {
                                 const text = unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src);
-                                if (doc.lineAt(idx).text !== text) {
-                                    edit.replace(shwvtUri, doc.lineAt(idx).range, text);
+                                if (doc.lineAt(line).text !== text) {
+                                    edit.replace(shwvtUri, doc.lineAt(line).range, text);
                                 }
                             }
                         }
@@ -1099,6 +1364,48 @@ export class CoreHandler {
                 }
                 vscode.window.showInformationMessage('phrase.jsonl updated successfully.');
                 break;
+            case 'apply-recommended-editor-settings': {
+                try {
+                    const vscodeDir = path.join(rootPath, '.vscode');
+                    if (!fs.existsSync(vscodeDir)) {
+                        fs.mkdirSync(vscodeDir, { recursive: true });
+                    }
+                    const settingsPath = path.join(vscodeDir, 'settings.json');
+                    let settings: Record<string, any> = {};
+                    if (fs.existsSync(settingsPath)) {
+                        try {
+                            const raw = fs.readFileSync(settingsPath, 'utf-8');
+                            const cleaned = raw.replace(/\/\*[\s\S]*?\*\/|([^:]|^)\/\/.*$/gm, '$1');
+                            settings = JSON.parse(cleaned);
+                        } catch (e) {
+                            settings = {};
+                        }
+                    }
+
+                    settings['editor.fontSize'] = 18;
+                    settings['editor.lineHeight'] = 2;
+                    settings['editor.minimap.enabled'] = false;
+
+                    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 4), 'utf-8');
+
+                    try {
+                        const editorConfig = vscode.workspace.getConfiguration('editor');
+                        await editorConfig.update('fontSize', 18, vscode.ConfigurationTarget.Workspace);
+                        await editorConfig.update('lineHeight', 2, vscode.ConfigurationTarget.Workspace);
+                        const minimapConfig = vscode.workspace.getConfiguration('editor.minimap');
+                        await minimapConfig.update('enabled', false, vscode.ConfigurationTarget.Workspace);
+                    } catch (e) {
+                        console.warn('[CoreHandler] Could not update vscode configuration directly:', e);
+                    }
+
+                    vscode.window.showInformationMessage('おすすめエディタ設定を .vscode/settings.json に適用しました。');
+                    panel.webview.postMessage({ type: 'APPLY_RECOMMENDED_SETTINGS_SUCCESS' });
+                } catch (err: any) {
+                    console.error('[CoreHandler] Error applying recommended editor settings:', err);
+                    vscode.window.showErrorMessage(`設定の適用に失敗しました: ${err.message || err}`);
+                }
+                break;
+            }
             case 'fetch-sample-resources': {
                 panel.webview.postMessage({ type: 'SET_LOADING', data: true });
                 try {

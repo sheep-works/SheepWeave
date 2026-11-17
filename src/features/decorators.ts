@@ -54,6 +54,27 @@ export function initDecorators(context: vscode.ExtensionContext) {
 
     updateTermDecorationStyle();
 
+    let timeout: NodeJS.Timeout | undefined = undefined;
+    let selectionTimeout: NodeJS.Timeout | undefined = undefined;
+
+    function triggerUpdateDecorations() {
+        if (timeout) {
+            clearTimeout(timeout);
+            timeout = undefined;
+        }
+        timeout = setTimeout(updateDecorations, 500);
+    }
+
+    function triggerUpdateTermDecorations(editor: vscode.TextEditor) {
+        if (selectionTimeout) {
+            clearTimeout(selectionTimeout);
+            selectionTimeout = undefined;
+        }
+        selectionTimeout = setTimeout(() => {
+            renderTermDecorations(editor);
+        }, 200);
+    }
+
     function updateDecorations() {
         if (!activeEditor) {
             return;
@@ -127,7 +148,6 @@ export function initDecorators(context: vscode.ExtensionContext) {
         }
     }, null, context.subscriptions);
 
-    let selectionTimeout: NodeJS.Timeout | undefined = undefined;
     vscode.window.onDidChangeTextEditorSelection(event => {
         activeEditor = event.textEditor;
         triggerUpdateTermDecorations(event.textEditor);
@@ -141,25 +161,6 @@ export function initDecorators(context: vscode.ExtensionContext) {
             }
         }
     }, null, context.subscriptions);
-
-    let timeout: NodeJS.Timeout | undefined = undefined;
-    function triggerUpdateDecorations() {
-        if (timeout) {
-            clearTimeout(timeout);
-            timeout = undefined;
-        }
-        timeout = setTimeout(updateDecorations, 500);
-    }
-
-    function triggerUpdateTermDecorations(editor: vscode.TextEditor) {
-        if (selectionTimeout) {
-            clearTimeout(selectionTimeout);
-            selectionTimeout = undefined;
-        }
-        selectionTimeout = setTimeout(() => {
-            renderTermDecorations(editor);
-        }, 200);
-    }
 }
 
 import { globalDirector, globalShWvData } from '../store';

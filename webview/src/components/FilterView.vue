@@ -192,6 +192,30 @@ const handleApplyAll = () => {
   originalTargetLines.value = [...allTargetLines.value];
 };
 
+// 抽出された全セグメントを一括確定
+const handleConfirmFiltered = () => {
+  if (filteredUnits.value.length === 0) return;
+
+  const confirmItems: { idx: number; tgt?: string }[] = [];
+  for (let i = 0; i < filteredUnits.value.length; i++) {
+    const unit = filteredUnits.value[i];
+    if (unit && unit.idx >= 0) {
+      const currentLine = allTargetLines.value[i];
+      confirmItems.push({
+        idx: unit.idx,
+        tgt: currentLine !== undefined ? currentLine : unit.tgt
+      });
+    }
+  }
+
+  if (confirmItems.length === 0) return;
+
+  emit('FilterCommand', 'confirm-units', confirmItems);
+
+  // 編集内容も確定したものとして同期
+  originalTargetLines.value = [...allTargetLines.value];
+};
+
 // 現在表示中のページの内容のみを反映
 const handleApplyCurrentPage = () => {
   if (!isLineCountMatching.value || currentPageModifiedUpdates.value.length === 0) {
@@ -300,6 +324,26 @@ const nextPage = () => {
               {{ i18nStore.getText('searchTab', 'applyBtn', { count: modifiedCount }) || `反映 (${modifiedCount})` }}
             </template>
           </a-button>
+
+          <!-- 一括確定ボタン -->
+          <a-popconfirm
+            :content="i18nStore.getText('searchTab', 'confirmFilteredConfirm', { count: totalUnits }) || `抽出された ${totalUnits} 件のセグメントを一括確定しますか？`"
+            type="warning"
+            :ok-text="i18nStore.getText('common', 'execute') || '実行'"
+            :cancel-text="i18nStore.getText('common', 'cancel') || 'キャンセル'"
+            @ok="handleConfirmFiltered"
+          >
+            <a-button
+              type="outline"
+              status="success"
+              size="small"
+              :disabled="totalUnits === 0 || !isLineCountMatching"
+              :title="'抽出された全セグメントを一括確定します'"
+            >
+              <template #icon><icon-check-circle /></template>
+              {{ i18nStore.getText('searchTab', 'confirmFilteredBtn', { count: totalUnits }) || `一括確定 (${totalUnits})` }}
+            </a-button>
+          </a-popconfirm>
 
           <a-button
             v-if="modifiedCount > 0"

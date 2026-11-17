@@ -1,5 +1,6 @@
 import { archiveWorking, copyDataToWorking } from './fileOps';
 import { ProjectManager } from './core/ProjectManager';
+import { setupAgentRules } from './agentRules';
 
 export async function prepareProject(root: string) {
     // 1. Archive existing working directory
@@ -8,7 +9,10 @@ export async function prepareProject(root: string) {
     // 2. Copy fresh data to working directory
     await copyDataToWorking(root);
 
-    // 3. Generate statistics (Mock for now, or simple file counting)
+    // 3. Setup AI assistant rule files (SHEEPWEAVE_RULES.md, .cursorrules, etc.)
+    setupAgentRules(root);
+
+    // 4. Generate statistics (Mock for now, or simple file counting)
     // In real implementation, we would parse files in `working/`
     const stats = {
         segments: 0,
@@ -17,7 +21,7 @@ export async function prepareProject(root: string) {
         termsMatched: 0
     };
 
-    // 4. Update project.json using ProjectManager
+    // 5. Update project.json using ProjectManager
     const projectManager = new ProjectManager(root);
     projectManager.data.lastPreparedAt = new Date().toISOString();
     projectManager.data.stats = stats;

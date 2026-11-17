@@ -128,6 +128,37 @@ export class SheepDirector {
     }
 
     /**
+     * Confirms multiple units in a single batch operation.
+     * Prevents excessive individual notification cycles and O(N*M) propagation loops.
+     * @param items Array of unit indices or { idx, text } objects
+     */
+    public confirmLines(items: (number | { idx: number; text?: string })[]): number[] {
+        const currentWorkflowIndex = this.state.meta.workflow?.index ?? 1;
+        const confirmedIdxs: number[] = [];
+
+        for (const item of items) {
+            const idx = typeof item === 'number' ? item : item.idx;
+            const text = typeof item === 'object' ? item.text : undefined;
+
+            const unit = this.getUnitByIdx(idx);
+            if (!unit) continue;
+
+            if ((unit.status || 0) < currentWorkflowIndex) {
+                unit.status = currentWorkflowIndex;
+            }
+            this.confirmedLines.add(idx);
+
+            if (text !== undefined && unit.tgt !== text) {
+                unit.tgt = text;
+                this.state.updateUnitTarget(idx, text);
+            }
+            confirmedIdxs.push(idx);
+        }
+
+        return confirmedIdxs;
+    }
+
+    /**
      * Unconfirms a unit by idx.
      * Usually called when a confirmed line is edited.
      * @param idx unit.idx

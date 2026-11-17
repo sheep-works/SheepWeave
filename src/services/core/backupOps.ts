@@ -33,7 +33,9 @@ export class BackupOps {
         if (targetDoc && targetDoc.isDirty) {
             await targetDoc.save();
         }
-        globalShWvData.save(rootPath);
+        if (globalShWvData.body && globalShWvData.body.units.length > 0) {
+            globalShWvData.save(rootPath);
+        }
 
         // 2. Build folder name: Backup_YYYYMMDD_HHMMSS[_TAG]
         const now = new Date();

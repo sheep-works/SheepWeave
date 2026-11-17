@@ -409,6 +409,11 @@
   dependencies:
     "@textlint/ast-node-types" "15.5.2"
 
+"@toon-format/toon@^4.4.0":
+  version "4.4.0"
+  resolved "https://registry.yarnpkg.com/@toon-format/toon/-/toon-4.4.0.tgz#0415a238a572c68b0a99a04c5d675d355a9edf91"
+  integrity sha512-A6UcsVoWbNdhdLNhJbe6JpRlocmf/DZGG57fur3bd8oQtsjBaKWo2hHbOU2zTuy+byUmLIOyP1xJeitopCZzpQ==
+
 "@types/eslint-scope@^3.7.7":
   version "3.7.7"
   resolved "https://registry.npmjs.org/@types/eslint-scope/-/eslint-scope-3.7.7.tgz"

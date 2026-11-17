@@ -51,6 +51,10 @@ export function activate(context: vscode.ExtensionContext): SheepWeavePublicApi 
         console.error('Failed to load project data during activation:', e);
     }
 
+    // ショートカット・TM置換コマンドを最優先で登録
+    initShortcuts(context);
+
+
     context.subscriptions.push(
         vscode.commands.registerCommand('sheepWeave.openPanel', () => {
             openSheepWeavePanel(context);
@@ -71,6 +75,9 @@ export function activate(context: vscode.ExtensionContext): SheepWeavePublicApi 
 
     context.subscriptions.push(
         vscode.commands.registerCommand('sheepWeave.confirmLine', () => {
+            confirmLineCommand();
+        }),
+        vscode.commands.registerCommand('sheepWeave.confirmSelectedLines', () => {
             confirmLineCommand();
         }),
         vscode.commands.registerCommand('sheepWeave.gotoNextUnconfirmed', () => {
@@ -169,7 +176,7 @@ export function activate(context: vscode.ExtensionContext): SheepWeavePublicApi 
 
     initEditorGuard(context);
     initDecorators(context);
-    initShortcuts(context);
+
 
     // 用語集（TB）およびフレーズの入力補完を登録（トリガー文字 '@', '/', ' ' に対応、全スキーム対応）
     context.subscriptions.push(

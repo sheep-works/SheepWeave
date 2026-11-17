@@ -44,12 +44,22 @@ interface ParsedMedia {
 }
 
 const parsedNote = computed(() => {
-    const rawNote = shwvStore.crtUnit?.note || '';
-    if (!rawNote) return { text: '', media: null as ParsedMedia | null };
+    const unit = shwvStore.crtUnit;
+    const raw = unit?.note ?? (unit as any)?.notes;
+    let rawNote = '';
+    if (Array.isArray(raw)) {
+        rawNote = raw.filter(Boolean).join('\n');
+    } else if (typeof raw === 'string') {
+        rawNote = raw;
+    } else if (raw) {
+        rawNote = String(raw);
+    }
+
+    if (!rawNote) return { text: '', media: null as ParsedMedia | null, rawMedia: '' };
 
     const match = rawNote.match(/@md\[\[(.*?)\]\]/s);
     if (!match) {
-        return { text: rawNote, media: null as ParsedMedia | null };
+        return { text: rawNote, media: null as ParsedMedia | null, rawMedia: '' };
     }
 
     let media: ParsedMedia | null = null;
@@ -60,6 +70,13 @@ const parsedNote = computed(() => {
     const cleanText = rawNote.replace(/@md\[\[(.*?)\]\]/s, '').trim();
     return { text: cleanText, media, rawMedia: match[1] };
 });
+
+const hasNote = computed(() => {
+    const unit = shwvStore.crtUnit;
+    const raw = unit?.note ?? (unit as any)?.notes;
+    if (Array.isArray(raw)) return raw.length > 0;
+    return !!raw;
+});
 </script>
 
 <template>
@@ -69,7 +86,7 @@ const parsedNote = computed(() => {
             <tr v-for="(tb, tbx) in shwvStore.crtUnit.ref.tb" :key="tbx">
                 <td v-if="tbx === 0" :rowspan="rowspan">
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                        <span>{{ shwvStore.crtUnit.idx + 1 }}</span>
+                        <span>{{ shwvStore.crtUnit.idx }}</span>
                         <a-button type="text" size="mini" @click="togglePeRef" :title="shwvStore.crtUnit.isPeRef ? 'Unpin PE Reference' : 'Pin as PE Reference'" style="padding: 0; height: auto;">
                             <template #icon>
                                 <icon-pushpin :style="{ color: shwvStore.crtUnit.isPeRef ? '#f59e0b' : 'gray', fontSize: '14px' }" />
@@ -85,7 +102,15 @@ const parsedNote = computed(() => {
                 </td>
                 <td>{{ tb.src }}</td>
                 <td>
-                    {{ tb.tgts.join(' / ') }}
+                    <div v-if="tb.tgts && tb.tgts.length > 0">
+                        {{ tb.tgts.join(' / ') }}
+                    </div>
+                    <!-- 禁止用語 (forbiddens) の表示 -->
+                    <div v-if="tb.forbiddens && tb.forbiddens.length > 0" class="forbidden-terms">
+                        <a-tag color="red" size="small">
+                            禁止: {{ tb.forbiddens.join(', ') }}
+                        </a-tag>
+                    </div>
                     <div v-if="tb.file" class="file-text">{{ tb.file }}</div>
                 </td>
             </tr>
@@ -95,7 +120,7 @@ const parsedNote = computed(() => {
         <tr v-else>
             <td>
                 <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                    <span>{{ shwvStore.crtUnit.idx + 1 }}</span>
+                    <span>{{ shwvStore.crtUnit.idx }}</span>
                     <a-button type="text" size="mini" @click="togglePeRef" :title="shwvStore.crtUnit.isPeRef ? 'Unpin PE Reference' : 'Pin as PE Reference'" style="padding: 0; height: auto;">
                         <template #icon>
                             <icon-pushpin :style="{ color: shwvStore.crtUnit.isPeRef ? '#f59e0b' : 'gray', fontSize: '14px' }" />
@@ -111,12 +136,12 @@ const parsedNote = computed(() => {
             <td>-</td>
         </tr>
 
-        <!-- note がある場合 -->
-        <template v-if="shwvStore.crtUnit.note">
-            <tr>
-                <td colspan="4" style="font-size: 0.85em; background: var(--vscode-editor-inactiveSelectionBackground); border-radius: 4px; border-top: 1px dashed var(--vscode-widget-border); padding: 4px 8px;">
-                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <span v-if="parsedNote.text">
+        <!-- note / notes がある場合 -->
+        <template v-if="hasNote">
+            <tr class="note-row">
+                <td colspan="4" style="font-size: 0.85em; background: var(--vscode-editor-inactiveSelectionBackground); border-radius: 4px; border-top: 1px dashed var(--vscode-widget-border); padding: 5px 8px;">
+                    <div style="display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap;">
+                        <span v-if="parsedNote.text" style="white-space: pre-wrap; word-break: break-word;">
                             <strong style="opacity: 0.7;">Note:</strong> {{ parsedNote.text }}
                         </span>
                         <!-- メディアメタデータ (@md[[...]]) のバッジ表示 -->
@@ -129,7 +154,7 @@ const parsedNote = computed(() => {
                                 <template #icon><icon-play-circle /></template>
                                 {{ parsedNote.media.time }}
                             </a-tag>
-                            <a-tag v-if="!parsedNote.media.img && !parsedNote.media.time" color="gray" size="small" bordered style="font-size: 11px;">
+                            <a-tag v-if="parsedNote.media.rawMedia && !parsedNote.media.img && !parsedNote.media.time" color="gray" size="small" bordered style="font-size: 11px;">
                                 <template #icon><icon-code /></template>
                                 @md: {{ parsedNote.rawMedia }}
                             </a-tag>
@@ -180,7 +205,7 @@ td {
 }
 
 .tbody-spacer td {
-    height: 1.5em; /* マージンの代わり */
+    height: 1.2em;
     padding: 0;
     border-bottom: none;
     background: transparent;
@@ -192,5 +217,8 @@ td {
     margin-top: 4px;
     word-break: break-all;
 }
-</style>
 
+.forbidden-terms {
+    margin-top: 4px;
+}
+</style>

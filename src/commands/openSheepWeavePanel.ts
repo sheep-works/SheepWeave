@@ -2,6 +2,7 @@ import { initDirs, prepareWorking, preprocessor, postprocessor, runTikalExtracti
 import { CoreHandler } from '../handlers/CoreHandler';
 import { AdminHandler } from '../handlers/AdminHandler';
 import { ProjectManager } from '../services/core/ProjectManager';
+import { resolveWorkspaceRoot, findProjectRoot } from '../util';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -156,7 +157,7 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFo
         if (!document.fileName.endsWith('.shwvt')) return;
 
         // 保存されたタイミングで、全体のデータをファイルに書き出します。
-        const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const rootPath = resolveWorkspaceRoot() || findProjectRoot(document.fileName);
         if (rootPath) {
             globalShWvData.save(rootPath);
         }
@@ -179,7 +180,7 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFo
     panel.webview.onDidReceiveMessage(
         async message => {
             console.log(`Webview message received: ${message.type}`, message.payload);
-            const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            const rootPath = resolveWorkspaceRoot();
             if (!rootPath) {
                 vscode.window.showErrorMessage('No workspace folder open');
                 return;

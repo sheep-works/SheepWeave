@@ -262,9 +262,9 @@ onMounted(() => {
                         <a-tooltip content="Shortcut: Alt+4">
                             <span>
                                 {{ i18nStore.getText('bypassTab', 'title') || 'Sub-Editor' }}
-                                <a-tag size="mini" color="purple" style="margin-left: 4px; font-size: 10px; padding: 0 4px; height: 16px; line-height: 14px;">
+                                <!-- <a-tag size="mini" color="purple" style="margin-left: 4px; font-size: 10px; padding: 0 4px; height: 16px; line-height: 14px;">
                                     {{ i18nStore.getText('bypassTab', 'experimentalBadge') || '実験的' }}
-                                </a-tag>
+                                </a-tag> -->
                             </span>
                         </a-tooltip>
                     </template>

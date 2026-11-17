@@ -39,6 +39,13 @@ function handleExportReviewHtml() {
   }
 }
 
+function handleAutoReplace() {
+  const vscode = getVsCodeApi();
+  if (vscode) {
+    vscode.postMessage({ type: 'shuttle-auto-replace' });
+  }
+}
+
 // ==================== Virtual Merge Mode ====================
 const droppedPatchUnits = ref<any[]>([]);
 const patchFileName = ref('');
@@ -186,7 +193,11 @@ const qaConfig = ref<QaConfig>({
 });
 const qaIssues = ref<QaIssue[]>([]);
 const hasRunQa = ref(false);
-const selectedIssueFilter = ref<QaIssueType | 'ALL'>('ALL');
+const selectedIssueFilter = ref<QaIssueType | 'Forbidden' | 'ALL'>('ALL');
+
+function isForbiddenIssue(issue: QaIssue): boolean {
+  return issue.issue_type === 'Term' && issue.message.startsWith('Forbidden term used');
+}
 
 function doRunQa() {
   if (!shwvStore.units || shwvStore.units.length === 0) return;
@@ -208,7 +219,7 @@ function doExportQaReportCsv() {
   const rows = qaIssues.value.map(issue => {
     const preview = getQaUnitPreview(issue.idx);
     return [
-      escapeCsv(issue.idx + 1),
+      escapeCsv(issue.idx),
       escapeCsv(issue.issue_type),
       escapeCsv(issue.message),
       escapeCsv(preview?.src || ''),
@@ -239,8 +250,11 @@ function doExportQaReportJson() {
 }
 
 const qaCounts = computed(() => {
-  const counts: Record<string, number> = { Number: 0, Tag: 0, Term: 0, Consistency: 0, UnmodifiedPe: 0 };
+  const counts: Record<string, number> = { Number: 0, Tag: 0, Term: 0, Forbidden: 0, Consistency: 0, UnmodifiedPe: 0 };
   for (const issue of qaIssues.value) {
+    if (isForbiddenIssue(issue)) {
+      counts.Forbidden++;
+    }
     counts[issue.issue_type] = (counts[issue.issue_type] || 0) + 1;
   }
   return counts;
@@ -249,6 +263,9 @@ const qaCounts = computed(() => {
 const filteredQaIssues = computed(() => {
   if (selectedIssueFilter.value === 'ALL') {
     return qaIssues.value;
+  }
+  if (selectedIssueFilter.value === 'Forbidden') {
+    return qaIssues.value.filter(isForbiddenIssue);
   }
   return qaIssues.value.filter(issue => issue.issue_type === selectedIssueFilter.value);
 });
@@ -263,15 +280,15 @@ function getQaUnitPreview(idx: number) {
 }
 
 function jumpToQaSegment(idx: number) {
-  const pos = shwvStore.units.findIndex(u => u.idx === idx);
-  if (pos !== -1) {
-    shwvStore.crtPos = pos;
+  shwvStore.crtPos = idx;
+  if (vscode) {
+    vscode.postMessage({ type: 'goto-line', data: { line: idx } });
   }
 }
 
 // ==================== Segment TM Target Diff Mode ====================
-const currentUnitIdx = computed(() => shwvStore.crtPos);
-const currentUnit = computed(() => shwvStore.units[currentUnitIdx.value] || null);
+const currentUnit = computed(() => shwvStore.crtUnit);
+const currentUnitIdx = computed(() => currentUnit.value?.idx ?? shwvStore.crtPos);
 
 const currentTargetText = computed(() => {
   if (!currentUnit.value) return '';
@@ -279,14 +296,16 @@ const currentTargetText = computed(() => {
 });
 
 function prevSegment() {
-  if (shwvStore.crtPos > 0) {
+  if (shwvStore.crtPos > 1) {
     shwvStore.crtPos--;
+    if (vscode) vscode.postMessage({ type: 'goto-line', data: { line: shwvStore.crtPos } });
   }
 }
 
 function nextSegment() {
-  if (shwvStore.crtPos < shwvStore.units.length - 1) {
+  if (shwvStore.crtPos < shwvStore.units.length) {
     shwvStore.crtPos++;
+    if (vscode) vscode.postMessage({ type: 'goto-line', data: { line: shwvStore.crtPos } });
   }
 }
 
@@ -295,6 +314,7 @@ interface TmDiffItem {
   file?: string;
   sourceRatio: number;
   sourceText: string;
+  sourceDiffHtml: string;
   tmTarget: string;
   targetRatio: number;
   targetDiffHtml: string;
@@ -316,12 +336,15 @@ const tmDiffList = computed<TmDiffItem[]>(() => {
     const tgtDiffHtml = DiffUtils.getDiffHtml(tmTgt, curTgt);
     // 原文一致率が高率 (>=80%) なのに 訳文一致率が低い (<60%) 場合の警告判定
     const isRatioMismatch = srcRatio >= 80 && tgtRatio < 60;
+    // 原文差分 (翻訳タブ同様に tm.diff を優先し、なければ DiffUtils で生成)
+    const srcDiff = tm.diff || (unit.src && tm.src ? DiffUtils.getDiffHtml(tm.src, unit.src) : (tm.src || ''));
 
     return {
       idx: tm.idx,
       file: tm.file || 'TM',
       sourceRatio: srcRatio,
       sourceText: tm.src,
+      sourceDiffHtml: srcDiff,
       tmTarget: tmTgt,
       targetRatio: tgtRatio,
       targetDiffHtml: tgtDiffHtml,
@@ -461,7 +484,7 @@ const filteredBatchDiff = computed(() => {
             <a-card :bordered="false" class="tools-card" style="margin-bottom: 16px;">
               <template #title>
                 <div class="segment-header-title">
-                  <a-tag color="arcoblue">Segment #{{ currentUnitIdx + 1 }} / {{ shwvStore.units.length }}</a-tag>
+                  <a-tag color="arcoblue">Segment #{{ currentUnitIdx }} / {{ shwvStore.units.length }}</a-tag>
                   <span v-if="currentUnit?.idx !== undefined" style="margin-left: 8px; font-size: 12px; color: var(--color-text-3);">
                     (ID: {{ currentUnit.idx }})
                   </span>
@@ -469,10 +492,10 @@ const filteredBatchDiff = computed(() => {
               </template>
               <template #extra>
                 <a-button-group size="small">
-                  <a-button :disabled="shwvStore.crtPos <= 0" @click="prevSegment">
+                  <a-button :disabled="shwvStore.crtPos <= 1" @click="prevSegment">
                     <template #icon><icon-left /></template> 前の行
                   </a-button>
-                  <a-button :disabled="shwvStore.crtPos >= shwvStore.units.length - 1" @click="nextSegment">
+                  <a-button :disabled="shwvStore.crtPos >= shwvStore.units.length" @click="nextSegment">
                     次の行 <template #icon><icon-right /></template>
                   </a-button>
                 </a-button-group>
@@ -523,8 +546,14 @@ const filteredBatchDiff = computed(() => {
                     </span>
                   </div>
 
-                  <!-- 行2: 参照訳 (TM Target Text) -->
+                  <!-- 行: 原文差分 (TM Source Diff) -->
                   <div class="item-row">
+                    <span class="row-label">原文差分 (TM Source):</span>
+                    <div class="row-value diff-html" v-html="record.sourceDiffHtml || record.sourceText"></div>
+                  </div>
+
+                  <!-- 行2: 参照訳 (TM Target Text) -->
+                  <div class="item-row" style="margin-top: 6px;">
                     <span class="row-label">参照訳 (TM Target):</span>
                     <div class="row-value text-preview">{{ record.tmTarget }}</div>
                   </div>
@@ -645,7 +674,7 @@ const filteredBatchDiff = computed(() => {
                 {{ i18nStore.getText('toolsTab', 'qaCheckTags') || 'タグ / プレースホルダー' }}
               </a-checkbox>
               <a-checkbox v-model="qaConfig.check_terms">
-                {{ i18nStore.getText('toolsTab', 'qaCheckTerms') || '用語集 (TB) 含有' }}
+                {{ i18nStore.getText('toolsTab', 'qaCheckTerms') || '用語集 (TB) 含有 / 禁止用語' }}
               </a-checkbox>
               <a-checkbox v-model="qaConfig.check_consistency">
                 {{ i18nStore.getText('toolsTab', 'qaCheckConsistency') || '整合性 (100%一致行)' }}
@@ -719,8 +748,12 @@ const filteredBatchDiff = computed(() => {
                   <strong>{{ qaCounts.Tag }}</strong>
                 </div>
                 <div class="qa-chip chip-term" :class="{ active: selectedIssueFilter === 'Term' }" @click="selectedIssueFilter = 'Term'">
-                  <span>用語</span>
+                  <span>{{ i18nStore.getText('toolsTab', 'qaChipTerm') || '用語' }}</span>
                   <strong>{{ qaCounts.Term }}</strong>
+                </div>
+                <div class="qa-chip chip-forbidden" :class="{ active: selectedIssueFilter === 'Forbidden' }" @click="selectedIssueFilter = 'Forbidden'">
+                  <span>{{ i18nStore.getText('toolsTab', 'qaChipForbidden') || '禁止用語' }}</span>
+                  <strong>{{ qaCounts.Forbidden }}</strong>
                 </div>
                 <div class="qa-chip chip-consistency" :class="{ active: selectedIssueFilter === 'Consistency' }" @click="selectedIssueFilter = 'Consistency'">
                   <span>整合性</span>
@@ -738,10 +771,11 @@ const filteredBatchDiff = computed(() => {
                   <div class="qa-item-header">
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                       <a-tag color="gray" size="small" style="font-family: monospace; font-weight: bold;">
-                        #{{ issue.idx + 1 }} (ID: {{ issue.idx }})
+                        #{{ issue.idx }}
                       </a-tag>
-                      <span :class="['qa-type-badge', issue.issue_type.toLowerCase()]">{{ issue.issue_type }}</span>
-                      <span class="qa-item-msg">{{ issue.message }}</span>
+                      <span v-if="isForbiddenIssue(issue)" class="qa-type-badge forbidden">Forbidden</span>
+                      <span v-else :class="['qa-type-badge', issue.issue_type.toLowerCase()]">{{ issue.issue_type }}</span>
+                      <span :class="['qa-item-msg', { 'forbidden-msg': isForbiddenIssue(issue) }]">{{ issue.message }}</span>
                     </div>
                     <a-button size="mini" type="text" @click="jumpToQaSegment(issue.idx)">
                       <template #icon><icon-location /></template>
@@ -767,7 +801,28 @@ const filteredBatchDiff = computed(() => {
         </div>
       </a-tab-pane>
 
-      <!-- 4. Virtual Scope Dispatch Subtab (仮想スコープ分担設定・配布出力) -->
+      <!-- 4. Auto Replacement Subtab (自動置換) -->
+      <a-tab-pane key="replace" :title="i18nStore.getText('toolsTab', 'autoReplaceSubtab') || '自動置換'">
+        <div class="pane-content">
+          <a-card :bordered="false" class="tools-card" style="margin-bottom: 16px;">
+            <template #title>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <icon-refresh style="color: var(--color-primary-light-4); font-size: 18px;" />
+                <span>{{ i18nStore.getText('toolsTab', 'autoReplaceCard') || '自動置換 (ログ適用)' }}</span>
+              </div>
+            </template>
+            <a-typography-paragraph type="secondary" style="font-size: 13px; margin-bottom: 16px;">
+              {{ i18nStore.getText('toolsTab', 'autoReplaceHelp') || 'Working/01_REF/auto_replace_log.jsonl に記録された置換ルールを現在の翻訳対象（tgt）へ一括適用します。' }}
+            </a-typography-paragraph>
+            <a-button type="primary" status="success" @click="handleAutoReplace">
+              <template #icon><icon-refresh /></template>
+              {{ i18nStore.getText('toolsTab', 'autoReplaceBtn') || '自動置換ログを適用' }}
+            </a-button>
+          </a-card>
+        </div>
+      </a-tab-pane>
+
+      <!-- 5. Virtual Scope Dispatch Subtab (仮想スコープ分担設定・配布出力) -->
       <a-tab-pane key="scope" :title="i18nStore.getText('toolsTab', 'scopeSubtab') || 'スコープ分担'">
         <div class="pane-content">
           <a-card :bordered="false" class="tools-card" style="margin-bottom: 16px;">
@@ -1155,6 +1210,7 @@ const filteredBatchDiff = computed(() => {
 .qa-chip.chip-number strong { color: #60a5fa; }
 .qa-chip.chip-tag strong { color: #f59e0b; }
 .qa-chip.chip-term strong { color: #a78bfa; }
+.qa-chip.chip-forbidden strong { color: #f87171; }
 .qa-chip.chip-consistency strong { color: #ec4899; }
 .qa-chip.chip-unmodifiedpe strong { color: #f97316; }
 
@@ -1193,12 +1249,18 @@ const filteredBatchDiff = computed(() => {
 .qa-type-badge.number { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
 .qa-type-badge.tag { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
 .qa-type-badge.term { background: rgba(167, 139, 250, 0.15); color: #a78bfa; }
+.qa-type-badge.forbidden { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
 .qa-type-badge.consistency { background: rgba(236, 72, 153, 0.15); color: #ec4899; }
 .qa-type-badge.unmodifiedpe { background: rgba(249, 115, 22, 0.15); color: #f97316; }
 
 .qa-item-msg {
   font-size: 13px;
   color: var(--color-text-1);
+}
+
+.qa-item-msg.forbidden-msg {
+  color: #f87171;
+  font-weight: 500;
 }
 
 .qa-item-preview {
@@ -1225,7 +1287,6 @@ const filteredBatchDiff = computed(() => {
 
 .preview-val.preview-target {
   color: var(--color-text-1);
-  font-weight: 500;
 }
 
 /* Drop Zone Styles */

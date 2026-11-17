@@ -137,16 +137,28 @@ export class ShuttleAnalyzer {
                     if (!tb) continue;
 
                     const tbTarget = tb.tgt || '';
+                    const tbForbiddens = tb.forbiddens || [];
                     let existingEntry = currentUnit.ref.tb.find(t => t.src === tb.src);
 
                     if (existingEntry) {
-                        if (!existingEntry.tgts.includes(tbTarget)) {
+                        if (tbTarget && !existingEntry.tgts.includes(tbTarget)) {
                             existingEntry.tgts.push(tbTarget);
+                        }
+                        if (tbForbiddens.length > 0) {
+                            if (!existingEntry.forbiddens) {
+                                existingEntry.forbiddens = [];
+                            }
+                            for (const f of tbForbiddens) {
+                                if (!existingEntry.forbiddens.includes(f)) {
+                                    existingEntry.forbiddens.push(f);
+                                }
+                            }
                         }
                     } else {
                         currentUnit.ref.tb.push({
                             src: tb.src,
-                            tgts: [tbTarget],
+                            tgts: tbTarget ? [tbTarget] : [],
+                            ...(tbForbiddens.length > 0 ? { forbiddens: [...tbForbiddens] } : {}),
                             file: (tb.file as string) || '',
                         });
                     }
@@ -158,16 +170,28 @@ export class ShuttleAnalyzer {
                     if (!tb) continue;
                     if (tb.src && currentUnit.src.includes(tb.src)) {
                         const tbTarget = tb.tgt || '';
+                        const tbForbiddens = tb.forbiddens || [];
                         let existingEntry = currentUnit.ref.tb.find(t => t.src === tb.src);
 
                         if (existingEntry) {
-                            if (!existingEntry.tgts.includes(tbTarget)) {
+                            if (tbTarget && !existingEntry.tgts.includes(tbTarget)) {
                                 existingEntry.tgts.push(tbTarget);
+                            }
+                            if (tbForbiddens.length > 0) {
+                                if (!existingEntry.forbiddens) {
+                                    existingEntry.forbiddens = [];
+                                }
+                                for (const f of tbForbiddens) {
+                                    if (!existingEntry.forbiddens.includes(f)) {
+                                        existingEntry.forbiddens.push(f);
+                                    }
+                                }
                             }
                         } else {
                             currentUnit.ref.tb.push({
                                 src: tb.src,
-                                tgts: [tbTarget],
+                                tgts: tbTarget ? [tbTarget] : [],
+                                ...(tbForbiddens.length > 0 ? { forbiddens: [...tbForbiddens] } : {}),
                                 file: (tb.file as string) || '',
                             });
                         }
