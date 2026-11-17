@@ -3322,6 +3322,9 @@ structured-source@^4.0.0:
   dependencies:
     boundary "^2.0.0"
 
+"suffolk-wasm@file:modules/Suffolk/pkg/node":
+  version "0.0.3"
+
 supports-color@^7.0.0, supports-color@^7.1.0:
   version "7.2.0"
   resolved "https://registry.npmjs.org/supports-color/-/supports-color-7.2.0.tgz"

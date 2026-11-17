@@ -515,6 +515,7 @@
     "flexsearch": "^0.8.212",
     "jszip": "^3.10.1",
     "sheep-spindle": "file:modules/SheepComb/packages/core/src/pkg",
+    "suffolk-wasm": "file:modules/Suffolk/pkg/node",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "xml2js": "^0.6.2"
   }
