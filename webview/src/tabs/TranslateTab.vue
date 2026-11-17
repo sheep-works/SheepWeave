@@ -15,8 +15,16 @@ defineProps({
     fontSize: {
         type: Number,
         default: 14
+    },
+    showSuffolkMeta: {
+        type: Boolean,
+        default: true
     }
 });
+
+const emit = defineEmits<{
+    (e: 'updateShowSuffolkMeta', val: boolean): void;
+}>();
 
 function getTargetUnit(idx: number) {
     if (idx < 0 || !shwvStore.units) return null;
@@ -65,7 +73,10 @@ function getUnitTargetText(idx: number, fallback: string): string {
                     </tr>
                 </thead>
                 <!-- 自身に関するデータ -->
-                <CurrentSegTbody />
+                <CurrentSegTbody
+                    :showSuffolkMeta="showSuffolkMeta"
+                    @toggleShowSuffolkMeta="emit('updateShowSuffolkMeta', !showSuffolkMeta)"
+                />
                 <!-- TM -->
                 <tbody v-if="shwvStore.crtUnit.ref.tms.length > 0">
                     <tr v-for="(tm, tmIdx) in shwvStore.crtUnit.ref.tms" :key="tmIdx" :class="{ 'is-external': tm.idx === -1 }">

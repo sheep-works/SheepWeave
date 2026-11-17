@@ -1,10 +1,22 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useShWvStore } from '../store/shwv';
-import { IconPushpin, IconFileImage, IconPlayCircle, IconCode } from '@arco-design/web-vue/es/icon';
+import { useI18nStore } from '../store/i18n';
+import { IconPushpin, IconFileImage, IconPlayCircle, IconCode, IconEye, IconEyeInvisible, IconFile } from '@arco-design/web-vue/es/icon';
 import { getVsCodeApi } from '../vscode';
 
+const props = withDefaults(defineProps<{
+    showSuffolkMeta?: boolean;
+}>(), {
+    showSuffolkMeta: true
+});
+
+const emit = defineEmits<{
+    (e: 'toggleShowSuffolkMeta'): void;
+}>();
+
 const shwvStore = useShWvStore();
+const i18nStore = useI18nStore();
 
 const handlePropagate = () => {
     const unit = shwvStore.crtUnit;
@@ -43,6 +55,12 @@ interface ParsedMedia {
     [key: string]: any;
 }
 
+interface SuffolkMetaItem {
+    raw: string;
+    label: string;
+    value: string;
+}
+
 const parsedNote = computed(() => {
     const unit = shwvStore.crtUnit;
     const raw = unit?.note ?? (unit as any)?.notes;
@@ -55,20 +73,59 @@ const parsedNote = computed(() => {
         rawNote = String(raw);
     }
 
-    if (!rawNote) return { text: '', media: null as ParsedMedia | null, rawMedia: '' };
-
-    const match = rawNote.match(/@md\[\[(.*?)\]\]/s);
-    if (!match) {
-        return { text: rawNote, media: null as ParsedMedia | null, rawMedia: '' };
+    if (!rawNote) {
+        return { text: '', suffolkMeta: [] as SuffolkMetaItem[], hasSf: false, media: null as ParsedMedia | null, rawMedia: '' };
     }
 
-    let media: ParsedMedia | null = null;
-    try {
-        media = JSON.parse(match[1]);
-    } catch { }
+    // 1. Suffolk メタデータ (@sf[...]) の抽出
+    const sfMatch = rawNote.match(/@sf\[(.*?)\]/);
+    const suffolkMeta: SuffolkMetaItem[] = [];
+    const hasSf = !!sfMatch;
 
-    const cleanText = rawNote.replace(/@md\[\[(.*?)\]\]/s, '').trim();
-    return { text: cleanText, media, rawMedia: match[1] };
+    if (sfMatch) {
+        const sfContent = sfMatch[1];
+        // 例: "Sheet: Sheet1 | Cell: A2 | Style: 1"
+        const parts = sfContent.split('|').map(p => p.trim()).filter(Boolean);
+        for (const part of parts) {
+            const sepIdx = part.indexOf(':');
+            if (sepIdx !== -1) {
+                suffolkMeta.push({
+                    raw: part,
+                    label: part.substring(0, sepIdx).trim(),
+                    value: part.substring(sepIdx + 1).trim()
+                });
+            } else {
+                suffolkMeta.push({
+                    raw: part,
+                    label: part,
+                    value: ''
+                });
+            }
+        }
+    }
+
+    // @sf[...] を除去した残りのテキスト
+    let textWithoutSf = rawNote.replace(/@sf\[(.*?)\]/g, '').trim();
+
+    // 2. メディアメタデータ (@md[[...]]) の抽出
+    const mdMatch = textWithoutSf.match(/@md\[\[(.*?)\]\]/s);
+    let media: ParsedMedia | null = null;
+    let rawMedia = '';
+    if (mdMatch) {
+        rawMedia = mdMatch[1];
+        try {
+            media = JSON.parse(rawMedia);
+        } catch { }
+        textWithoutSf = textWithoutSf.replace(/@md\[\[(.*?)\]\]/s, '').trim();
+    }
+
+    return {
+        text: textWithoutSf,
+        suffolkMeta,
+        hasSf,
+        media,
+        rawMedia
+    };
 });
 
 const hasNote = computed(() => {
@@ -76,6 +133,16 @@ const hasNote = computed(() => {
     const raw = unit?.note ?? (unit as any)?.notes;
     if (Array.isArray(raw)) return raw.length > 0;
     return !!raw;
+});
+
+// 表示すべき Note コンテンツがあるかどうか（非表示設定時の空欄化判定）
+const shouldRenderNoteRow = computed(() => {
+    if (!hasNote.value) return false;
+    const p = parsedNote.value;
+    if (p.text || p.media) return true;
+    if (p.hasSf && props.showSuffolkMeta) return true;
+    if (p.hasSf && !props.showSuffolkMeta) return true; // トグルボタンを表示するために行自体は表示
+    return false;
 });
 </script>
 
@@ -137,28 +204,68 @@ const hasNote = computed(() => {
         </tr>
 
         <!-- note / notes がある場合 -->
-        <template v-if="hasNote">
+        <template v-if="shouldRenderNoteRow">
             <tr class="note-row">
                 <td colspan="4" style="font-size: 0.85em; background: var(--vscode-editor-inactiveSelectionBackground); border-radius: 4px; border-top: 1px dashed var(--vscode-widget-border); padding: 5px 8px;">
-                    <div style="display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap;">
-                        <span v-if="parsedNote.text" style="white-space: pre-wrap; word-break: break-word;">
-                            <strong style="opacity: 0.7;">Note:</strong> {{ parsedNote.text }}
-                        </span>
-                        <!-- メディアメタデータ (@md[[...]]) のバッジ表示 -->
-                        <template v-if="parsedNote.media">
-                            <a-tag v-if="parsedNote.media.img" color="purple" size="small" bordered style="font-size: 11px;">
-                                <template #icon><icon-file-image /></template>
-                                {{ parsedNote.media.img }}
-                            </a-tag>
-                            <a-tag v-if="parsedNote.media.time" color="blue" size="small" bordered style="font-size: 11px;">
-                                <template #icon><icon-play-circle /></template>
-                                {{ parsedNote.media.time }}
-                            </a-tag>
-                            <a-tag v-if="parsedNote.media.rawMedia && !parsedNote.media.img && !parsedNote.media.time" color="gray" size="small" bordered style="font-size: 11px;">
-                                <template #icon><icon-code /></template>
-                                @md: {{ parsedNote.rawMedia }}
-                            </a-tag>
-                        </template>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1;">
+                            <!-- 通常の注釈テキスト -->
+                            <span v-if="parsedNote.text" style="white-space: pre-wrap; word-break: break-word;">
+                                <strong style="opacity: 0.7;">Note:</strong> {{ parsedNote.text }}
+                            </span>
+
+                            <!-- Suffolk 復元メタ情報 (@sf[...]) のバッジ表示 -->
+                            <template v-if="parsedNote.hasSf && showSuffolkMeta">
+                                <a-space wrap size="mini">
+                                    <a-tag
+                                        v-for="(meta, mIdx) in parsedNote.suffolkMeta"
+                                        :key="mIdx"
+                                        color="green"
+                                        size="small"
+                                        bordered
+                                        style="font-size: 11px;"
+                                    >
+                                        <template #icon><icon-file /></template>
+                                        <strong>{{ meta.label }}</strong><span v-if="meta.value">: {{ meta.value }}</span>
+                                    </a-tag>
+                                </a-space>
+                            </template>
+
+                            <!-- メディアメタデータ (@md[[...]]) のバッジ表示 -->
+                            <template v-if="parsedNote.media">
+                                <a-tag v-if="parsedNote.media.img" color="purple" size="small" bordered style="font-size: 11px;">
+                                    <template #icon><icon-file-image /></template>
+                                    {{ parsedNote.media.img }}
+                                </a-tag>
+                                <a-tag v-if="parsedNote.media.time" color="blue" size="small" bordered style="font-size: 11px;">
+                                    <template #icon><icon-play-circle /></template>
+                                    {{ parsedNote.media.time }}
+                                </a-tag>
+                                <a-tag v-if="parsedNote.media.rawMedia && !parsedNote.media.img && !parsedNote.media.time" color="gray" size="small" bordered style="font-size: 11px;">
+                                    <template #icon><icon-code /></template>
+                                    @md: {{ parsedNote.rawMedia }}
+                                </a-tag>
+                            </template>
+                        </div>
+
+                        <!-- @sf が含まれている場合のトグルボタン -->
+                        <div v-if="parsedNote.hasSf" style="margin-left: auto;">
+                            <a-tooltip :content="i18nStore.getText('translateTab', 'toggleSuffolkMetaTooltip') || 'Suffolk 復元メタ情報 (@sf) の表示切替'">
+                                <a-button
+                                    size="mini"
+                                    type="text"
+                                    :status="showSuffolkMeta ? 'normal' : 'warning'"
+                                    @click="emit('toggleShowSuffolkMeta')"
+                                    style="padding: 0 4px; height: 22px; font-size: 11px; opacity: 0.85;"
+                                >
+                                    <template #icon>
+                                        <icon-eye v-if="showSuffolkMeta" />
+                                        <icon-eye-invisible v-else />
+                                    </template>
+                                    @sf {{ showSuffolkMeta ? 'ON' : 'OFF' }}
+                                </a-button>
+                            </a-tooltip>
+                        </div>
                     </div>
                 </td>
             </tr>

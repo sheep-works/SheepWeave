@@ -44,6 +44,7 @@ const config = ref({
     autoReflectLlmToTm: true,
     termDecorationColor: '#e5c07b',
     termDecorationLineRange: 2,
+    showSuffolkMeta: true,
     versionLogs: ''
 });
 
@@ -73,6 +74,9 @@ function updateConfig(newConfig: any) {
     }
     if (newConfig.termDecorationLineRange !== undefined) {
         config.value.termDecorationLineRange = newConfig.termDecorationLineRange;
+    }
+    if (newConfig.showSuffolkMeta !== undefined) {
+        config.value.showSuffolkMeta = newConfig.showSuffolkMeta;
     }
     if (vscode) {
         vscode.postMessage({ type: 'update-config', payload: newConfig });
@@ -123,6 +127,7 @@ onMounted(() => {
                 if (message.data.autoReflectLlmToTm !== undefined) config.value.autoReflectLlmToTm = message.data.autoReflectLlmToTm;
                 if (message.data.termDecorationColor !== undefined) config.value.termDecorationColor = message.data.termDecorationColor;
                 if (message.data.termDecorationLineRange !== undefined) config.value.termDecorationLineRange = message.data.termDecorationLineRange;
+                if (message.data.showSuffolkMeta !== undefined) config.value.showSuffolkMeta = message.data.showSuffolkMeta;
                 if (message.data.versionLogs !== undefined) config.value.versionLogs = message.data.versionLogs;
                 break;
             case 'SHWV_DATA_LOADED':
@@ -247,7 +252,11 @@ onMounted(() => {
                             <span>{{ i18nStore.getText('translateTab', 'title') || 'Translate' }}</span>
                         </a-tooltip>
                     </template>
-                    <TranslateTab :fontSize="config.fontSize" />
+                    <TranslateTab
+                        :fontSize="config.fontSize"
+                        :showSuffolkMeta="config.showSuffolkMeta"
+                        @updateShowSuffolkMeta="(val: boolean) => updateConfig({ showSuffolkMeta: val })"
+                    />
                 </a-tab-pane>
                 <a-tab-pane key="search">
                     <template #title>

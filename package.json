@@ -465,6 +465,11 @@
           "type": "number",
           "default": 2,
           "description": "Number of lines before and after the active line to highlight registered terms (0 for current line only, 2 for +/- 2 lines)."
+        },
+        "sheepWeave.showSuffolkMeta": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to display Suffolk restoration metadata (@sf[...]) in the Translate Tab."
         }
       }
     },

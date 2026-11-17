@@ -670,6 +670,7 @@ export class CoreHandler {
                         autoReflectLlmToTm: config.get<boolean>('autoReflectLlmToTm') ?? true,
                         termDecorationColor: config.get<string>('termDecorationColor') || '#e5c07b',
                         termDecorationLineRange: config.get<number>('termDecorationLineRange') ?? 2,
+                        showSuffolkMeta: config.get<boolean>('showSuffolkMeta') ?? true,
                         versionLogs
                     }
                 });
@@ -807,6 +808,9 @@ export class CoreHandler {
                 }
                 if (updatePayload.termDecorationLineRange !== undefined) {
                     await workspaceConfig.update('termDecorationLineRange', updatePayload.termDecorationLineRange, vscode.ConfigurationTarget.Global);
+                }
+                if (updatePayload.showSuffolkMeta !== undefined) {
+                    await workspaceConfig.update('showSuffolkMeta', updatePayload.showSuffolkMeta, vscode.ConfigurationTarget.Global);
                 }
                 break;
             case 'propagate-quoted':
