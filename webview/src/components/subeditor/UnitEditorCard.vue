@@ -7,8 +7,8 @@
           {{ unit.idx === -1 ? 'TM' : `#${unit.idx}` }}
         </a-tag>
 
-        <a-tag v-if="unit.status" :color="unit.status === 'confirmed' ? 'green' : 'gray'" size="small">
-          {{ unit.status === 'confirmed' ? '確定済み' : '未確定' }}
+        <a-tag v-if="unit.status !== undefined" :color="isConfirmed ? 'green' : 'gray'" size="small">
+          {{ isConfirmed ? '確定済み' : '未確定' }}
         </a-tag>
 
         <a-tag v-if="matchRatio !== undefined" color="cyan" size="small">
@@ -62,8 +62,8 @@
             <div class="pane-label">
               <span class="dot dot-src"></span>
               <span>{{ mode === 'bypass' ? '📄 原文 (Source)' : '✏️ 原文 (Source / 視認用メモ)' }}</span>
-              <a-tag v-if="mode === 'bypass'" size="mini" color="cyan">差分ハイライト</a-tag>
-              <a-tag v-else size="mini" color="arcoblue">自由改行・整形OK (非反映)</a-tag>
+              <a-tag v-if="mode === 'bypass'" size="small" color="cyan">差分ハイライト</a-tag>
+              <a-tag v-else size="small" color="arcoblue">自由改行・整形OK (非反映)</a-tag>
             </div>
 
             <!-- バイパス翻訳モード: Diff 表示 -->
@@ -92,8 +92,8 @@
             <div class="pane-label">
               <span class="dot dot-tgt"></span>
               <span>✏️ 訳文 (Target)</span>
-              <a-tag size="mini" color="teal">自由改行OK</a-tag>
-              <a-tag v-if="hasNewlines" size="mini" color="purple">
+              <a-tag size="small" color="cyan">自由改行OK</a-tag>
+              <a-tag v-if="hasNewlines" size="small" color="purple">
                 {{ newlineBadgeText }}
               </a-tag>
             </div>
@@ -162,6 +162,10 @@ const focus = (pos: 'start' | 'end' = 'end') => {
 
 defineExpose({
   focus
+});
+
+const isConfirmed = computed(() => {
+  return props.unit.status === 1 || (props.unit.status as any) === 'confirmed';
 });
 
 const splitRatio = ref(0.5);
