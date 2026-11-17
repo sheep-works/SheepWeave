@@ -16,14 +16,20 @@ export class CoreHandler {
         switch (message.type) {
             case 'open-current':
                 try {
-                    if (fs.existsSync(rootPath)) {
+                    const targetDir = message.payload?.dir ? path.join(rootPath, message.payload.dir) : rootPath;
+                    if (fs.existsSync(targetDir)) {
+                        await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(targetDir));
+                    } else if (fs.existsSync(rootPath)) {
                         await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(rootPath));
                     } else {
-                        vscode.window.showErrorMessage(`フォルダが存在しません: ${rootPath}`);
+                        vscode.window.showErrorMessage(`フォルダが存在しません: ${targetDir}`);
                     }
                 } catch (err: any) {
                     vscode.window.showErrorMessage(`エクスプローラーを開けませんでした: ${err.message || err}`);
                 }
+                break;
+            case 'open-settings':
+                await vscode.commands.executeCommand('workbench.action.openSettings', 'sheepWeave.filterEngine');
                 break;
             case 'open-workflow-ini': {
                 const workflowPath = path.join(rootPath, 'workflow.ini');
@@ -79,7 +85,8 @@ export class CoreHandler {
                     projectManager.save();
 
                     // 2. 抽出処理 (Suffolk または Tikal)
-                    await runTikalExtraction(rootPath, projectManager.data.sourceLanguage, projectManager.data.targetLanguage, customFilter);
+                    const forceEngine = payload.forceTikal ? 'tikal' : undefined;
+                    await runTikalExtraction(rootPath, projectManager.data.sourceLanguage, projectManager.data.targetLanguage, customFilter, forceEngine);
 
                     // 3. 続けて ShWvData 解析・作成を直列実行
                     const shwvData = await preprocessor(rootPath);
