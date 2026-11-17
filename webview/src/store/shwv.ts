@@ -20,8 +20,8 @@ idx は各行のインデックス（行番号）に対応しています。
 行番号: 訳文
 
 (例)
-0: 訳文のテキスト
-1: 訳文のテキスト`;
+1: 訳文のテキスト
+2: 訳文のテキスト`;
 
 export const useShWvStore = defineStore('shwv', {
     state: () => ({
@@ -30,8 +30,8 @@ export const useShWvStore = defineStore('shwv', {
         projectInfo: null as ProjectInfo | null,
         phrases: [] as { input: string, phrase: string }[],
         concordanceData: null as { query: string, mode: string, tbMatches: any[], tmMatches: any[], currentDocumentMatches: any[] } | null,
-        crtPos: 0,
-        maxPos: 0,
+        crtPos: 1,
+        maxPos: 1,
         llmUnits: [] as any[],
         llmPartialIndices: [] as number[],
         llmChunkOptions: {
@@ -68,7 +68,10 @@ export const useShWvStore = defineStore('shwv', {
             this.units = data.units || [];
             this.phrases = data.phrases || [];
             this.projectInfo = data.projectInfo || null;
-            this.maxPos = this.units.length - 1;
+            this.maxPos = this.units.length;
+            if (this.crtPos === 0 || this.crtPos > this.units.length) {
+                this.crtPos = this.units.length > 0 ? this.units[0].idx : 1;
+            }
             console.log('ShWvData loaded into store:', data);
         },
         updateUnits(updatedUnits: ShWvUnit[]) {
@@ -88,7 +91,7 @@ export const useShWvStore = defineStore('shwv', {
             this.units = [];
         },
         moveCursor(newPos: number, textInOldPos: string, status?: number) {
-            const oldUnit = this.units[this.crtPos];
+            const oldUnit = this.units.find(u => u.idx === this.crtPos) || this.units[this.crtPos - 1];
             if (oldUnit) {
                 oldUnit.tgt = textInOldPos;
                 if (status !== undefined) {
@@ -182,9 +185,13 @@ export const useShWvStore = defineStore('shwv', {
         sourceLang: (state) => state.meta?.sourceLang || state.projectInfo?.sourceLanguage || '',
         targetLang: (state) => state.meta?.targetLang || state.projectInfo?.targetLanguage || '',
         projectName: (state) => state.meta?.projectName || state.projectInfo?.projectName || '',
-        crtUnit: (state) => state.units[state.crtPos] || {
-            src: '-- N/A --',
-            tgt: '-- N/A --',
+        crtUnit: (state) => {
+            const found = state.units.find(u => u.idx === state.crtPos);
+            if (found) return found;
+            return state.units[state.crtPos - 1] || state.units[0] || {
+                src: '-- N/A --',
+                tgt: '-- N/A --',
+            };
         },
         llmChunk(state) {
             if (!state.llmUnits || state.llmUnits.length === 0) return '';

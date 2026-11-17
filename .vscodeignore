@@ -25,12 +25,12 @@ webpack.config.js
 .eslintrc*
 .gitignore
 .gitmodules
-instruction_fileops.md
+descriptions/**
+.agents/**
 errors.txt
 compile.log
 clean_compile.log
 LOADMAP.md
-memo_events.md
 **/*.map
 **/*.ts
 test_parse.ts

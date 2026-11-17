@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue';
-import { IconSettings, IconDelete, IconPlus, IconDownload } from '@arco-design/web-vue/es/icon';
+import { Message } from '@arco-design/web-vue';
+import { IconSettings, IconDelete, IconPlus, IconDownload, IconCheckCircle } from '@arco-design/web-vue/es/icon';
 import { useShWvStore } from '../store/shwv';
 import { useI18nStore } from '../store/i18n';
 import { storeToRefs } from 'pinia';
@@ -36,6 +37,9 @@ onMounted(() => {
     if (message.type === 'FETCH_SAMPLES_COMPLETED' || message.type === 'FETCH_SAMPLES_ERROR') {
       fetchingSamples.value = false;
     }
+    if (message.type === 'APPLY_RECOMMENDED_SETTINGS_SUCCESS') {
+      Message.success(i18nStore.getText('settingsTab', 'recommendedSettingsApplied') || 'おすすめエディタ設定を適用しました');
+    }
   });
 });
 
@@ -65,6 +69,10 @@ function handleTermLineRangeChange(value: number) {
 
 function handleTermColorChange(value: string) {
   emit('updateConfig', { termDecorationColor: value });
+}
+
+function handleApplyRecommendedEditorSettings() {
+  emit('SettingsCommand', 'apply-recommended-editor-settings');
 }
 
 function handleFetchSamples() {
@@ -170,6 +178,16 @@ const parsedVersionLogs = computed<VersionLogItem[]>(() => {
                 </a-tooltip>
               </a-form-item>
             </a-form>
+          </a-card>
+
+          <a-card :title="i18nStore.getText('settingsTab', 'recommendedEditorCard') || 'おすすめエディタ設定'" :bordered="false" class="settings-card">
+            <a-typography-paragraph type="secondary" style="margin-bottom: 12px; font-size: 13px;">
+              {{ i18nStore.getText('settingsTab', 'recommendedEditorHelp') || '翻訳作業に適したエディタ設定（文字サイズ: 18px、行間: 2、ミニマップ非表示）を .vscode/settings.json に適用します。' }}
+            </a-typography-paragraph>
+            <a-button type="primary" @click="handleApplyRecommendedEditorSettings">
+              <template #icon><icon-check-circle /></template>
+              {{ i18nStore.getText('settingsTab', 'applyRecommendedEditorBtn') || 'おすすめエディタ設定を使用する' }}
+            </a-button>
           </a-card>
 
           <a-card :title="i18nStore.getText('settingsTab', 'samplesCard') || 'サンプルデータ'" :bordered="false" class="settings-card">

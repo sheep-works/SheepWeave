@@ -14,8 +14,6 @@ const i18nStore = useI18nStore();
 const extensionVersion = (window as any).SHEEP_WEAVE_VERSION || '0.0.0';
 const testVer = ref(import.meta.env.VITE_TEST_VER || "")
 
-const maxLength = ref(1000);
-const maxTokensJsonl = ref(4000);
 const activeTab = ref('info');
 const backups = ref<any[]>([]);
 
@@ -55,14 +53,6 @@ function handleOpenBackupFolder() {
 
 function handleRestoreBackup(folderName: string) {
     emit('InfoCommand', 'restore-backup', { folderName });
-}
-
-function handleSplitLength() {
-    emit('InfoCommand', 'shuttle-split-length', { maxLength: maxLength.value });
-}
-
-function handleChunkJsonl() {
-    emit('InfoCommand', 'shuttle-chunk-jsonl', { maxTokens: maxTokensJsonl.value });
 }
 
 const copyStore = () => {
@@ -298,41 +288,6 @@ function calculateStats() {
                         <a-space>
                             <a-button type="primary" @click="handleCommand('shuttle-export-json')">{{ i18nStore.getText('infoTab', 'exportJsonBtn') || 'Export JSON' }}</a-button>
                             <a-button type="primary" @click="handleCommand('shuttle-export-csv')">{{ i18nStore.getText('infoTab', 'exportCsvBtn') || 'Export CSV' }}</a-button>
-                        </a-space>
-                    </a-card>
-                </div>
-            </a-tab-pane>
-
-            <!-- Shuttle Tools -->
-            <a-tab-pane key="shuttle" :title="i18nStore.getText('infoTab', 'shuttleSubtab') || 'Shuttle Tools'">
-                <div class="pane-content">
-                    <a-card :title="i18nStore.getText('infoTab', 'splitCard') || 'Split / Chunking'" :bordered="false">
-                        <a-space direction="vertical">
-                            <a-button type="outline" @click="handleCommand('shuttle-split-file')">{{ i18nStore.getText('infoTab', 'splitByFileBtn') || 'Split by File' }}</a-button>
-                            <a-space>
-                                <a-input-number v-model="maxLength" :min="1" :max="10000" placeholder="Max Length" />
-                                <a-button type="outline" @click="handleSplitLength">{{ i18nStore.getText('infoTab', 'splitByLengthBtn') || 'Split by Length (Chunks)' }}</a-button>
-                            </a-space>
-                        </a-space>
-                    </a-card>
-
-                    <a-card :title="i18nStore.getText('infoTab', 'lintCard') || 'Lint Integration (JSONL)'" :bordered="false" style="margin-top: 1rem;">
-                        <a-space direction="vertical">
-                            <a-button type="secondary" @click="handleCommand('shuttle-export-jsonl')">{{ i18nStore.getText('infoTab', 'exportJsonlRaw') || 'Export JSONL (Raw)' }}</a-button>
-                            <a-space>
-                                <a-input-number v-model="maxTokensJsonl" :min="1" :max="32000" placeholder="Max Tokens" />
-                                <a-button type="secondary" @click="handleChunkJsonl">{{ i18nStore.getText('infoTab', 'exportJsonlChunked') || 'Export JSONL (Chunked)' }}</a-button>
-                                <a-button type="outline" @click="handleCommand('shuttle-import-jsonl')">{{ i18nStore.getText('infoTab', 'importJsonl') || 'Import JSONL' }}</a-button>
-                            </a-space>
-                        </a-space>
-                    </a-card>
-
-                    <a-card :title="i18nStore.getText('infoTab', 'autoReplaceCard') || 'Auto Replacement'" :bordered="false" style="margin-top: 1rem;">
-                        <a-space direction="vertical">
-                            <div style="font-size: 12px; color: var(--color-text-3);">
-                                {{ i18nStore.getText('infoTab', 'autoReplaceHelp') || 'Applies the auto_replace_log.jsonl to the current target file sequentially.' }}
-                            </div>
-                            <a-button type="primary" status="success" @click="handleCommand('shuttle-auto-replace')">{{ i18nStore.getText('infoTab', 'autoReplaceBtn') || 'Apply Auto Replace Log' }}</a-button>
                         </a-space>
                     </a-card>
                 </div>

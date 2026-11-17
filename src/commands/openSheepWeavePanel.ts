@@ -2,6 +2,7 @@ import { initDirs, prepareWorking, preprocessor, postprocessor, runTikalExtracti
 import { CoreHandler } from '../handlers/CoreHandler';
 import { AdminHandler } from '../handlers/AdminHandler';
 import { ProjectManager } from '../services/core/ProjectManager';
+import { resolveWorkspaceRoot, findProjectRoot } from '../util';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -82,21 +83,21 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFo
             // カーソルが別の行に移動した場合のみ処理
             if (lastLineNumber !== -1 && currentLineNumber !== lastLineNumber) {
                 const oldLineText = event.textEditor.document.lineAt(lastLineNumber).text;
+                const oldIdx = globalDirector.getIdxByLine(lastLineNumber);
 
                 // 1. Extension側のストアを更新（確定はせず、入力テキストの保持のみ行う）
-                globalDirector.updateTargetOnly(lastLineNumber, oldLineText);
+                globalDirector.updateTargetOnly(oldIdx, oldLineText);
 
                 // 2. 以前の行のステータスを確認
-                let status = 0;
-                if (globalDirector.state.body.units[lastLineNumber]) {
-                    status = globalDirector.state.body.units[lastLineNumber].status || 0;
-                }
+                const oldUnit = globalDirector.getUnitByIdx(oldIdx);
+                let status = oldUnit?.status || 0;
 
                 // 3. Webview側（表示用Pinia Store）に変更を通知
+                const currentIdx = globalDirector.getIdxByLine(currentLineNumber);
                 currentPanel!.webview.postMessage({
                     type: 'CURSOR_MOVED',
                     data: {
-                        newPos: currentLineNumber,
+                        newPos: currentIdx,
                         textInOldPos: oldLineText,
                         status: status
                     }
@@ -121,8 +122,9 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFo
 
             // 確定行が編集されたら、確定状態を強制解除する
             for (let i = startLine; i <= endLine; i++) {
-                if (globalDirector.confirmedLines.has(i)) {
-                    globalDirector.unconfirmLine(i);
+                const idx = globalDirector.getIdxByLine(i);
+                if (globalDirector.confirmedLines.has(idx)) {
+                    globalDirector.unconfirmLine(idx);
                     hasUnconfirmed = true;
                 }
             }
@@ -155,7 +157,7 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFo
         if (!document.fileName.endsWith('.shwvt')) return;
 
         // 保存されたタイミングで、全体のデータをファイルに書き出します。
-        const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const rootPath = resolveWorkspaceRoot() || findProjectRoot(document.fileName);
         if (rootPath) {
             globalShWvData.save(rootPath);
         }
@@ -178,7 +180,7 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFo
     panel.webview.onDidReceiveMessage(
         async message => {
             console.log(`Webview message received: ${message.type}`, message.payload);
-            const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            const rootPath = resolveWorkspaceRoot();
             if (!rootPath) {
                 vscode.window.showErrorMessage('No workspace folder open');
                 return;

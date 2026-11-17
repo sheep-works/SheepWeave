@@ -375,7 +375,7 @@ function jumpToUnitLine(idx: number) {
                     class="result-textarea"
                   />
                   <div class="result-note">
-                    {{ i18nStore.getText('llmTab', 'idxZeroNote') || '※ 行番号 (idx) は 0 始まりのため、エディタの行番号より 1 小さい場合があります。' }}
+                    {{ i18nStore.getText('llmTab', 'idxZeroNote') || '※ 行番号 (idx) は 1 始まりのため、エディタの行番号と一致します。' }}
                   </div>
                 </div>
                 <div v-else class="empty-state">
@@ -526,7 +526,7 @@ function jumpToUnitLine(idx: number) {
               </div>
               <div style="margin-top: -4px; margin-bottom: 10px; text-align: right;">
                 <span style="font-size: 11px; color: var(--vscode-descriptionForeground, #888);">
-                  {{ i18nStore.getText('llmTab', 'lineRangeNote') || '※ VS Code上の行番号（1始まり、Line 1 = idx 0）で指定' }}
+                  {{ i18nStore.getText('llmTab', 'lineRangeNote') || '※ VS Code上の行番号（1始まり、Line 1 = idx 1）で指定' }}
                 </span>
               </div>
               <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
@@ -581,7 +581,7 @@ function jumpToUnitLine(idx: number) {
                     class="result-textarea"
                   />
                   <div class="result-note">
-                    {{ i18nStore.getText('llmTab', 'idxZeroNote') || '※ 行番号 (idx) は 0 始まりのため、エディタの行番号より 1 小さい場合があります。' }}
+                    {{ i18nStore.getText('llmTab', 'idxZeroNote') || '※ 行番号 (idx) は 1 始まりのため、エディタの行番号と一致します。' }}
                   </div>
                 </div>
                 <div v-else class="empty-state">
@@ -636,7 +636,7 @@ function jumpToUnitLine(idx: number) {
                 <template #title>
                   <a-space align="center">
                     <icon-pushpin style="color: #f59e0b;" />
-                    <span style="font-weight: bold; font-family: monospace;">Line {{ unit.idx + 1 }}</span>
+                    <span style="font-weight: bold; font-family: monospace;">Line {{ unit.idx }}</span>
                     <a-tag v-if="unit.status === 1" color="green" size="small">Confirmed</a-tag>
                     <a-tag v-else-if="unit.status === 2" color="orange" size="small">Proofed</a-tag>
                   </a-space>

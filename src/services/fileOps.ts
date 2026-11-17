@@ -3,13 +3,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ShWvData } from './core/ShWvData';
 import { DirHelper } from './core/DirHelper';
-import { globalShWvData } from '../store';
+import { globalShWvData, globalDirector } from '../store';
+import type { ShWvUnit } from '../types/datatype';
 import { groupFilesByFilter, resolveTikalPath, runTikal } from './tikal';
+import { isSuffolkSupported, resolveSuffolkPath, runSuffolkFilter, runSuffolkMerge } from './suffolk';
 import { ProjectManager, ProjectFileStatus } from './core/ProjectManager';
 import { SheepShuttle } from '../management';
+import { setupAgentRules } from './agentRules';
 
 // Helper to ensure directory exists
-function ensureDir(p: string) { if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true }); }
+export function ensureDir(p: string) { if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true }); }
 
 // Helper to check if file exists
 function exists(p: string): boolean { return fs.existsSync(p); }
@@ -21,18 +24,112 @@ function getDateString(): string {
         String(now.getMonth() + 1).padStart(2, '0') +
         String(now.getDate()).padStart(2, '0');
 }
+function getFilterEngine(): 'suffolk' | 'tikal' {
+    return vscode.workspace.getConfiguration('sheepWeave').get<'suffolk' | 'tikal'>('filterEngine') || 'suffolk';
+}
 
 // ----------------------------------------------------------------------------
 // initDirs
 // ----------------------------------------------------------------------------
 export async function initDirs(root: string) {
     createDir(root);
+    setupAgentRules(root);
     await archiveWorking(root);
 }
 
 function createDir(root: string) {
     const dirs = ['Archive', 'Data', 'Data/Ref', 'Data/Ref/TM', 'Data/Ref/TB', 'Working', 'prompts', 'filters'];
     dirs.forEach(d => ensureDir(path.join(root, d)));
+}
+
+export async function archiveWorkingOnly(root: string) {
+    await saveAndCloseWorkingEditors(root);
+
+    const working = path.join(root, 'Working');
+    const archive = path.join(root, 'Archive');
+
+    // Check if Working is not empty
+    if (!exists(working) || fs.readdirSync(working).length === 0) {
+        return;
+    }
+
+    const dateStr = getDateString();
+    let archiveDirName = dateStr;
+    let counter = 1;
+
+    // Check for existing directory and create branch number if needed
+    while (exists(path.join(archive, archiveDirName))) {
+        archiveDirName = `${dateStr}_${counter}`;
+        counter++;
+    }
+
+    const targetArchiveDir = path.join(archive, archiveDirName);
+    ensureDir(targetArchiveDir);
+
+    // Recursive move ONLY Working directory (keep project.json intact in root)
+    moveRecursive(working, targetArchiveDir);
+}
+
+export async function initFromProjectJson(root: string): Promise<void> {
+    const projectJson = path.join(root, 'project.json');
+    if (!exists(projectJson)) {
+        throw new Error('project.json がルートフォルダに見つかりません。');
+    }
+
+    // 1. Validate & normalize project.json
+    try {
+        const raw = fs.readFileSync(projectJson, 'utf-8');
+        const parsed = JSON.parse(raw);
+        let modified = false;
+
+        if (!parsed.define) {
+            parsed.define = { name: 'SHWV_DATA', version: '1.5' };
+            modified = true;
+        } else {
+            if (!parsed.define.name) {
+                parsed.define.name = 'SHWV_DATA';
+                modified = true;
+            }
+            if (!parsed.define.version) {
+                parsed.define.version = '1.5';
+                modified = true;
+            }
+        }
+
+        if (modified) {
+            fs.writeFileSync(projectJson, JSON.stringify(parsed, null, 2), 'utf-8');
+        }
+    } catch (e: any) {
+        throw new Error(`project.json の解析に失敗しました: ${e.message || e}`);
+    }
+
+    // 2. Close active editors and safely archive previous Working if any
+    await saveAndCloseWorkingEditors(root);
+    await saveAndCloseShwvEditors(root);
+    await archiveWorkingOnly(root);
+
+    // 3. Create basic and working directories
+    createDir(root);
+    const workingDirs = [
+        'Working',
+        'Working/01_REF',
+        'Working/01_REF/TM',
+        'Working/01_REF/TB',
+        'Working/02_SOURCE',
+        'Working/03_XLF_JSON',
+        'Working/04_SHWV',
+        'Working/05_COMPLETED',
+        'Working/06_PACKAGE',
+        'Working/99_MANAGE'
+    ];
+    workingDirs.forEach(d => ensureDir(path.join(root, d)));
+
+    // 4. Setup agent rules and phrase template
+    setupAgentRules(root);
+    const phrasePath = path.join(root, 'Working', '01_REF', 'phrase.jsonl');
+    if (!exists(phrasePath)) {
+        fs.writeFileSync(phrasePath, '{"input": "@", "phrase": "{@x}"}\n', 'utf-8');
+    }
 }
 
 export async function archiveWorking(root: string) {
@@ -292,9 +389,10 @@ export async function runTikalExtraction(root: string, sourceLang: string, targe
     ensureDir(xlfDir);
 
     const projectManager = new ProjectManager(root);
-
     const groups = groupFilesByFilter(sourceDir, customFilter);
+    const filterEngine = getFilterEngine();
     let tikalPath: string | undefined;
+    let suffolkPath: string | undefined;
 
     for (const [filter, files] of Object.entries(groups)) {
         const fileStatuses = files.map(f => ({ source: f, xliff: null as string | null, status: 'error' as ProjectFileStatus['status'] }));
@@ -304,11 +402,10 @@ export async function runTikalExtraction(root: string, sourceLang: string, targe
             try {
                 const ext = path.extname(file).toLowerCase();
                 // Check if the file is already an XLIFF derivative
-                // .xlf, .xliff, .mxliff, .mqxliff, .sdlxliff は Tikal を通さず直接処理する
                 const isXliff = ['.xlf', '.xliff', '.mxliff', '.mqxliff', '.sdlxliff'].includes(ext);
 
                 if (isXliff) {
-                    // Direct copy for standard XLIFF-like files, skipping Okapi extraction
+                    // Direct copy for standard XLIFF-like files, skipping extraction
                     const xlfBasename = path.basename(file);
                     const destXlf = path.join(xlfDir, xlfBasename);
 
@@ -320,7 +417,29 @@ export async function runTikalExtraction(root: string, sourceLang: string, targe
                         fileStatus.status = 'extracted';
                         fileStatus.xliff = destXlf;
                     }
+                } else if (filterEngine === 'suffolk' && isSuffolkSupported(file) && (!customFilter || customFilter === 'auto')) {
+                    // Pure Rust extraction via Suffolk
+                    if (!suffolkPath) {
+                        suffolkPath = resolveSuffolkPath(root);
+                    }
+                    const destXlf = path.join(xlfDir, path.basename(file) + '.xlf');
+                    if (exists(destXlf)) fs.unlinkSync(destXlf);
+
+                    const segOption = getSegmentationOption(root);
+                    await runSuffolkFilter(suffolkPath, file, destXlf, {
+                        sourceLang,
+                        targetLang,
+                        segmentation: segOption,
+                        rootDir: root
+                    });
+
+                    const fileStatus = projectManager.data.okapi.find(g => g.filter === filter)?.files.find(f => f.source === file);
+                    if (fileStatus) {
+                        fileStatus.status = 'extracted';
+                        fileStatus.xliff = destXlf;
+                    }
                 } else {
+                    // Fallback to Okapi Tikal
                     if (!tikalPath) {
                         tikalPath = resolveTikalPath();
                     }
@@ -333,7 +452,7 @@ export async function runTikalExtraction(root: string, sourceLang: string, targe
                     if (exists(generatedXlf)) {
                         const xlfBasename = path.basename(generatedXlf);
                         const destXlf = path.join(xlfDir, xlfBasename);
-                        if (exists(destXlf)) fs.unlinkSync(destXlf); // Overwrite if exists in 03_XLF_JSON
+                        if (exists(destXlf)) fs.unlinkSync(destXlf);
                         fs.renameSync(generatedXlf, destXlf);
 
                         const fileStatus = projectManager.data.okapi.find(g => g.filter === filter)?.files.find(f => f.source === file);
@@ -349,7 +468,6 @@ export async function runTikalExtraction(root: string, sourceLang: string, targe
                 vscode.window.showErrorMessage(`Failed to extract file ${path.basename(file)}: ${error.message || error}`);
                 console.error(`Failed to extract file ${file} with filter ${filter}:`, error);
             }
-            // Save project.json incrementally after each file to ensure persistence
             projectManager.save();
         }
     }
@@ -400,7 +518,7 @@ export async function postprocessor(root: string) {
             const originalXlfPath = path.join(root, 'Working', '03_XLF_JSON', originalName);
             const completedXlfPath = path.join(completedDir, baseName + '-done' + ext);
 
-            const slicedUnits = data.body.units.slice(fileInfo.start, fileInfo.end + 1);
+            const slicedUnits = data.body.units.filter(u => u.idx >= fileInfo.start && u.idx <= fileInfo.end);
             await data.saveXlf(completedXlfPath, originalXlfPath, slicedUnits);
         }
     }
@@ -420,10 +538,12 @@ export async function runPackage(root: string) {
     const projectManager = new ProjectManager(root);
     const sourceLang = projectManager.data.sourceLanguage;
     const targetLang = projectManager.data.targetLanguage;
+    const filterEngine = getFilterEngine();
     let tikalPath: string | undefined;
+    let suffolkPath: string | undefined;
 
     for (const group of projectManager.data.okapi) {
-        const filesToMerge: string[] = [];
+        const filesToMergeTikal: string[] = [];
         const xlfFilesToCleanup: string[] = [];
 
         for (const file of group.files) {
@@ -444,13 +564,26 @@ export async function runPackage(root: string) {
                             if (exists(finalDest)) fs.unlinkSync(finalDest);
                             fs.copyFileSync(completedXlfPath, finalDest);
                             file.status = 'merged';
+                        } else if (filterEngine === 'suffolk' && isSuffolkSupported(file.source)) {
+                            // Pure Rust merge via Suffolk directly into 06_PACKAGE
+                            try {
+                                if (!suffolkPath) {
+                                    suffolkPath = resolveSuffolkPath(root);
+                                }
+                                const finalDest = path.join(packageDir, path.basename(file.source));
+                                if (exists(finalDest)) fs.unlinkSync(finalDest);
+                                await runSuffolkMerge(suffolkPath, completedXlfPath, file.source, finalDest, root);
+                                file.status = 'merged';
+                            } catch (e: any) {
+                                vscode.window.showErrorMessage(`Suffolk merge failed for ${path.basename(file.source)}: ${e.message || e}`);
+                                console.error("Suffolk merge error:", e);
+                            }
                         } else {
-                            // Determine the expected xlf name in 02_SOURCE (Tikal expects it beside the source)
+                            // Tikal merge preparation
                             const expectedXlf = file.source + '.xlf';
                             fs.copyFileSync(completedXlfPath, expectedXlf);
-                            
                             file.status = 'translated';
-                            filesToMerge.push(file.source);
+                            filesToMergeTikal.push(file.source);
                             xlfFilesToCleanup.push(expectedXlf);
                         }
                     }
@@ -458,32 +591,28 @@ export async function runPackage(root: string) {
             }
         }
 
-        if (filesToMerge.length > 0) {
+        if (filesToMergeTikal.length > 0) {
             try {
-                if (filesToMerge.length > 0 && !tikalPath) {
+                if (!tikalPath) {
                     tikalPath = resolveTikalPath();
                 }
-                for (const srcFile of filesToMerge) {
-                    // srcFile is the absolute path to the native file in 02_SOURCE
-                    // Tikal -m expects the source file path and will look for sourcefile.xlf
-                    // @ts-ignore
+                for (const srcFile of filesToMergeTikal) {
                     await runTikal(tikalPath, group.filter, srcFile + '.xlf', 'merge', sourceLang, targetLang, undefined, root);
                 }
 
                 // Find the merged files and move them to 06_PACKAGE
-                for (const srcFile of filesToMerge) {
+                for (const srcFile of filesToMergeTikal) {
                     const parsed = path.parse(srcFile);
                     const langShort = targetLang ? targetLang.split('-')[0] : '';
                     const expectedOut1 = path.join(parsed.dir, `${parsed.name}.${targetLang}${parsed.ext}`);
                     const expectedOut2 = path.join(parsed.dir, `${parsed.name}.${langShort}${parsed.ext}`);
                     const expectedOut3 = path.join(parsed.dir, `${parsed.name}.out${parsed.ext}`);
-                    
+
                     let mergedFile: string | null = null;
                     if (exists(expectedOut1)) mergedFile = expectedOut1;
                     else if (exists(expectedOut2)) mergedFile = expectedOut2;
                     else if (exists(expectedOut3)) mergedFile = expectedOut3;
                     else {
-                        // try to find by extension
                         const dirFiles = fs.readdirSync(parsed.dir);
                         for (const df of dirFiles) {
                             if (df !== parsed.base && df.includes(parsed.name) && df.endsWith(parsed.ext) && !df.endsWith('.xlf')) {
@@ -493,25 +622,28 @@ export async function runPackage(root: string) {
                         }
                     }
 
-                    if (mergedFile) {
+                    if (mergedFile && exists(mergedFile)) {
                         const finalDest = path.join(packageDir, path.basename(mergedFile));
-                        if (exists(finalDest)) fs.unlinkSync(finalDest); // prevent renaming error if exists
+                        if (exists(finalDest)) fs.unlinkSync(finalDest);
                         fs.renameSync(mergedFile, finalDest);
-                        const fileStatus = projectManager.data.okapi.find((g: any) => g.filter === group.filter)?.files.find((f: any) => f.source === srcFile);
+
+                        const fileStatus = group.files.find(f => f.source === srcFile);
                         if (fileStatus) fileStatus.status = 'merged';
                     }
                 }
             } catch (error: any) {
-                vscode.window.showErrorMessage(`Failed to merge files for filter ${group.filter}: ${error.message || error}`);
-                console.error(`Failed to merge filter ${group.filter}`, error);
+                vscode.window.showErrorMessage(`Tikal Package failed: ${error.message || error}`);
+                console.error("Tikal Package error:", error);
+            } finally {
+                for (const cleanupFile of xlfFilesToCleanup) {
+                    if (exists(cleanupFile)) {
+                        try { fs.unlinkSync(cleanupFile); } catch (e) { /* ignore */ }
+                    }
+                }
             }
         }
-        
-        // Cleanup expectedXlf side-by-side file
-        for (const f of xlfFilesToCleanup) {
-            if (exists(f)) fs.unlinkSync(f);
-        }
     }
+
     projectManager.save();
 }
 
@@ -787,12 +919,8 @@ export async function advanceWorkflow(root: string): Promise<{ previousIndex: nu
     // Save project.json
     data.save(root);
 
-    // Write updated Target.shwvt (all lines empty) and Source.shwvs
-    const shwvtPath = DirHelper.getShwvtPath(root);
-    const shwvsPath = DirHelper.getShwvsPath(root);
-    const emptyTargets = data.body.units.map(u => u.tgt || '').join('\n');
-    fs.writeFileSync(shwvtPath, emptyTargets, 'utf-8');
-    fs.writeFileSync(shwvsPath, data.body.units.map(u => u.src).join('\n'), 'utf-8');
+    // Write updated Target.shwvt and Source.shwvs with scoped units
+    await data.writeShwv(root);
 
     return {
         previousIndex,
@@ -802,3 +930,187 @@ export async function advanceWorkflow(root: string): Promise<{ previousIndex: nu
     };
 }
 
+/**
+ * Exports scoped units as a patch JSON file to Working/04_SHWV/
+ */
+export async function exportScopedPatch(root: string): Promise<{ exportPath: string; count: number }> {
+    const data = globalShWvData;
+    if (!data.meta || !data.body || data.body.units.length === 0) {
+        data.load(root);
+    }
+    const shwvtPath = DirHelper.getShwvtPath(root);
+    if (fs.existsSync(shwvtPath)) {
+        data.update(shwvtPath);
+    }
+
+    const scopedUnits = data.getScopedUnits();
+    const patchUnits = scopedUnits.map(u => ({
+        idx: u.idx,
+        src: u.src,
+        tgt: u.tgt || '',
+        pre: u.pre || '',
+        status: u.status || 0,
+        note: u.note
+    }));
+
+    const workflow = data.meta.workflow;
+    const role = workflow?.role || 'Translation';
+    const rangeTag = workflow?.range ? `range-${workflow.range.replace(/[, ]+/g, '_')}` : (workflow?.files ? 'files' : 'all');
+    const filename = `patch_${role}_${rangeTag}.json`;
+
+    const shwvDir = path.join(root, 'Working', '04_SHWV');
+    ensureDir(shwvDir);
+    const exportPath = path.join(shwvDir, filename);
+
+    fs.writeFileSync(exportPath, JSON.stringify(patchUnits, null, 2), 'utf-8');
+    return { exportPath, count: patchUnits.length };
+}
+
+/**
+ * Merges patch units into ShWvData, propagates translations, saves project.json and updates editor files.
+ */
+export async function mergePatchUnits(root: string, patchUnits: Array<Partial<ShWvUnit> & { idx: number }>): Promise<number[]> {
+    const data = globalShWvData;
+    if (!data.meta || !data.body || data.body.units.length === 0) {
+        data.load(root);
+    }
+
+    const unitMap = new Map<number, ShWvUnit>();
+    for (const u of data.body.units) {
+        unitMap.set(u.idx, u);
+    }
+
+    const updatedIndices: number[] = [];
+    for (const patch of patchUnits) {
+        const targetUnit = unitMap.get(patch.idx);
+        if (targetUnit) {
+            let changed = false;
+            if (patch.tgt !== undefined && patch.tgt !== targetUnit.tgt) {
+                targetUnit.tgt = patch.tgt;
+                changed = true;
+            }
+            if (patch.pre !== undefined && patch.pre !== targetUnit.pre) {
+                targetUnit.pre = patch.pre;
+                changed = true;
+            }
+            if (patch.status !== undefined && patch.status !== targetUnit.status) {
+                targetUnit.status = patch.status;
+                changed = true;
+            }
+            if (patch.note !== undefined && patch.note !== targetUnit.note) {
+                targetUnit.note = patch.note;
+                changed = true;
+            }
+            if (changed) {
+                updatedIndices.push(patch.idx);
+            }
+        }
+    }
+
+    if (updatedIndices.length > 0) {
+        data.propagateAllTranslations();
+        data.save(root);
+        await data.writeShwv(root);
+        globalDirector.initializeFromState();
+    }
+
+    return updatedIndices;
+}
+
+export interface ScopedAssignment {
+    name: string;
+    role?: string;
+    index?: number;
+    segmentation?: string;
+    range?: string;
+    files?: string[] | string;
+}
+
+/**
+ * Generates scoped project packages in Working/99_MANAGE/<name>/ for each assigned worker.
+ */
+export async function generateScopedProjects(root: string, assignments: ScopedAssignment[]): Promise<{ manageDir: string; generated: string[] }> {
+    const data = globalShWvData;
+    if (!data.meta || !data.body || data.body.units.length === 0) {
+        data.load(root);
+    }
+    const storagePath = DirHelper.getStoragePath(root);
+    if (!fs.existsSync(storagePath)) {
+        data.save(root);
+    }
+
+    const manageDir = path.join(root, 'Working', '99_MANAGE');
+    ensureDir(manageDir);
+
+    const generated: string[] = [];
+
+    for (const assign of assignments) {
+        if (!assign.name || !assign.name.trim()) continue;
+        const workerName = assign.name.trim().replace(/[\\/:*?"<>|]+/g, '_');
+        const workerDir = path.join(manageDir, workerName);
+        ensureDir(workerDir);
+
+        // 1. Prepare scoped project.json
+        const clonedData: any = JSON.parse(fs.readFileSync(storagePath, 'utf-8'));
+        const workflowIndex = assign.index ?? (data.meta.workflow?.index ?? 1);
+        const workflowRole = assign.role || data.meta.workflow?.role || 'Translation';
+        const workflowSeg = assign.segmentation || data.meta.workflow?.segmentation || 'line';
+
+        clonedData.meta = clonedData.meta || {};
+        clonedData.meta.workflow = {
+            index: workflowIndex,
+            role: workflowRole,
+            name: assign.name,
+            segmentation: workflowSeg,
+            range: assign.range || undefined,
+            files: assign.files || undefined,
+        };
+
+        const targetProjectJson = path.join(workerDir, 'project.json');
+        fs.writeFileSync(targetProjectJson, JSON.stringify(clonedData, null, 2), 'utf-8');
+
+        // 2. Prepare workflow.ini
+        let iniLines = [
+            `index=${workflowIndex}`,
+            `role=${workflowRole}`,
+            `name=${assign.name}`,
+            `segmentation=${workflowSeg}`,
+        ];
+        if (assign.range) {
+            iniLines.push(`range=${assign.range}`);
+        }
+        if (assign.files) {
+            const filesStr = Array.isArray(assign.files) ? assign.files.join(', ') : assign.files;
+            iniLines.push(`files=${filesStr}`);
+        }
+        const targetWorkflowIni = path.join(workerDir, 'workflow.ini');
+        fs.writeFileSync(targetWorkflowIni, iniLines.join('\n') + '\n', 'utf-8');
+
+        // 3. Copy reference folder (Working/01_REF) if exists
+        const refDir = path.join(root, 'Working', '01_REF');
+        if (fs.existsSync(refDir)) {
+            const targetRefDir = path.join(workerDir, 'Working', '01_REF');
+            ensureDir(targetRefDir);
+            copyDirRecursiveSync(refDir, targetRefDir);
+        }
+
+        generated.push(workerName);
+    }
+
+    return { manageDir, generated };
+}
+
+function copyDirRecursiveSync(src: string, dest: string) {
+    if (!fs.existsSync(src)) return;
+    ensureDir(dest);
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        if (entry.isDirectory()) {
+            copyDirRecursiveSync(srcPath, destPath);
+        } else {
+            fs.copyFileSync(srcPath, destPath);
+        }
+    }
+}

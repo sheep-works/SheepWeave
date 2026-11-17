@@ -6,6 +6,7 @@ import { useShWvStore } from '../store/shwv';
 import { useI18nStore } from '../store/i18n';
 import { IconTranslate } from '@arco-design/web-vue/es/icon';
 import CurrentSegTbody from '../components/CurrentSegTbody.vue';
+import CurrentSegMemoTbody from '../components/CurrentSegMemoTbody.vue';
 
 const shwvStore = useShWvStore();
 const i18nStore = useI18nStore();
@@ -96,6 +97,8 @@ function getUnitTargetText(idx: number, fallback: string): string {
                         </td>
                     </tr>
                 </tbody>
+                <!-- ユーザーメモ (TMより下に配置) -->
+                <CurrentSegMemoTbody />
             </table>
         </div>
         <div v-else class="empty-state">

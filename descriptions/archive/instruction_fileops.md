@@ -1,12 +1,13 @@
-# src/services/fileOps.ts の最適化
+# src/services/fileOps.ts の初期設計指示メモ (instruction_fileops.md)
 
-src/services/fileOps.ts を以下のとおり最適化する。
+※ 本ファイルは初期開発時の設計指示メモです。現在の最新仕様は `descriptions/DATA_STRUCTURE.md` および `descriptions/STRUCTURE.md` を参照してください。
+
+---
 
 - initDirs 関数
     - 以下の関数を順次実行する
     - createDir：現在のディレクトリにArchive、Data、Data/Ref、Workingディレクトリを生成する。すでに存在している場合はスキップする。
     - moveToArchive：Workingディレクトリにファイルが存在している場合は、Archiveディレクトリに新規ディレクトリをつくって移動する。Workingディレクトリは複数のディレクトリから構成されているので再帰的に移動することに留意する。Archiveディレクトリにつくる新規ディレクトリ名はYYYYMMDDとし、すでに同名ディレクトリが存在している場合は枝番をつくる。この処理が終わったとき、Workingディレクトリは空になる。
-
 
 - prepareWorking 関数
     - 以下の関数を順次実行する

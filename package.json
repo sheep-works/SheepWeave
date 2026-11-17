@@ -2,7 +2,7 @@
   "name": "sheep-weave",
   "displayName": "SheepWeave",
   "description": "AI Translation & Post-editing Assistant",
-  "version": "0.1.6",
+  "version": "0.3.0",
   "publisher": "LambuageLLC",
   "license": "MIT",
   "repository": {
@@ -21,7 +21,15 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:shwvt",
-    "onFileSystem:workspace"
+    "onFileSystem:workspace",
+    "onCommand:sheepWeave.openPanel",
+    "onCommand:sheepWeave.replaceWithTm1",
+    "onCommand:sheepWeave.replaceWithTm2",
+    "onCommand:sheepWeave.replaceWithTm3",
+    "onCommand:sheepWeave.replaceWithTm4",
+    "onCommand:sheepWeave.replaceWithTm5",
+    "onCommand:sheepWeave.replaceWithTb",
+    "onCommand:sheepWeave.replaceAllWithTb"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -34,6 +42,10 @@
       {
         "command": "sheepWeave.prepare",
         "title": "SheepWeave: Prepare Project"
+      },
+      {
+        "command": "sheepWeave.setupAgentRules",
+        "title": "SheepWeave: Setup AI Agent Rules (エージェント用ルール設定の生成)"
       },
       {
         "command": "sheepWeave.replaceWithTm1",
@@ -73,7 +85,11 @@
       },
       {
         "command": "sheepWeave.confirmLine",
-        "title": "SheepWeave: Confirm Line"
+        "title": "SheepWeave: Confirm Line (行を確定 / 選択行を一括確定)"
+      },
+      {
+        "command": "sheepWeave.confirmSelectedLines",
+        "title": "SheepWeave: Confirm Selected Lines (選択行を一括確定)"
       },
       {
         "command": "sheepWeave.copySource",
@@ -122,6 +138,14 @@
       {
         "command": "sheepWeave.openFreeEditor",
         "title": "SheepWeave: Edit Freely / 自由に編集"
+      },
+      {
+        "command": "sheepWeave.exportScopedPatch",
+        "title": "SheepWeave: Export Scoped Patch / 担当パッチを出力"
+      },
+      {
+        "command": "sheepWeave.mergePatch",
+        "title": "SheepWeave: Merge Patch / パッチをマージ"
       }
     ],
     "menus": {
@@ -139,6 +163,11 @@
         }
       ],
       "editor/context": [
+        {
+          "command": "sheepWeave.confirmSelectedLines",
+          "group": "sheepWeaveGroup@1",
+          "when": "editorLangId == shwvt"
+        },
         {
           "command": "sheepWeave.diffTargetWithTm",
           "group": "sheepWeaveGroup@2",
@@ -305,6 +334,12 @@
         "when": "editorTextFocus && editorLangId == shwvt"
       },
       {
+        "command": "sheepWeave.confirmSelectedLines",
+        "key": "ctrl+shift+enter",
+        "mac": "cmd+shift+enter",
+        "when": "editorTextFocus && editorLangId == shwvt"
+      },
+      {
         "command": "sheepWeave.copySource",
         "key": "ctrl+shift+c",
         "when": "editorTextFocus && editorLangId == shwvt"
@@ -397,6 +432,20 @@
           "type": "boolean",
           "default": true
         },
+        "sheepWeave.filterEngine": {
+          "type": "string",
+          "enum": [
+            "suffolk",
+            "tikal"
+          ],
+          "default": "suffolk",
+          "description": "翻訳対象ファイルの抽出・マージに使用するエンジン (デフォルト: Suffolk / Pure Rust, Java不要)"
+        },
+        "sheepWeave.suffolkPath": {
+          "type": "string",
+          "default": "",
+          "description": "Suffolk (suffolk.exe) の実行ファイルパス。空の場合は同梱バイナリを使用します。"
+        },
         "sheepWeave.tikalPath": {
           "type": "string",
           "description": "Path to the Okapi Tikal executable (e.g. tikal.bat). If left empty, it tries to find it in the workspace /okapi/tikal folder.",
@@ -460,6 +509,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "@toon-format/toon": "^4.4.0",
     "@xmldom/xmldom": "^0.9.10",
     "difflib-ts": "^1.0.3",
     "flexsearch": "^0.8.212",

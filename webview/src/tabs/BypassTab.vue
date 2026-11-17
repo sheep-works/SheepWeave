@@ -116,7 +116,7 @@
       <div v-if="activeUnits.length > 0" class="cards-container">
         <!-- バイパス翻訳時の基準ユニット情報バナー -->
         <div v-if="subEditorMode === 'bypass' && baseUnit" class="base-unit-banner">
-          <span class="base-title">🎯 基準セグメント: #{{ baseUnit.idx + 1 }}</span>
+          <span class="base-title">🎯 基準セグメント: #{{ baseUnit.idx }}</span>
           <span class="base-text">{{ baseUnit.src }}</span>
         </div>
 
@@ -273,7 +273,7 @@ const loadCurrentCursorUnit = () => {
   } else {
     // フリーエディタモード: 単体ユニットを読み込む
     registerUnits([cur], cur);
-    Message.success(`セグメント #${cur.idx + 1} を読み込みました`);
+    Message.success(`セグメント #${cur.idx} を読み込みました`);
   }
 };
 
@@ -304,7 +304,7 @@ const loadQuotedForUnit = (primaryUnit: ShWvUnit) => {
   }
 
   registerUnits(relatedUnits, primaryUnit);
-  Message.success(`セグメント #${primaryUnit.idx + 1} と類似 ${relatedUnits.length - 1} 件を読み込みました`);
+  Message.success(`セグメント #${primaryUnit.idx} と類似 ${relatedUnits.length - 1} 件を読み込みました`);
 };
 
 // Quoted クラスタ全体の一括抽出
@@ -321,7 +321,7 @@ const loadQuotedClusters = () => {
 // 指定行番号の追加
 const addUnitByIdx = () => {
   if (!inputTargetIdx.value) return;
-  const idx = inputTargetIdx.value - 1;
+  const idx = inputTargetIdx.value;
   const unit = shwvStore.units.find(u => u.idx === idx);
   if (!unit) {
     Message.warning(`行 #${inputTargetIdx.value} は存在しません`);
@@ -343,7 +343,7 @@ const clearActiveUnits = () => {
 const handleApplySingle = (payload: { idx: number; tgt: string }) => {
   emit('BypassCommand', 'update-units', [payload]);
   originalTargets.value[payload.idx] = editedTargets.value[payload.idx] || payload.tgt;
-  Message.success(`セグメント #${payload.idx + 1} を反映しました`);
+  Message.success(`セグメント #${payload.idx} を反映しました`);
 };
 
 // 単一ユニットのリセット

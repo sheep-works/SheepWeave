@@ -46,11 +46,11 @@ export function emitActiveUnitChange(editor: vscode.TextEditor, lineNumber?: num
     const line = lineNumber !== undefined ? lineNumber : (editor.selection ? editor.selection.active.line : 0);
     if (line < 0 || line >= editor.document.lineCount) return;
 
-    const unit = globalDirector.state.body.units[line] || globalDirector.state.body.units.find(u => u.idx === line);
+    const unit = globalDirector.getUnitByLine(line);
     const lineText = editor.document.lineAt(line).text;
 
     const eventData: ActiveUnitChangeEvent = {
-        index: line,
+        index: unit ? unit.idx : line,
         source: unit ? unit.src : (isSource ? lineText : ''),
         target: isTarget ? lineText : (unit ? unit.tgt : ''),
         note: unit?.note,

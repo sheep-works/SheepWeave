@@ -1,7 +1,7 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
 import { useI18nStore } from '../store/i18n';
-import { IconThunderbolt, IconRefresh } from '@arco-design/web-vue/es/icon';
+import { IconThunderbolt, IconRefresh, IconDown } from '@arco-design/web-vue/es/icon';
 
 interface ProjectConfig {
   projectName: string;
@@ -97,6 +97,22 @@ watch(() => props.config, (newVal) => {
               </a-list-item>
               <a-list-item>
                 <a-space>
+                  <a-typography-text>{{ i18nStore.getText('flowTab', 'initFromProjectJsonDesc') }}</a-typography-text>
+                  <a-tooltip :content="i18nStore.getText('flowTab', 'initFromProjectJsonDesc')">
+                    <a-button type="primary" @click="$emit('FlowCommand', 'init-from-project-json')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>
+                  </a-tooltip>
+                </a-space>
+              </a-list-item>
+              <a-list-item>
+                <a-space align="center">
+                  <a-typography-text>{{ i18nStore.getText('flowTab', 'suffolkWebInitDesc') }}</a-typography-text>
+                  <a-link href="https://lambuage.com/app/suffolk" target="_blank">
+                    Suffolk Web (WASM) ↗
+                  </a-link>
+                </a-space>
+              </a-list-item>
+              <a-list-item>
+                <a-space>
                   <a-typography-text>{{ i18nStore.getText('flowTab', 'openWorkflowDesc') }}</a-typography-text>
                   <a-tooltip :content="i18nStore.getText('flowTab', 'openWorkflowDesc')">
                     <a-button @click="$emit('FlowCommand', 'open-workflow-ini')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>
@@ -124,7 +140,7 @@ watch(() => props.config, (newVal) => {
                       <span style="margin: 0 5px;">➔</span>
                       <a-select v-model="tLang" :options="langOptions" placeholder="Target" style="width: 120px" allow-create allow-search />
                     </div>
-                    <!-- Line 2: Filter options & Action -->
+                    <!-- Line 2: Filter options -->
                     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                       <a-tooltip :content="i18nStore.getText('flowTab', 'useFprmFilterTooltip')">
                         <a-checkbox v-model="useFprmFilter">{{ i18nStore.getText('flowTab', 'useFprmFilter') }}</a-checkbox>
@@ -135,16 +151,43 @@ watch(() => props.config, (newVal) => {
                       <a-button type="text" :disabled="!useFprmFilter" @click="scanFilterFiles" title="Refresh filter list">
                         <template #icon><icon-refresh /></template>
                       </a-button>
+                      <!-- [個別実行] 変換のみ実行ボタン（検証用コメントアウト）
                       <a-tooltip :content="i18nStore.getText('flowTab', 'prepareDesc')">
                         <a-button
                           @click="$emit('FlowCommand', 'extract-source', { projectName: pName, sourceLang: sLang, targetLang: tLang, useFprmFilter: useFprmFilter, selectedFilterFile: selectedFilterFile })">
                           {{ i18nStore.getText('flowTab', 'btnText') }}
                         </a-button>
                       </a-tooltip>
+                      -->
                     </div>
+                    <!-- Line 3: 一括開始ボタン -->
+                    <div style="margin-top: 4px;">
+                      <a-button
+                        type="primary"
+                        @click="$emit('FlowCommand', 'extract-and-convert', { projectName: pName, sourceLang: sLang, targetLang: tLang, useFprmFilter: useFprmFilter, selectedFilterFile: selectedFilterFile })">
+                        {{ i18nStore.getText('flowTab', 'btnStartPrepare') }}
+                      </a-button>
+                    </div>
+                    <!-- Line 4: Tikal / エンジンに関するヒント -->
+                    <div style="margin-top: 4px; font-size: 12px; color: var(--color-text-3); line-height: 1.5;">
+                      {{ i18nStore.getText('flowTab', 'engineHint') }}
+                    </div>
+                    <!-- Line 5: Suffolk Web (WASM) 検証・GUIツール案内 -->
+                    <a-alert type="info" style="margin-top: 12px; width: 100%;" :show-icon="true">
+                      <template #title>
+                        <a-space>
+                          <span style="font-weight: 600;">{{ i18nStore.getText('flowTab', 'suffolkWebTitle') }}</span>
+                          <a-link href="https://lambuage.com/app/suffolk" target="_blank" style="font-weight: 500;">
+                            https://lambuage.com/app/suffolk ↗
+                          </a-link>
+                        </a-space>
+                      </template>
+                      {{ i18nStore.getText('flowTab', 'suffolkWebPrepareDesc') }}
+                    </a-alert>
                   </div>
                 </a-space>
               </a-list-item>
+              <!-- [個別実行] プロジェクトファイルの作成と解析（検証用コメントアウト）
               <a-list-item>
                 <a-space>
                   <a-typography-text>{{ i18nStore.getText('flowTab', 'createDesc') }}</a-typography-text>
@@ -153,6 +196,7 @@ watch(() => props.config, (newVal) => {
                   </a-tooltip>
                 </a-space>
               </a-list-item>
+              -->
               <a-list-item>
                 <a-space>
                   <a-typography-text>{{ i18nStore.getText('flowTab', 'advanceWorkflowDesc') }}</a-typography-text>
@@ -189,18 +233,27 @@ watch(() => props.config, (newVal) => {
               </a-list-item>
               <a-list-item>
                 <a-space>
-                  <a-typography-text>{{ i18nStore.getText('flowTab', 'reanalyzeDesc') }}</a-typography-text>
-                  <a-tooltip :content="i18nStore.getText('flowTab', 'reanalyzeDesc')">
-                    <a-button @click="$emit('FlowCommand', 'reanalyze')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>
-                  </a-tooltip>
-                </a-space>
-              </a-list-item>
-              <a-list-item>
-                <a-space>
-                  <a-typography-text>{{ i18nStore.getText('flowTab', 'addFilesDesc') }}</a-typography-text>
-                  <a-tooltip :content="i18nStore.getText('flowTab', 'addFilesDesc')">
-                    <a-button @click="$emit('FlowCommand', 'add-files')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>
-                  </a-tooltip>
+                  <a-typography-text>{{ i18nStore.getText('flowTab', 'addOrSyncFilesDesc') }}</a-typography-text>
+                  <a-dropdown @select="(val: any) => $emit('FlowCommand', val)">
+                    <a-button type="primary">
+                      {{ i18nStore.getText('flowTab', 'addOrSyncBtn') }}
+                      <icon-down style="margin-left: 4px;" />
+                    </a-button>
+                    <template #content>
+                      <a-doption value="add-files">
+                        <div style="padding: 2px 4px;">
+                          <div style="font-weight: 600;">🧶 {{ i18nStore.getText('flowTab', 'addSourceTitle') }}</div>
+                          <div style="font-size: 11px; color: var(--color-text-3); margin-top: 2px;">{{ i18nStore.getText('flowTab', 'addSourceSub') }}</div>
+                        </div>
+                      </a-doption>
+                      <a-doption value="reanalyze">
+                        <div style="padding: 2px 4px;">
+                          <div style="font-weight: 600;">📈 {{ i18nStore.getText('flowTab', 'reanalyzeRefTitle') }}</div>
+                          <div style="font-size: 11px; color: var(--color-text-3); margin-top: 2px;">{{ i18nStore.getText('flowTab', 'reanalyzeRefSub') }}</div>
+                        </div>
+                      </a-doption>
+                    </template>
+                  </a-dropdown>
                 </a-space>
               </a-list-item>
             </a-list>
@@ -215,6 +268,22 @@ watch(() => props.config, (newVal) => {
             <a-list>
               <a-list-item>
                 <a-space>
+                  <a-typography-text>{{ i18nStore.getText('flowTab', 'exportPatchDesc') }}</a-typography-text>
+                  <a-tooltip :content="i18nStore.getText('flowTab', 'exportPatchDesc')">
+                    <a-button type="outline" status="success" @click="$emit('FlowCommand', 'export-scoped-patch')">{{ i18nStore.getText('flowTab', 'exportPatchBtn') }}</a-button>
+                  </a-tooltip>
+                </a-space>
+              </a-list-item>
+              <a-list-item>
+                <a-space>
+                  <a-typography-text>{{ i18nStore.getText('flowTab', 'mergePatchDesc') }}</a-typography-text>
+                  <a-tooltip :content="i18nStore.getText('flowTab', 'mergePatchDesc')">
+                    <a-button type="outline" status="warning" @click="$emit('FlowCommand', 'merge-patch-dialog')">{{ i18nStore.getText('flowTab', 'mergePatchBtn') }}</a-button>
+                  </a-tooltip>
+                </a-space>
+              </a-list-item>
+              <a-list-item>
+                <a-space>
                   <a-typography-text>{{ i18nStore.getText('flowTab', 'completeDesc') }}</a-typography-text>
                   <a-tooltip :content="i18nStore.getText('flowTab', 'completeDesc')">
                     <a-button @click="$emit('FlowCommand', 'export-xliff')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>
@@ -227,6 +296,14 @@ watch(() => props.config, (newVal) => {
                   <a-tooltip :content="i18nStore.getText('flowTab', 'packageDesc')">
                     <a-button @click="$emit('FlowCommand', 'merge-to-final')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>
                   </a-tooltip>
+                </a-space>
+              </a-list-item>
+              <a-list-item>
+                <a-space align="center">
+                  <a-typography-text>{{ i18nStore.getText('flowTab', 'suffolkWebCompleteDesc') }}</a-typography-text>
+                  <a-link href="https://lambuage.com/app/suffolk" target="_blank">
+                    Suffolk Web (WASM) ↗
+                  </a-link>
                 </a-space>
               </a-list-item>
               <a-list-item>

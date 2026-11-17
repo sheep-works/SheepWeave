@@ -54,6 +54,27 @@ export function initDecorators(context: vscode.ExtensionContext) {
 
     updateTermDecorationStyle();
 
+    let timeout: NodeJS.Timeout | undefined = undefined;
+    let selectionTimeout: NodeJS.Timeout | undefined = undefined;
+
+    function triggerUpdateDecorations() {
+        if (timeout) {
+            clearTimeout(timeout);
+            timeout = undefined;
+        }
+        timeout = setTimeout(updateDecorations, 500);
+    }
+
+    function triggerUpdateTermDecorations(editor: vscode.TextEditor) {
+        if (selectionTimeout) {
+            clearTimeout(selectionTimeout);
+            selectionTimeout = undefined;
+        }
+        selectionTimeout = setTimeout(() => {
+            renderTermDecorations(editor);
+        }, 200);
+    }
+
     function updateDecorations() {
         if (!activeEditor) {
             return;
@@ -127,7 +148,6 @@ export function initDecorators(context: vscode.ExtensionContext) {
         }
     }, null, context.subscriptions);
 
-    let selectionTimeout: NodeJS.Timeout | undefined = undefined;
     vscode.window.onDidChangeTextEditorSelection(event => {
         activeEditor = event.textEditor;
         triggerUpdateTermDecorations(event.textEditor);
@@ -141,25 +161,6 @@ export function initDecorators(context: vscode.ExtensionContext) {
             }
         }
     }, null, context.subscriptions);
-
-    let timeout: NodeJS.Timeout | undefined = undefined;
-    function triggerUpdateDecorations() {
-        if (timeout) {
-            clearTimeout(timeout);
-            timeout = undefined;
-        }
-        timeout = setTimeout(updateDecorations, 500);
-    }
-
-    function triggerUpdateTermDecorations(editor: vscode.TextEditor) {
-        if (selectionTimeout) {
-            clearTimeout(selectionTimeout);
-            selectionTimeout = undefined;
-        }
-        selectionTimeout = setTimeout(() => {
-            renderTermDecorations(editor);
-        }, 200);
-    }
 }
 
 import { globalDirector, globalShWvData } from '../store';
@@ -252,7 +253,7 @@ export function renderTermDecorations(
 
     // 各行について、その行の unit.ref.tb に登録されている用語のみを装飾
     for (let line = startLine; line <= endLine; line++) {
-        const unit = globalShWvData?.body?.units?.[line];
+        const unit = globalDirector.getUnitByLine(line);
         if (!unit?.ref?.tb || unit.ref.tb.length === 0) {
             continue;
         }
@@ -314,9 +315,9 @@ export function renderConfirmedDecorations(editor?: vscode.TextEditor) {
     }
 
     const confirmedRanges: vscode.Range[] = [];
-    for (const line of globalDirector.confirmedLines) {
-        // Ensure line is within bounds
-        if (line >= 0 && line < editor.document.lineCount) {
+    for (const idx of globalDirector.confirmedLines) {
+        const line = globalDirector.getLineByIdx(idx);
+        if (line !== undefined && line >= 0 && line < editor.document.lineCount) {
             confirmedRanges.push(new vscode.Range(line, 0, line, 0));
         }
     }
