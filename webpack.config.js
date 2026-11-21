@@ -55,6 +55,10 @@ const nodeConfig = {
                     to: path.join(__dirname, 'dist')
                 },
                 {
+                    from: path.join(__dirname, 'modules/Suffolk/pkg/node/suffolk_wasm_bg.wasm'),
+                    to: path.join(__dirname, 'dist')
+                },
+                {
                     from: path.join(__dirname, 'VersionLogs.md'),
                     to: path.join(__dirname, 'dist/VersionLogs.md'),
                     noErrorOnMissing: true

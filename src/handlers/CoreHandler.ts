@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { ShWvData } from '../services/core/ShWvData';
+import { ShWvData, toEditorText, fromEditorText } from '../services/core/ShWvData';
 import { ProjectManager } from '../services/core/ProjectManager';
 import { DirHelper } from '../services/core/DirHelper';
 import { initDirs, prepareWorking, syncRefDir, preprocessor, postprocessor, runTikalExtraction, runPackage, saveAndCloseShwvEditors, incrementalAddSource, advanceWorkflow, exportScopedPatch, mergePatchUnits, generateScopedProjects, ensureDir } from '../services/fileOps';
@@ -11,19 +11,34 @@ import { BackupOps } from '../services/core/backupOps';
 
 let isLlmBatchCancelled = false;
 
+const METADATA_TAG_REGEX = /@(?:[a-z]{2}\[\[[\s\S]*?\]\]|[a-z]{2}\[[\s\S]*?\])/g;
+
+function cleanNoteForLlm(note?: string): string | undefined {
+    if (!note) return undefined;
+    const cleaned = note.replace(METADATA_TAG_REGEX, '').trim();
+    return cleaned.length > 0 ? cleaned : undefined;
+}
+
+
 export class CoreHandler {
     public static async handle(message: any, globalShWvData: ShWvData, rootPath: string, panel: vscode.WebviewPanel) {
         switch (message.type) {
             case 'open-current':
                 try {
-                    if (fs.existsSync(rootPath)) {
+                    const targetDir = message.payload?.dir ? path.join(rootPath, message.payload.dir) : rootPath;
+                    if (fs.existsSync(targetDir)) {
+                        await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(targetDir));
+                    } else if (fs.existsSync(rootPath)) {
                         await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(rootPath));
                     } else {
-                        vscode.window.showErrorMessage(`フォルダが存在しません: ${rootPath}`);
+                        vscode.window.showErrorMessage(`フォルダが存在しません: ${targetDir}`);
                     }
                 } catch (err: any) {
                     vscode.window.showErrorMessage(`エクスプローラーを開けませんでした: ${err.message || err}`);
                 }
+                break;
+            case 'open-settings':
+                await vscode.commands.executeCommand('workbench.action.openSettings', 'sheepWeave.filterEngine');
                 break;
             case 'open-workflow-ini': {
                 const workflowPath = path.join(rootPath, 'workflow.ini');
@@ -79,7 +94,8 @@ export class CoreHandler {
                     projectManager.save();
 
                     // 2. 抽出処理 (Suffolk または Tikal)
-                    await runTikalExtraction(rootPath, projectManager.data.sourceLanguage, projectManager.data.targetLanguage, customFilter);
+                    const forceEngine = payload.forceTikal ? 'tikal' : undefined;
+                    await runTikalExtraction(rootPath, projectManager.data.sourceLanguage, projectManager.data.targetLanguage, customFilter, forceEngine);
 
                     // 3. 続けて ShWvData 解析・作成を直列実行
                     const shwvData = await preprocessor(rootPath);
@@ -670,6 +686,7 @@ export class CoreHandler {
                         autoReflectLlmToTm: config.get<boolean>('autoReflectLlmToTm') ?? true,
                         termDecorationColor: config.get<string>('termDecorationColor') || '#e5c07b',
                         termDecorationLineRange: config.get<number>('termDecorationLineRange') ?? 2,
+                        showSuffolkMeta: config.get<boolean>('showSuffolkMeta') ?? true,
                         versionLogs
                     }
                 });
@@ -732,7 +749,7 @@ export class CoreHandler {
                                 const line = globalDirector.getLineByIdx(idx);
                                 if (unit && line !== undefined && line < doc.lineCount && unit.tgt !== undefined) {
                                     const lineRange = doc.lineAt(line).range;
-                                    edit.replace(shwvtUri, lineRange, unit.tgt);
+                                    edit.replace(shwvtUri, lineRange, toEditorText(unit.tgt));
                                 }
                             }
                             await vscode.workspace.applyEdit(edit);
@@ -808,6 +825,9 @@ export class CoreHandler {
                 if (updatePayload.termDecorationLineRange !== undefined) {
                     await workspaceConfig.update('termDecorationLineRange', updatePayload.termDecorationLineRange, vscode.ConfigurationTarget.Global);
                 }
+                if (updatePayload.showSuffolkMeta !== undefined) {
+                    await workspaceConfig.update('showSuffolkMeta', updatePayload.showSuffolkMeta, vscode.ConfigurationTarget.Global);
+                }
                 break;
             case 'propagate-quoted':
                 try {
@@ -824,7 +844,7 @@ export class CoreHandler {
                             const unit = globalDirector.getUnitByIdx(targetIdx);
                             const line = globalDirector.getLineByIdx(targetIdx);
                             if (unit && line !== undefined && line < doc.lineCount) {
-                                edit.replace(shwvtUri, doc.lineAt(line).range, unit.tgt);
+                                edit.replace(shwvtUri, doc.lineAt(line).range, toEditorText(unit.tgt));
                             }
                         }
                         await vscode.workspace.applyEdit(edit);
@@ -1017,7 +1037,8 @@ export class CoreHandler {
                         const obj: any = { idx: unit.idx };
                         if (options?.src ?? true) obj.src = unit.src;
                         if (options?.tgt ?? true) obj.tgt = unit.tgt || unit.pre || '';
-                        if ((options?.note ?? true) && unit.note) obj.note = unit.note;
+                        const cleanedNote = cleanNoteForLlm(unit.note);
+                        if ((options?.note ?? true) && cleanedNote) obj.note = cleanedNote;
                         if (historyObj.length > 0) obj.history = historyObj;
                         if (termsObj.length > 0) obj.terms = termsObj;
 
@@ -1106,9 +1127,9 @@ export class CoreHandler {
                             const unit = globalDirector.getUnitByIdx(item.idx);
                             const line = globalDirector.getLineByIdx(item.idx);
                             if (unit) {
-                                unit.tgt = item.tgt;
+                                unit.tgt = fromEditorText(item.tgt);
                                 if (applyToPre) {
-                                    unit.pre = item.tgt;
+                                    unit.pre = fromEditorText(item.tgt);
                                 }
                                 // Directly update target without confirming (status remains unconfirmed 0) and without TM registration
                                 unit.status = 0;
@@ -1116,7 +1137,7 @@ export class CoreHandler {
 
                                 if (line !== undefined && line < doc.lineCount) {
                                     const lineRange = doc.lineAt(line).range;
-                                    edit.replace(shwvtUri, lineRange, item.tgt);
+                                    edit.replace(shwvtUri, lineRange, toEditorText(item.tgt));
                                 }
                             }
                         }
@@ -1162,8 +1183,9 @@ export class CoreHandler {
                             const line = globalDirector.getLineByIdx(unit.idx) ?? idx;
                             if (unit && line < doc.lineCount) {
                                 const text = unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src);
-                                if (doc.lineAt(line).text !== text) {
-                                    edit.replace(shwvtUri, doc.lineAt(line).range, text);
+                                const safeText = toEditorText(text);
+                                if (doc.lineAt(line).text !== safeText) {
+                                    edit.replace(shwvtUri, doc.lineAt(line).range, safeText);
                                 }
                             }
                         }

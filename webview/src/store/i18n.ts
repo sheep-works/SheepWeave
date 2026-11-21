@@ -66,6 +66,61 @@ export const useI18nStore = defineStore('i18n', {
                 trialTitle: { en: 'TRIAL', ja: "体験", zh: "体验" },
                 trialDesc: { en: '🔰 Generate a sample project from demo file', ja: "🔰 サンプルファイル（JSON）からサンプルプロジェクトを作成", zh: "🔰 从演示文件生成示例项目" },
                 sampleLink: { en: 'Click here for sample files', ja: "サンプルファイルはこちら", zh: "示例文件请点击此处" },
+                troubleshootTitle: {
+                    en: "Troubleshooting & Alternative Extraction Methods",
+                    ja: "うまく変換できないときは（代替手段）",
+                    zh: "转换失败或异常时的备选方案"
+                },
+                troubleshootIntro: {
+                    en: "If document extraction fails or layout issues occur with the default engine, you can use these alternative workflows:",
+                    ja: "デフォルトの抽出でエラーが出たり、レイアウト崩れ・抽出漏れ等が発生した場合は、以下の代替ルートをお試しください：",
+                    zh: "如果默认引擎提取失败或出现排版异常，可以尝试以下备选方案："
+                },
+                troubleshootOpt1Title: {
+                    en: "① Use Suffolk Web Browser (WASM GUI)",
+                    ja: "① ブラウザ版 Suffolk Web を使用する",
+                    zh: "① 使用浏览器版 Suffolk Web"
+                },
+                troubleshootOpt1Desc: {
+                    en: "Open the online GUI tool to convert Office files directly into project.json in your browser. Download and place project.json directly in your workspace folder to start.",
+                    ja: "ブラウザ上で Office 文書を直接 project.json に変換してダウンロードできます。ダウンロードした project.json をワークスペース直下に置けばすぐに作業を開始できます。",
+                    zh: "在浏览器中直接将 Office 文档转换为 project.json 并下载。将下载的 project.json 放置于工作区根目录下即可立刻开始。"
+                },
+                troubleshootOpt2Title: {
+                    en: "② Extract using Okapi Tikal (CLI / fprm custom filters)",
+                    ja: "② Okapi Tikal を使用する（fprmカスタムフィルタ等）",
+                    zh: "② 使用 Okapi Tikal（fprm自定义过滤器等）"
+                },
+                troubleshootOpt2Desc: {
+                    en: "Use Okapi Tikal (requires Java). You can force Tikal extraction once, switch the engine in Settings, or use custom .fprm filter definitions.",
+                    ja: "Okapi Tikal（Java必要）を使用して抽出します。ここから今回のみTikalで強制実行できるほか、設定でのデフォルト切り替えやカスタム .fprm フィルタの指定も可能です。",
+                    zh: "使用 Okapi Tikal（需 Java 环境）进行提取。可在此强制使用 Tikal 执行本次提取，或在设置中更改默认引擎，以及指定自定义 .fprm 过滤器。"
+                },
+                troubleshootOpt2Btn: {
+                    en: "Force Extract with Tikal",
+                    ja: "Tikal で強制抽出＆解析",
+                    zh: "强制使用 Tikal 提取与解析"
+                },
+                troubleshootOpt2OpenSettings: {
+                    en: "Open Engine Settings",
+                    ja: "設定でエンジンを変更",
+                    zh: "在设置中更改引擎"
+                },
+                troubleshootOpt3Title: {
+                    en: "③ Import XLIFF created with Okapi Rainbow",
+                    ja: "③ Okapi Framework (Rainbow) で作成した XLIFF を使用する",
+                    zh: "③ 使用由 Okapi Rainbow 生成的 XLIFF"
+                },
+                troubleshootOpt3Desc: {
+                    en: "If you have already created XLIFF (.xlf / .sdlxliff / etc.) using Okapi Rainbow or other CAT tools, place the XLIFF file in Working/02_SOURCE and start preparation. It will be imported directly without extraction.",
+                    ja: "Okapi Rainbow などのデスクトップツールで事前に作成した XLIFF (.xlf / .sdlxliff 等) がある場合は、Working/02_SOURCE フォルダに配置して「準備と解析を開始」を実行してください。再抽出を行わず直接取り込まれます。",
+                    zh: "如果您已使用 Okapi Rainbow 或其他 CAT 工具生成了 XLIFF（.xlf / .sdlxliff 等），请将其放置在 Working/02_SOURCE 文件夹中并运行“开始准备与解析”。系统将跳过提取直接导入。"
+                },
+                troubleshootOpt3OpenFolder: {
+                    en: "Open Working/02_SOURCE Folder",
+                    ja: "Working/02_SOURCE フォルダを開く",
+                    zh: "打开 Working/02_SOURCE 文件夹"
+                },
                 suffolkWebTitle: {
                     en: "Suffolk Web App (WASM GUI)",
                     ja: "Suffolk Web アプリ (WASM版 GUI)",
@@ -98,6 +153,7 @@ export const useI18nStore = defineStore('i18n', {
                 unconfirmed: { en: "Unconfirmed", ja: "未確定", zh: "未确认" },
                 memo: { en: "Memo", ja: "メモ", zh: "备注" },
                 memoPlaceholder: { en: "Enter memo or remarks...", ja: "メモ・備考を入力...", zh: "输入备注信息..." },
+                toggleSuffolkMetaTooltip: { en: "Toggle Suffolk Metadata (@sf)", ja: "Suffolk 復元メタ情報 (@sf) の表示切替", zh: "切换显示 Suffolk 还原元数据 (@sf)" },
                 forbidden: { en: "Forbidden", ja: "禁止", zh: "禁用" },
                 applyTmTooltip: { en: "Press Ctrl+Shift+{num} to apply this TM", ja: "Ctrl+Shift+{num} を押してこの訳文を適用", zh: "按 Ctrl+Shift+{num} 应用此译文" }
             },
@@ -316,6 +372,8 @@ export const useI18nStore = defineStore('i18n', {
                 termLineRangeTooltip: { en: "Number of lines before and after active line to highlight terms (0: current line only)", ja: "カーソル行を中心としたハイライト対象の行範囲（0: 現在行のみ、2: 前後2行）", zh: "以光标行为中心的术语高亮范围（0: 仅当前行、2: 前后2行）" },
                 termColor: { en: "Term Highlight Color", ja: "用語ハイライトの文字色", zh: "术语高亮颜色" },
                 termColorTooltip: { en: "Font color used for highlighting registered terms", ja: "登録用語のハイライト表示に使用する文字色", zh: "注册术语高亮显示的字体颜色" },
+                showSuffolkMeta: { en: "Show Suffolk Metadata (@sf)", ja: "Suffolk 復元メタ情報 (@sf) の表示", zh: "显示 Suffolk 还原元信息 (@sf)" },
+                showSuffolkMetaTooltip: { en: "Show or hide restoration metadata generated by Suffolk (@sf[...]) in the Translate Tab", ja: "翻訳タブで Suffolk が付与した復元メタ情報（@sf[...]）を表示するかどうかを切り替えます", zh: "切换在翻译标签页中是否显示 Suffolk 生成的还原元信息 (@sf[...])" },
                 language: { en: "Language", ja: "言語", zh: "语言" },
                 languageTooltip: { en: "Switch UI language (Japanese / English / Chinese)", ja: "パネルの表示言語を切り替えます", zh: "切换面板语言" },
                 phrasesCard: { en: "IntelliSense Phrases (phrase.json)", ja: "補完用フレーズ (phrase.json)", zh: "补全短语 (phrase.json)" },

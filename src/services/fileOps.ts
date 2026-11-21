@@ -383,14 +383,14 @@ function getSegmentationOption(root: string): string {
     return 'line';
 }
 
-export async function runTikalExtraction(root: string, sourceLang: string, targetLang: string, customFilter?: string) {
+export async function runTikalExtraction(root: string, sourceLang: string, targetLang: string, customFilter?: string, forceEngine?: 'suffolk' | 'tikal') {
     const sourceDir = path.join(root, 'Working', '02_SOURCE');
     const xlfDir = path.join(root, 'Working', '03_XLF_JSON');
     ensureDir(xlfDir);
 
     const projectManager = new ProjectManager(root);
     const groups = groupFilesByFilter(sourceDir, customFilter);
-    const filterEngine = getFilterEngine();
+    const filterEngine = forceEngine || getFilterEngine();
     let tikalPath: string | undefined;
     let suffolkPath: string | undefined;
 

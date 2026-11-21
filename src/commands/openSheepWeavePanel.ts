@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { getWebviewHtml } from '../webview/panel'; 
 import { globalShWvData, globalDirector } from '../store';
+import { fromEditorText } from '../services/core/ShWvData';
 import { renderConfirmedDecorations, renderTermDecorations } from '../features/decorators';
 
 // 現在表示されているパネルを保持する変数。一度に一つだけ表示するために使います
@@ -98,7 +99,7 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFo
                     type: 'CURSOR_MOVED',
                     data: {
                         newPos: currentIdx,
-                        textInOldPos: oldLineText,
+                        textInOldPos: fromEditorText(oldLineText),
                         status: status
                     }
                 });
@@ -159,6 +160,7 @@ export function openSheepWeavePanel(context: vscode.ExtensionContext, preserveFo
         // 保存されたタイミングで、全体のデータをファイルに書き出します。
         const rootPath = resolveWorkspaceRoot() || findProjectRoot(document.fileName);
         if (rootPath) {
+            globalShWvData.update(document.fileName);
             globalShWvData.save(rootPath);
         }
     });

@@ -1,7 +1,7 @@
 ﻿<script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
 import { useI18nStore } from '../store/i18n';
-import { IconThunderbolt, IconRefresh, IconDown } from '@arco-design/web-vue/es/icon';
+import { IconThunderbolt, IconRefresh, IconDown, IconQuestionCircle, IconSettings, IconFolder } from '@arco-design/web-vue/es/icon';
 
 interface ProjectConfig {
   projectName: string;
@@ -27,6 +27,7 @@ const tLang = ref(props.config.targetLang);
 const useFprmFilter = ref(false);
 const filterFiles = ref<string[]>([]);
 const selectedFilterFile = ref<string>('');
+const activeTroubleshootKey = ref<string[]>([]);
 
 const scanFilterFiles = () => {
   emit('FlowCommand', 'scan-filter-files');
@@ -139,64 +140,15 @@ watch(() => props.config, (newVal) => {
                       <a-select v-model="sLang" :options="langOptions" placeholder="Source" style="width: 120px" allow-create allow-search />
                       <span style="margin: 0 5px;">➔</span>
                       <a-select v-model="tLang" :options="langOptions" placeholder="Target" style="width: 120px" allow-create allow-search />
-                    </div>
-                    <!-- Line 2: Filter options -->
-                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                      <a-tooltip :content="i18nStore.getText('flowTab', 'useFprmFilterTooltip')">
-                        <a-checkbox v-model="useFprmFilter">{{ i18nStore.getText('flowTab', 'useFprmFilter') }}</a-checkbox>
-                      </a-tooltip>
-                      <a-select v-model="selectedFilterFile" :disabled="!useFprmFilter" placeholder="Select .fprm" style="width: 200px" allow-search>
-                        <a-option v-for="f in filterFiles" :key="f" :value="f">{{ f }}</a-option>
-                      </a-select>
-                      <a-button type="text" :disabled="!useFprmFilter" @click="scanFilterFiles" title="Refresh filter list">
-                        <template #icon><icon-refresh /></template>
-                      </a-button>
-                      <!-- [個別実行] 変換のみ実行ボタン（検証用コメントアウト）
-                      <a-tooltip :content="i18nStore.getText('flowTab', 'prepareDesc')">
-                        <a-button
-                          @click="$emit('FlowCommand', 'extract-source', { projectName: pName, sourceLang: sLang, targetLang: tLang, useFprmFilter: useFprmFilter, selectedFilterFile: selectedFilterFile })">
-                          {{ i18nStore.getText('flowTab', 'btnText') }}
-                        </a-button>
-                      </a-tooltip>
-                      -->
-                    </div>
-                    <!-- Line 3: 一括開始ボタン -->
-                    <div style="margin-top: 4px;">
                       <a-button
                         type="primary"
-                        @click="$emit('FlowCommand', 'extract-and-convert', { projectName: pName, sourceLang: sLang, targetLang: tLang, useFprmFilter: useFprmFilter, selectedFilterFile: selectedFilterFile })">
+                        @click="$emit('FlowCommand', 'extract-and-convert', { projectName: pName, sourceLang: sLang, targetLang: tLang })">
                         {{ i18nStore.getText('flowTab', 'btnStartPrepare') }}
                       </a-button>
                     </div>
-                    <!-- Line 4: Tikal / エンジンに関するヒント -->
-                    <div style="margin-top: 4px; font-size: 12px; color: var(--color-text-3); line-height: 1.5;">
-                      {{ i18nStore.getText('flowTab', 'engineHint') }}
-                    </div>
-                    <!-- Line 5: Suffolk Web (WASM) 検証・GUIツール案内 -->
-                    <a-alert type="info" style="margin-top: 12px; width: 100%;" :show-icon="true">
-                      <template #title>
-                        <a-space>
-                          <span style="font-weight: 600;">{{ i18nStore.getText('flowTab', 'suffolkWebTitle') }}</span>
-                          <a-link href="https://lambuage.com/app/suffolk" target="_blank" style="font-weight: 500;">
-                            https://lambuage.com/app/suffolk ↗
-                          </a-link>
-                        </a-space>
-                      </template>
-                      {{ i18nStore.getText('flowTab', 'suffolkWebPrepareDesc') }}
-                    </a-alert>
                   </div>
                 </a-space>
               </a-list-item>
-              <!-- [個別実行] プロジェクトファイルの作成と解析（検証用コメントアウト）
-              <a-list-item>
-                <a-space>
-                  <a-typography-text>{{ i18nStore.getText('flowTab', 'createDesc') }}</a-typography-text>
-                  <a-tooltip :content="i18nStore.getText('flowTab', 'createDesc')">
-                    <a-button @click="$emit('FlowCommand', 'convert-to-shwv')">{{ i18nStore.getText('flowTab', 'btnText') }}</a-button>
-                  </a-tooltip>
-                </a-space>
-              </a-list-item>
-              -->
               <a-list-item>
                 <a-space>
                   <a-typography-text>{{ i18nStore.getText('flowTab', 'advanceWorkflowDesc') }}</a-typography-text>
@@ -214,6 +166,100 @@ watch(() => props.config, (newVal) => {
                 </a-space>
               </a-list-item>
             </a-list>
+          </a-card>
+
+          <!-- トラブルシューティング・代替抽出オプション（アコーディオン） -->
+          <a-card :bordered="false" style="margin-top: 16px;">
+            <a-collapse v-model:active-key="activeTroubleshootKey">
+              <a-collapse-item key="troubleshoot">
+                <template #header>
+                  <a-space>
+                    <icon-question-circle style="color: var(--color-text-2);" />
+                    <span style="font-weight: 600;">{{ i18nStore.getText('flowTab', 'troubleshootTitle') }}</span>
+                  </a-space>
+                </template>
+
+                <div style="font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 16px;">
+                  <a-typography-text type="secondary">
+                    {{ i18nStore.getText('flowTab', 'troubleshootIntro') }}
+                  </a-typography-text>
+
+                  <!-- ① ブラウザ版 Suffolk Web の案内 -->
+                  <div class="troubleshoot-option-box">
+                    <div style="font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                      <span>{{ i18nStore.getText('flowTab', 'troubleshootOpt1Title') }}</span>
+                      <a-link href="https://lambuage.com/app/suffolk" target="_blank" style="font-weight: 500;">
+                        Suffolk Web (WASM) ↗
+                      </a-link>
+                    </div>
+                    <div style="color: var(--color-text-3); font-size: 12px; margin-bottom: 6px;">
+                      {{ i18nStore.getText('flowTab', 'troubleshootOpt1Desc') }}
+                    </div>
+                  </div>
+
+                  <!-- ② Okapi Tikal の使用（fprmフィルタ指定・強制実行・設定） -->
+                  <div class="troubleshoot-option-box">
+                    <div style="font-weight: 600; margin-bottom: 4px;">
+                      {{ i18nStore.getText('flowTab', 'troubleshootOpt2Title') }}
+                    </div>
+                    <div style="color: var(--color-text-3); font-size: 12px; margin-bottom: 10px;">
+                      {{ i18nStore.getText('flowTab', 'troubleshootOpt2Desc') }}
+                    </div>
+
+                    <!-- fprm フィルタの選択 -->
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
+                      <a-tooltip :content="i18nStore.getText('flowTab', 'useFprmFilterTooltip')">
+                        <a-checkbox v-model="useFprmFilter" @change="onUseFprmChange">
+                          {{ i18nStore.getText('flowTab', 'useFprmFilter') }}
+                        </a-checkbox>
+                      </a-tooltip>
+                      <a-select v-model="selectedFilterFile" :disabled="!useFprmFilter" placeholder="Select .fprm" style="width: 220px" allow-search>
+                        <a-option v-for="f in filterFiles" :key="f" :value="f">{{ f }}</a-option>
+                      </a-select>
+                      <a-button type="text" :disabled="!useFprmFilter" @click="scanFilterFiles" title="Refresh filter list">
+                        <template #icon><icon-refresh /></template>
+                      </a-button>
+                    </div>
+
+                    <!-- アクションボタン -->
+                    <a-space wrap>
+                      <a-button
+                        type="primary"
+                        status="warning"
+                        size="small"
+                        @click="$emit('FlowCommand', 'extract-and-convert', { projectName: pName, sourceLang: sLang, targetLang: tLang, useFprmFilter: useFprmFilter, selectedFilterFile: selectedFilterFile, forceTikal: true })"
+                      >
+                        {{ i18nStore.getText('flowTab', 'troubleshootOpt2Btn') }}
+                      </a-button>
+                      <a-button
+                        size="small"
+                        @click="$emit('FlowCommand', 'open-settings')"
+                      >
+                        <template #icon><icon-settings /></template>
+                        {{ i18nStore.getText('flowTab', 'troubleshootOpt2OpenSettings') }}
+                      </a-button>
+                    </a-space>
+                  </div>
+
+                  <!-- ③ Okapi Rainbow で作成した XLIFF の使用案内 -->
+                  <div class="troubleshoot-option-box">
+                    <div style="font-weight: 600; margin-bottom: 4px;">
+                      {{ i18nStore.getText('flowTab', 'troubleshootOpt3Title') }}
+                    </div>
+                    <div style="color: var(--color-text-3); font-size: 12px; margin-bottom: 10px;">
+                      {{ i18nStore.getText('flowTab', 'troubleshootOpt3Desc') }}
+                    </div>
+                    <a-button
+                      size="small"
+                      @click="$emit('FlowCommand', 'open-current', { dir: 'Working/02_SOURCE' })"
+                    >
+                      <template #icon><icon-folder /></template>
+                      {{ i18nStore.getText('flowTab', 'troubleshootOpt3OpenFolder') }}
+                    </a-button>
+                  </div>
+                </div>
+              </a-collapse-item>
+            </a-collapse>
           </a-card>
         </div>
       </a-tab-pane>
@@ -374,5 +420,12 @@ button {
   padding: 10px 20px;
   font-size: 16px;
   cursor: pointer;
+}
+
+.troubleshoot-option-box {
+  background: var(--color-fill-2);
+  border-radius: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-2);
 }
 </style>

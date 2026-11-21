@@ -12,6 +12,7 @@ webview/index.html
 node_modules/**
 **/node_modules/**
 modules/**
+bin/**
 debugs/**
 instructions/**
 demo/**

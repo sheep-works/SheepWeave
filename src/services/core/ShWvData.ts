@@ -55,6 +55,28 @@ export function createEmptyMeta(): ShWvMeta {
     };
 }
 
+/**
+ * Converts internal text (which may contain \r and \n) to single-line editor-safe text.
+ * \r is encoded as {@r}, \n is encoded as {@n}.
+ */
+export function toEditorText(text: string | undefined): string {
+    if (!text) return '';
+    return text.replace(/\r/g, '{@r}').replace(/\n/g, '{@n}');
+}
+
+/**
+ * Restores single-line editor text back to internal text with real newlines.
+ * {@r}{@n} -> \r\n, {@n} -> \n, {@r} -> \r, and {@/} -> \n (tolerance alias).
+ */
+export function fromEditorText(text: string | undefined): string {
+    if (!text) return '';
+    return text
+        .replace(/\{@r\}\{@n\}/g, '\r\n')
+        .replace(/\{@n\}/g, '\n')
+        .replace(/\{@r\}/g, '\r')
+        .replace(/\{@\/\}/g, '\n');
+}
+
 // ============================================================================
 // ShWvData class — data container + file I/O + VS Code extension operations
 // ============================================================================
@@ -208,19 +230,19 @@ export class ShWvData {
     }
 
     private extractSource(): string[] {
-        return this.getScopedUnits().map(unit => unit.src);
+        return this.getScopedUnits().map(unit => toEditorText(unit.src));
     }
 
     private extractTarget(): string[] {
-        return this.getScopedUnits().map(unit => unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src));
+        return this.getScopedUnits().map(unit => toEditorText(unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src)));
     }
 
     private extractBothHorizontal(): string[] {
-        return this.getScopedUnits().map(unit => unit.src + '\t' + (unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src)));
+        return this.getScopedUnits().map(unit => toEditorText(unit.src) + '\t' + toEditorText(unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src)));
     }
 
     private extractBothVertical(): string[] {
-        return this.getScopedUnits().map(unit => unit.src + '\n' + (unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src)));
+        return this.getScopedUnits().map(unit => toEditorText(unit.src) + '\n' + toEditorText(unit.tgt ? unit.tgt : (unit.pre ? unit.pre : unit.src)));
     }
 
 
@@ -237,11 +259,11 @@ export class ShWvData {
 
     public update(filepath: string): void {
         const content = readFileSync(filepath, 'utf-8');
-        const lines = content.split('\n');
+        const lines = content.split(/\r?\n/);
 
         const scopedUnits = this.getScopedUnits();
         for (let i = 0; i < scopedUnits.length && i < lines.length; i++) {
-            scopedUnits[i].tgt = lines[i];
+            scopedUnits[i].tgt = fromEditorText(lines[i]);
         }
     }
 
@@ -250,7 +272,7 @@ export class ShWvData {
             ? this.body.units[index - 1]
             : this.body.units.find(u => u.idx === index);
         if (targetUnit) {
-            targetUnit.tgt = text;
+            targetUnit.tgt = fromEditorText(text);
         }
     }
 
@@ -272,7 +294,7 @@ export class ShWvData {
                 : this.body.units.find(u => u.idx === newUnit.idx);
             if (targetUnit) {
                 if (newUnit.tgt !== undefined) {
-                    targetUnit.tgt = newUnit.tgt;
+                    targetUnit.tgt = fromEditorText(newUnit.tgt);
                 }
                 if (newUnit.status !== undefined) {
                     targetUnit.status = newUnit.status;

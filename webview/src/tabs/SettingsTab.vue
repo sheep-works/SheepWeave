@@ -23,6 +23,7 @@ const { locale } = storeToRefs(i18nStore);
 const localFontSize = ref(props.config.fontSize);
 const localTermLineRange = ref(props.config.termDecorationLineRange ?? 2);
 const localTermColor = ref(props.config.termDecorationColor || '#e5c07b');
+const localShowSuffolkMeta = ref(props.config.showSuffolkMeta ?? true);
 const localPhrases = ref<any[]>([]);
 const activeTab = ref('editor');
 const fetchingSamples = ref(false);
@@ -59,6 +60,10 @@ watch(() => props.config.termDecorationColor, (newVal) => {
   if (newVal !== undefined) localTermColor.value = newVal;
 });
 
+watch(() => props.config.showSuffolkMeta, (newVal) => {
+  if (newVal !== undefined) localShowSuffolkMeta.value = newVal;
+});
+
 function handleFontSizeChange(value: number) {
   emit('updateConfig', { fontSize: value });
 }
@@ -69,6 +74,10 @@ function handleTermLineRangeChange(value: number) {
 
 function handleTermColorChange(value: string) {
   emit('updateConfig', { termDecorationColor: value });
+}
+
+function handleShowSuffolkMetaChange(value: boolean) {
+  emit('updateConfig', { showSuffolkMeta: value });
 }
 
 function handleApplyRecommendedEditorSettings() {
@@ -175,6 +184,12 @@ const parsedVersionLogs = computed<VersionLogItem[]>(() => {
                 <a-tooltip :content="i18nStore.getText('settingsTab', 'termColorTooltip')">
                   <a-color-picker v-model="localTermColor" :show-text="true" :disabled-alpha="true" @change="handleTermColorChange"
                     style="width: 160px" />
+                </a-tooltip>
+              </a-form-item>
+
+              <a-form-item :label="i18nStore.getText('settingsTab', 'showSuffolkMeta') || 'Suffolk メタ情報 (@sf) の表示'">
+                <a-tooltip :content="i18nStore.getText('settingsTab', 'showSuffolkMetaTooltip')">
+                  <a-switch v-model="localShowSuffolkMeta" @change="handleShowSuffolkMetaChange" />
                 </a-tooltip>
               </a-form-item>
             </a-form>
