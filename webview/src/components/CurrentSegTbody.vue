@@ -107,16 +107,16 @@ const parsedNote = computed(() => {
     // @sf[...] を除去した残りのテキスト
     let textWithoutSf = rawNote.replace(/@sf\[(.*?)\]/g, '').trim();
 
-    // 2. メディアメタデータ (@md[[...]]) の抽出
-    const mdMatch = textWithoutSf.match(/@md\[\[(.*?)\]\]/s);
+    // 2. メディアメタデータ (@md[...] または旧 @md[[...]]) の抽出
+    const mdMatch = textWithoutSf.match(/@md(?:\[\[([\s\S]*?)\]\]|\[([\s\S]*?)\])/);
     let media: ParsedMedia | null = null;
     let rawMedia = '';
     if (mdMatch) {
-        rawMedia = mdMatch[1];
+        rawMedia = mdMatch[1] ?? mdMatch[2] ?? '';
         try {
             media = JSON.parse(rawMedia);
         } catch { }
-        textWithoutSf = textWithoutSf.replace(/@md\[\[(.*?)\]\]/s, '').trim();
+        textWithoutSf = textWithoutSf.replace(/@md(?:\[\[[\s\S]*?\]\]|\[[\s\S]*?\])/g, '').trim();
     }
 
     return {
@@ -164,7 +164,7 @@ const shouldRenderNoteRow = computed(() => {
                         </a-tag>
                     </div>
                 </td>
-                <td v-if="tbx === 0" :rowspan="rowspan">
+                <td v-if="tbx === 0" :rowspan="rowspan" style="white-space: pre-wrap; word-break: break-word;">
                     {{ shwvStore.crtUnit.src }}
                 </td>
                 <td>{{ tb.src }}</td>
@@ -198,7 +198,7 @@ const shouldRenderNoteRow = computed(() => {
                     </a-tag>
                 </div>
             </td>
-            <td>{{ shwvStore.crtUnit.src }}</td>
+            <td style="white-space: pre-wrap; word-break: break-word;">{{ shwvStore.crtUnit.src }}</td>
             <td>-</td>
             <td>-</td>
         </tr>

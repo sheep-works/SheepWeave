@@ -1,6 +1,14 @@
 import { defineStore } from 'pinia';
 import type { ShWvMeta, ShWvUnit, ProjectInfo } from '../../../src/types/datatype';
 
+const METADATA_TAG_REGEX = /@(?:[a-z]{2}\[\[[\s\S]*?\]\]|[a-z]{2}\[[\s\S]*?\])/g;
+
+export function cleanNoteForLlm(note?: string): string | undefined {
+    if (!note) return undefined;
+    const cleaned = note.replace(METADATA_TAG_REGEX, '').trim();
+    return cleaned.length > 0 ? cleaned : undefined;
+}
+
 const DEFAULT_LLM_PROMPT = `あなたはプロの翻訳者および翻訳チェッカーです。
 ユーザーからJSONL形式のリスト（各要素に idx, src, tgt, notes, history 等を含む配列）が渡されます。
 idx は各行のインデックス（行番号）に対応しています。
@@ -211,7 +219,8 @@ export const useShWvStore = defineStore('shwv', {
                 };
                 if (state.llmChunkOptions.src) obj.src = unit.src;
                 if (state.llmChunkOptions.tgt) obj.tgt = unit.tgt || unit.pre || '';
-                if (state.llmChunkOptions.note && unit.note) obj.note = unit.note;
+                const cleanedNote = cleanNoteForLlm(unit.note);
+                if (state.llmChunkOptions.note && cleanedNote) obj.note = cleanedNote;
                 if (historyObj.length > 0) obj.history = historyObj;
                 if (termsObj.length > 0) obj.terms = termsObj;
                 return obj;

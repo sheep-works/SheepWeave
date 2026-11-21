@@ -1,4 +1,4 @@
-import { ShWvData, createShWvRef } from './ShWvData';
+import { ShWvData, createShWvRef, fromEditorText } from './ShWvData';
 import type { ShWvUnit } from '../../types/datatype';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -103,7 +103,7 @@ export class SheepDirector {
     public updateTargetOnly(idx: number, text: string) {
         const unit = this.getUnitByIdx(idx);
         if (unit) {
-            unit.tgt = text;
+            unit.tgt = fromEditorText(text);
         }
     }
 
@@ -123,7 +123,8 @@ export class SheepDirector {
         this.confirmedLines.add(idx);
 
         // This method intrinsically updates the unit and propagates to ref.quoted / ref.tms
-        this.state.updateUnitTarget(idx, text);
+        const unescapedText = fromEditorText(text);
+        this.state.updateUnitTarget(idx, unescapedText);
         this.state.propagateSingleUnit(idx);
     }
 
@@ -138,7 +139,7 @@ export class SheepDirector {
 
         for (const item of items) {
             const idx = typeof item === 'number' ? item : item.idx;
-            const text = typeof item === 'object' ? item.text : undefined;
+            const text = typeof item === 'object' && item.text !== undefined ? fromEditorText(item.text) : undefined;
 
             const unit = this.getUnitByIdx(idx);
             if (!unit) continue;
